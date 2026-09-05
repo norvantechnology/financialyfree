@@ -44,6 +44,23 @@ When `USE_MOCK_PAYMENTS=true`:
 | `webinars_1yr` | Live Case Studies | 1 year |
 | `bundle_diy` | Zero to Hero bundle (all 3) | Mixed |
 
+## Steps to Go Live Checklist
+
+Follow this checklist before flipping `USE_MOCK_PAYMENTS=false`:
+
+- [ ] **Activated Razorpay Account**: Complete merchant KYC on dashboard.razorpay.com and activate Live mode.
+- [ ] **Live API Keys**: Generate Live Key ID and Key Secret (`rzp_live_...`).
+- [ ] **Webhook Configuration**: In Razorpay Dashboard &rarr; Settings &rarr; Webhooks:
+  - Add webhook URL: `https://api.yourdomain.com/api/v1/subscriptions/webhook`
+  - Select active events: `payment.captured`, `payment.failed`, `order.paid`.
+  - Copy secret into `RAZORPAY_WEBHOOK_SECRET`.
+- [ ] **Environment Injection**:
+  - In API service: Set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET`.
+  - In Web service: Set `NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_live_...`.
+- [ ] **Flip Flag**: Set `USE_MOCK_PAYMENTS=false` in production environment.
+- [ ] **Live Test Transaction**: Execute 1 live transaction (e.g. ₹1 or ₹99 discount coupon) using UPI / NetBanking to verify signature calculation and entitlement grant in `user_subscriptions` table.
+- [ ] **GST Invoice Ingestion**: Verify automatic GST invoice generation on payment capture with user GSTIN if provided.
+
 ## Reference
 - Razorpay Docs: https://razorpay.com/docs
 - Current domestic card rate: ~2% (verify current rate with Razorpay before finalizing unit economics)

@@ -36,3 +36,19 @@ USE_MOCK_VIDEO="true"
    - Webhook endpoint: `POST /webhooks/cloudflare-stream`
    - Validates webhook signature header `webhook-signature` using HMAC-SHA256 with the webhook secret.
    - Updates `LessonEntity.durationSeconds` and sets `status = 'ready'`.
+
+## Steps to Go Live Checklist
+
+Follow this checklist before flipping `USE_MOCK_VIDEO=false`:
+
+- [ ] **Cloudflare Stream Subscription**: Active Cloudflare account with Stream add-on enabled (billed per minute viewed/stored).
+- [ ] **API Token Creation**: Generate an API Token with `Stream:Edit` permissions.
+- [ ] **Playback Key Pair**: In Cloudflare dashboard &rarr; Stream &rarr; Signing Keys:
+  - Generate a new signing key pair.
+  - Save Key ID into `CLOUDFLARE_STREAM_KEY_ID`.
+  - Save JWK into `CLOUDFLARE_STREAM_KEY_JWK`.
+- [ ] **Webhook Destination**:
+  - Configure notification webhook pointing to `https://api.yourdomain.com/webhooks/cloudflare-stream`.
+  - Save webhook secret to `CLOUDFLARE_STREAM_WEBHOOK_SECRET`.
+- [ ] **Flip Flag**: Set `USE_MOCK_VIDEO=false` in production environment.
+- [ ] **Upload Test**: Upload a short MP4 video clip via admin dashboard; verify transcode completes and signed token plays in player.
