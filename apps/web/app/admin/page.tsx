@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   Users,
   ShieldCheck,
@@ -166,14 +167,32 @@ export default function AdminDashboardPage() {
             </p>
           </div>
 
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="btn btn-outline"
-          >
-            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-            <span>{refreshing ? 'Refreshing...' : 'Refresh Telemetry'}</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <Link
+              href="/admin/data-integrity"
+              className="btn btn-primary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                fontSize: '13px',
+                textDecoration: 'none',
+              }}
+            >
+              <Database size={15} />
+              <span>Data Integrity Audit</span>
+            </Link>
+
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="btn btn-outline"
+            >
+              <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+              <span>{refreshing ? 'Refreshing...' : 'Refresh Telemetry'}</span>
+            </button>
+          </div>
         </div>
 
         {/* KPI Cards Grid */}

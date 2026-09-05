@@ -47,9 +47,9 @@ export class VahanEtlService {
   private cache: VahanCacheEntry | null = null;
   private readonly CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours (Vahan updates daily/monthly)
 
-  async getVahanData(): Promise<VahanDashboardPayload> {
+  async getVahanData(forceRefresh = false): Promise<VahanDashboardPayload> {
     const now = Date.now();
-    if (this.cache && this.cache.expiresAt > now) {
+    if (!forceRefresh && this.cache && this.cache.expiresAt > now) {
       return this.cache.data;
     }
 

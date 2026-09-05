@@ -21,6 +21,7 @@ import {
   CreditCard,
   Settings,
   Lock,
+  Database,
   Sparkles,
   Bell,
   Menu,
@@ -87,6 +88,7 @@ export function SidebarLayout({ children, activePath }: SidebarLayoutProps) {
     { label: 'Billing & Invoices', href: '/dashboard/billing', icon: CreditCard },
     { label: 'DPDP Preferences', href: '/dashboard/settings/notifications', icon: Settings },
     { label: 'Admin Console', href: '/admin', icon: Lock },
+    { label: 'Data Integrity', href: '/admin/data-integrity', icon: Database },
   ];
 
   return (

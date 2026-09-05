@@ -47,9 +47,9 @@ export class MarketIndexService {
     { ticker: '^INDIAVIX', symbol: 'INDIA VIX', name: 'India Volatility Index' },
   ];
 
-  async getMarketOverview(): Promise<MarketOverviewData> {
+  async getMarketOverview(forceRefresh = false): Promise<MarketOverviewData> {
     const now = Date.now();
-    if (this.cache && this.cache.expiresAt > now) {
+    if (!forceRefresh && this.cache && this.cache.expiresAt > now) {
       return { ...this.cache.data, isCached: true };
     }
 
