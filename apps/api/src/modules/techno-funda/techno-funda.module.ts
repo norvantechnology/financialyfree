@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
+import { TechnoFundaService } from './techno-funda.service';
+import { TechnoFundaController } from './techno-funda.controller';
 
-// Stub — will be implemented in its corresponding sprint.
 @Module({
-  imports: [],
-  controllers: [],
-  providers: [],
-  exports: [],
+  controllers: [TechnoFundaController],
+  providers: [TechnoFundaService],
+  exports: [TechnoFundaService],
 })
 export class TechnoFundaModule {}
