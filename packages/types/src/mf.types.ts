@@ -66,3 +66,10 @@ export interface FolioDto {
   gainPct: number;
   lastUpdated: ISO8601;
 }
+
+export interface CreateSipOrderRequest {
+  schemeCode: string;
+  amount: number;
+  sipDayOfMonth: number;
+  goalId?: UUID;
+}
