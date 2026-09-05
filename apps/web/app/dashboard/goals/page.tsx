@@ -93,6 +93,8 @@ export default function GoalsDashboardPage() {
   const [wizardSavings, setWizardSavings] = useState<number>(200000);
   const [wizardRisk, setWizardRisk] = useState<'conservative' | 'balanced' | 'growth'>('balanced');
 
+  const [wizardErrors, setWizardErrors] = useState<Record<string, string>>({});
+
   const getReturnRate = (r: 'conservative' | 'balanced' | 'growth') =>
     r === 'conservative' ? 8.5 : r === 'growth' ? 14.0 : 12.0;
 
@@ -108,11 +110,29 @@ export default function GoalsDashboardPage() {
   };
 
   const handleAddGoal = () => {
+    const errs: Record<string, string> = {};
+    if (!wizardName || wizardName.trim().length < 2) {
+      errs.name = 'Please provide a descriptive goal name (at least 2 characters).';
+    }
+    if (!wizardCorpus || wizardCorpus < 10000) {
+      errs.corpus = 'Target corpus amount must be at least ₹10,000.';
+    }
+    if (wizardSavings < 0) {
+      errs.savings = 'Current savings cannot be negative.';
+    }
+    if (wizardHorizon < 1) {
+      errs.horizon = 'Investment time horizon must be at least 1 year.';
+    }
+    if (Object.keys(errs).length > 0) {
+      setWizardErrors(errs);
+      return;
+    }
+    setWizardErrors({});
     const sip = calcWizardSIP();
     const newGoal: ActiveGoal = {
       id: `g-${Date.now()}`,
       type: wizardType,
-      name: wizardName,
+      name: wizardName.trim(),
       targetCorpus: wizardCorpus,
       horizonYears: wizardHorizon,
       currentSavings: wizardSavings,
@@ -562,18 +582,26 @@ export default function GoalsDashboardPage() {
                 <input
                   type="text"
                   value={wizardName}
-                  onChange={(e) => setWizardName(e.target.value)}
+                  onChange={(e) => {
+                    setWizardName(e.target.value);
+                    if (wizardErrors.name) setWizardErrors((prev) => ({ ...prev, name: '' }));
+                  }}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
                     borderRadius: 'var(--radius-md)',
                     background: '#FFFFFF',
-                    border: '1px solid #D1D5DB',
+                    border: wizardErrors.name ? '1px solid #DC2626' : '1px solid #D1D5DB',
                     color: '#111827',
                     fontSize: 'var(--text-sm)',
                     outline: 'none',
                   }}
                 />
+                {wizardErrors.name && (
+                  <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>
+                    {wizardErrors.name}
+                  </div>
+                )}
               </div>
 
               {/* Target Corpus & Horizon */}
@@ -585,17 +613,25 @@ export default function GoalsDashboardPage() {
                   <input
                     type="number"
                     value={wizardCorpus}
-                    onChange={(e) => setWizardCorpus(Number(e.target.value))}
+                    onChange={(e) => {
+                      setWizardCorpus(Number(e.target.value));
+                      if (wizardErrors.corpus) setWizardErrors((prev) => ({ ...prev, corpus: '' }));
+                    }}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
                       borderRadius: 'var(--radius-md)',
                       background: '#FFFFFF',
-                      border: '1px solid #D1D5DB',
+                      border: wizardErrors.corpus ? '1px solid #DC2626' : '1px solid #D1D5DB',
                       color: '#111827',
                       fontSize: 'var(--text-sm)',
                     }}
                   />
+                  {wizardErrors.corpus && (
+                    <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>
+                      {wizardErrors.corpus}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -607,9 +643,17 @@ export default function GoalsDashboardPage() {
                     min={1}
                     max={30}
                     value={wizardHorizon}
-                    onChange={(e) => setWizardHorizon(Number(e.target.value))}
+                    onChange={(e) => {
+                      setWizardHorizon(Number(e.target.value));
+                      if (wizardErrors.horizon) setWizardErrors((prev) => ({ ...prev, horizon: '' }));
+                    }}
                     style={{ width: '100%', accentColor: '#0F172A', marginTop: '8px' }}
                   />
+                  {wizardErrors.horizon && (
+                    <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>
+                      {wizardErrors.horizon}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -622,17 +666,25 @@ export default function GoalsDashboardPage() {
                   <input
                     type="number"
                     value={wizardSavings}
-                    onChange={(e) => setWizardSavings(Number(e.target.value))}
+                    onChange={(e) => {
+                      setWizardSavings(Number(e.target.value));
+                      if (wizardErrors.savings) setWizardErrors((prev) => ({ ...prev, savings: '' }));
+                    }}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
                       borderRadius: 'var(--radius-md)',
                       background: '#FFFFFF',
-                      border: '1px solid #D1D5DB',
+                      border: wizardErrors.savings ? '1px solid #DC2626' : '1px solid #D1D5DB',
                       color: '#111827',
                       fontSize: 'var(--text-sm)',
                     }}
                   />
+                  {wizardErrors.savings && (
+                    <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>
+                      {wizardErrors.savings}
+                    </div>
+                  )}
                 </div>
 
                 <div>

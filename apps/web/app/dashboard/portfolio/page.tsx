@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { SidebarLayout } from '../../../components/sidebar-layout';
 import { StaticSnapshotBanner } from '../../../components/static-snapshot-banner';
+import { DataStateContainer } from '../../../components/data-state-view';
 
 interface FolioHolding {
   schemeCode: string;
@@ -239,50 +240,61 @@ export default function PortfolioPage() {
             <span style={{ fontSize: '11px', color: '#6B7280' }}>BSE StAR MF Live Sync</span>
           </div>
 
-          <table style={{ width: '100%', minWidth: '650px', borderCollapse: 'collapse', textAlign: 'left', fontSize: 'var(--text-sm)' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-color, #E8E4DC)', color: '#6B7280', fontSize: '12px' }}>
-                <th style={{ padding: '12px 8px', fontWeight: 600 }}>Scheme Name</th>
-                <th style={{ padding: '12px 8px', fontWeight: 600 }}>Mapped Goal</th>
-                <th style={{ padding: '12px 8px', fontWeight: 600 }}>Units</th>
-                <th style={{ padding: '12px 8px', fontWeight: 600 }}>Invested</th>
-                <th style={{ padding: '12px 8px', fontWeight: 600 }}>Current Value</th>
-                <th style={{ padding: '12px 8px', fontWeight: 600 }}>Returns</th>
-              </tr>
-            </thead>
-            <tbody>
-              {holdings.map((h, idx) => (
-                <tr key={idx} style={{ borderBottom: '1px solid #F0ECE3' }}>
-                  <td style={{ padding: '14px 8px' }}>
-                    <div style={{ fontWeight: 600, color: '#111827' }}>{h.schemeName}</div>
-                    <div style={{ fontSize: '11px', color: '#6B7280' }}>{h.folioNo} • {h.amcName}</div>
-                  </td>
-                  <td style={{ padding: '14px 8px' }}>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        padding: '3px 8px',
-                        borderRadius: 'var(--radius-sm, 4px)',
-                        background: '#F4F1EA',
-                        border: '1px solid #E8E4DC',
-                        color: '#374151',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {h.goalName}
-                    </span>
-                  </td>
-                  <td style={{ padding: '14px 8px', fontFamily: 'monospace', color: '#111827' }}>{h.units.toFixed(2)}</td>
-                  <td style={{ padding: '14px 8px', color: '#374151' }}>₹{h.investedAmount.toLocaleString('en-IN')}</td>
-                  <td style={{ padding: '14px 8px', fontWeight: 600, color: '#111827' }}>₹{h.currentValue.toLocaleString('en-IN')}</td>
-                  <td style={{ padding: '14px 8px', color: '#16A34A', fontWeight: 600 }}>
-                    +₹{h.gain.toLocaleString('en-IN')} ({h.gainPct}%)
-                  </td>
+          <DataStateContainer
+            isEmpty={holdings.length === 0}
+            emptyTitle="No Folio Holdings Found"
+            emptyDescription="You have not mapped any mutual fund investments yet. Start a SIP toward one of your goals to track your live asset allocation."
+            emptyActionLabel="Browse Mutual Funds"
+            onEmptyAction={() => window.location.href = '/dashboard/invest'}
+            isStale={true}
+            lastUpdated="02 Sep 2026, 21:00 IST (Post-Market Settlement)"
+            source="CAMS & KFintech RTAs via BSE StAR MF Daily Recon"
+          >
+            <table style={{ width: '100%', minWidth: '650px', borderCollapse: 'collapse', textAlign: 'left', fontSize: 'var(--text-sm)' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border-color, #E8E4DC)', color: '#6B7280', fontSize: '12px' }}>
+                  <th style={{ padding: '12px 8px', fontWeight: 600 }}>Scheme Name</th>
+                  <th style={{ padding: '12px 8px', fontWeight: 600 }}>Mapped Goal</th>
+                  <th style={{ padding: '12px 8px', fontWeight: 600 }}>Units</th>
+                  <th style={{ padding: '12px 8px', fontWeight: 600 }}>Invested</th>
+                  <th style={{ padding: '12px 8px', fontWeight: 600 }}>Current Value</th>
+                  <th style={{ padding: '12px 8px', fontWeight: 600 }}>Returns</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {holdings.map((h, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #F0ECE3' }}>
+                    <td style={{ padding: '14px 8px' }}>
+                      <div style={{ fontWeight: 600, color: '#111827' }}>{h.schemeName}</div>
+                      <div style={{ fontSize: '11px', color: '#6B7280' }}>{h.folioNo} • {h.amcName}</div>
+                    </td>
+                    <td style={{ padding: '14px 8px' }}>
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '3px 8px',
+                          borderRadius: 'var(--radius-sm, 4px)',
+                          background: '#F4F1EA',
+                          border: '1px solid #E8E4DC',
+                          color: '#374151',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {h.goalName}
+                      </span>
+                    </td>
+                    <td style={{ padding: '14px 8px', fontFamily: 'monospace', color: '#111827' }}>{h.units.toFixed(2)}</td>
+                    <td style={{ padding: '14px 8px', color: '#374151' }}>₹{h.investedAmount.toLocaleString('en-IN')}</td>
+                    <td style={{ padding: '14px 8px', fontWeight: 600, color: '#111827' }}>₹{h.currentValue.toLocaleString('en-IN')}</td>
+                    <td style={{ padding: '14px 8px', color: '#16A34A', fontWeight: 600 }}>
+                      +₹{h.gain.toLocaleString('en-IN')} ({h.gainPct}%)
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </DataStateContainer>
         </div>
       </div>
     </SidebarLayout>

@@ -33,7 +33,23 @@ export default function KycOnboardingPage() {
     ucc: string;
   } | null>(null);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const handleVerifyPan = () => {
+    const errs: Record<string, string> = {};
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    if (!pan || !panRegex.test(pan.trim())) {
+      errs.pan = 'Please enter a valid 10-character PAN (5 uppercase letters, 4 digits, 1 letter, e.g. ABCDE1234F).';
+    }
+    const dobRegex = /^\d{2}-\d{2}-\d{4}$/;
+    if (!dob || !dobRegex.test(dob.trim())) {
+      errs.dob = 'Please enter Date of Birth in DD-MM-YYYY format (e.g. 15-08-1990).';
+    }
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    setErrors({});
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
@@ -48,6 +64,13 @@ export default function KycOnboardingPage() {
   };
 
   const handleDigiLocker = () => {
+    const errs: Record<string, string> = {};
+    if (!aadhaarLast4 || !/^\d{4}$/.test(aadhaarLast4.trim())) {
+      errs.aadhaar = 'Please enter exactly the last 4 digits of your Aadhaar card.';
+      setErrors(errs);
+      return;
+    }
+    setErrors({});
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
@@ -56,6 +79,19 @@ export default function KycOnboardingPage() {
   };
 
   const handleCompleteKyc = () => {
+    const errs: Record<string, string> = {};
+    if (!bankAccount || !/^\d{9,18}$/.test(bankAccount.trim())) {
+      errs.bankAccount = 'Bank account number must be between 9 and 18 numerical digits.';
+    }
+    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+    if (!ifsc || !ifscRegex.test(ifsc.trim())) {
+      errs.ifsc = 'Please enter a valid 11-character IFSC code (e.g. HDFC0000060, 5th char must be 0).';
+    }
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    setErrors({});
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
@@ -212,7 +248,10 @@ export default function KycOnboardingPage() {
                   <input
                     type="text"
                     value={pan}
-                    onChange={(e) => setPan(e.target.value.toUpperCase())}
+                    onChange={(e) => {
+                      setPan(e.target.value.toUpperCase());
+                      if (errors.pan) setErrors((prev) => ({ ...prev, pan: '' }));
+                    }}
                     placeholder="ABCDE1234F"
                     maxLength={10}
                     style={{
@@ -220,13 +259,18 @@ export default function KycOnboardingPage() {
                       padding: '12px 14px',
                       borderRadius: 'var(--radius-md)',
                       background: '#FFFFFF',
-                      border: '1px solid var(--border-color)',
+                      border: errors.pan ? '1px solid #DC2626' : '1px solid var(--border-color)',
                       color: 'var(--text-primary)',
                       fontFamily: 'monospace',
                       fontSize: 'var(--text-base)',
                       letterSpacing: '0.1em',
                     }}
                   />
+                  {errors.pan && (
+                    <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={12} /> {errors.pan}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -236,18 +280,26 @@ export default function KycOnboardingPage() {
                   <input
                     type="text"
                     value={dob}
-                    onChange={(e) => setDob(e.target.value)}
+                    onChange={(e) => {
+                      setDob(e.target.value);
+                      if (errors.dob) setErrors((prev) => ({ ...prev, dob: '' }));
+                    }}
                     placeholder="DD-MM-YYYY"
                     style={{
                       width: '100%',
                       padding: '12px 14px',
                       borderRadius: 'var(--radius-md)',
                       background: '#FFFFFF',
-                      border: '1px solid var(--border-color)',
+                      border: errors.dob ? '1px solid #DC2626' : '1px solid var(--border-color)',
                       color: 'var(--text-primary)',
                       fontSize: 'var(--text-sm)',
                     }}
                   />
+                  {errors.dob && (
+                    <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={12} /> {errors.dob}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -326,19 +378,27 @@ export default function KycOnboardingPage() {
                 <input
                   type="text"
                   value={aadhaarLast4}
-                  onChange={(e) => setAadhaarLast4(e.target.value)}
+                  onChange={(e) => {
+                    setAadhaarLast4(e.target.value);
+                    if (errors.aadhaar) setErrors((prev) => ({ ...prev, aadhaar: '' }));
+                  }}
                   maxLength={4}
                   style={{
                     width: '100%',
                     padding: '12px 14px',
                     borderRadius: 'var(--radius-md)',
                     background: '#FFFFFF',
-                    border: '1px solid var(--border-color)',
+                    border: errors.aadhaar ? '1px solid #DC2626' : '1px solid var(--border-color)',
                     color: 'var(--text-primary)',
                     fontFamily: 'monospace',
                     letterSpacing: '0.2em',
                   }}
                 />
+                {errors.aadhaar && (
+                  <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <AlertCircle size={12} /> {errors.aadhaar}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
@@ -379,17 +439,25 @@ export default function KycOnboardingPage() {
                   <input
                     type="text"
                     value={bankAccount}
-                    onChange={(e) => setBankAccount(e.target.value)}
+                    onChange={(e) => {
+                      setBankAccount(e.target.value);
+                      if (errors.bankAccount) setErrors((prev) => ({ ...prev, bankAccount: '' }));
+                    }}
                     style={{
                       width: '100%',
                       padding: '12px 14px',
                       borderRadius: 'var(--radius-md)',
                       background: '#FFFFFF',
-                      border: '1px solid var(--border-color)',
+                      border: errors.bankAccount ? '1px solid #DC2626' : '1px solid var(--border-color)',
                       color: 'var(--text-primary)',
                       fontFamily: 'monospace',
                     }}
                   />
+                  {errors.bankAccount && (
+                    <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={12} /> {errors.bankAccount}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -399,17 +467,25 @@ export default function KycOnboardingPage() {
                   <input
                     type="text"
                     value={ifsc}
-                    onChange={(e) => setIfsc(e.target.value.toUpperCase())}
+                    onChange={(e) => {
+                      setIfsc(e.target.value.toUpperCase());
+                      if (errors.ifsc) setErrors((prev) => ({ ...prev, ifsc: '' }));
+                    }}
                     style={{
                       width: '100%',
                       padding: '12px 14px',
                       borderRadius: 'var(--radius-md)',
                       background: '#FFFFFF',
-                      border: '1px solid var(--border-color)',
+                      border: errors.ifsc ? '1px solid #DC2626' : '1px solid var(--border-color)',
                       color: 'var(--text-primary)',
                       fontFamily: 'monospace',
                     }}
                   />
+                  {errors.ifsc && (
+                    <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={12} /> {errors.ifsc}
+                    </div>
+                  )}
                 </div>
               </div>
 

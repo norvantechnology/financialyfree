@@ -48,6 +48,10 @@ export default function CheckoutPage() {
 
   const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'netbanking'>('upi');
   const [upiId, setUpiId] = useState('investor@okhdfcbank');
+  const [billingName, setBillingName] = useState('Arjun Shah');
+  const [billingEmail, setBillingEmail] = useState('investor@example.com');
+  const [billingPhone, setBillingPhone] = useState('9876543210');
+  const [checkoutErrors, setCheckoutErrors] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [receiptData, setReceiptData] = useState<{
@@ -60,6 +64,30 @@ export default function CheckoutPage() {
   const totalAmount = Math.round((plan.basePrice + gstAmount) * 100) / 100;
 
   const handleSimulatePayment = async () => {
+    const errs: Record<string, string> = {};
+    if (!billingName || billingName.trim().length < 2) {
+      errs.name = 'Please provide your full legal name for the invoice.';
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!billingEmail || !emailRegex.test(billingEmail.trim())) {
+      errs.email = 'Please provide a valid email address to receive access credentials.';
+    }
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!billingPhone || !phoneRegex.test(billingPhone.trim())) {
+      errs.phone = 'Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).';
+    }
+    if (paymentMethod === 'upi') {
+      const upiRegex = /^[a-zA-Z0-9.\-_]{2,49}@[a-zA-Z]{2,49}$/;
+      if (!upiId || !upiRegex.test(upiId.trim())) {
+        errs.upi = 'Please enter a valid UPI ID / VPA (e.g. yourname@okhdfcbank).';
+      }
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setCheckoutErrors(errs);
+      return;
+    }
+    setCheckoutErrors({});
     setIsProcessing(true);
     setTimeout(() => {
       const mockOrderId = `order_mock_${Date.now().toString(36)}`;
@@ -222,6 +250,104 @@ export default function CheckoutPage() {
               boxShadow: 'var(--shadow-sm)',
             }}
           >
+            {/* Customer Information */}
+            <div style={{ marginBottom: 'var(--space-6)', paddingBottom: 'var(--space-6)', borderBottom: '1px solid var(--border-color)' }}>
+              <h3 className="font-serif" style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-4)' }}>
+                Billing Information
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>
+                    Full Legal Name
+                  </label>
+                  <input
+                    type="text"
+                    value={billingName}
+                    onChange={(e) => {
+                      setBillingName(e.target.value);
+                      if (checkoutErrors.name) setCheckoutErrors((prev) => ({ ...prev, name: '' }));
+                    }}
+                    placeholder="e.g. Arjun Shah"
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      background: '#FFFFFF',
+                      border: checkoutErrors.name ? '1px solid #DC2626' : '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      fontSize: 'var(--text-sm)',
+                    }}
+                  />
+                  {checkoutErrors.name && (
+                    <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>
+                      {checkoutErrors.name}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--space-3)' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>
+                      Email (for LMS credentials)
+                    </label>
+                    <input
+                      type="email"
+                      value={billingEmail}
+                      onChange={(e) => {
+                        setBillingEmail(e.target.value);
+                        if (checkoutErrors.email) setCheckoutErrors((prev) => ({ ...prev, email: '' }));
+                      }}
+                      placeholder="investor@example.com"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        background: '#FFFFFF',
+                        border: checkoutErrors.email ? '1px solid #DC2626' : '1px solid var(--border-color)',
+                        color: 'var(--text-primary)',
+                        fontSize: 'var(--text-sm)',
+                      }}
+                    />
+                    {checkoutErrors.email && (
+                      <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>
+                        {checkoutErrors.email}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>
+                      Mobile Phone (for OTP)
+                    </label>
+                    <input
+                      type="tel"
+                      value={billingPhone}
+                      onChange={(e) => {
+                        setBillingPhone(e.target.value);
+                        if (checkoutErrors.phone) setCheckoutErrors((prev) => ({ ...prev, phone: '' }));
+                      }}
+                      maxLength={10}
+                      placeholder="9876543210"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        background: '#FFFFFF',
+                        border: checkoutErrors.phone ? '1px solid #DC2626' : '1px solid var(--border-color)',
+                        color: 'var(--text-primary)',
+                        fontSize: 'var(--text-sm)',
+                      }}
+                    />
+                    {checkoutErrors.phone && (
+                      <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>
+                        {checkoutErrors.phone}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <h3 className="font-serif" style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-6)' }}>
               Select Payment Method
             </h3>
@@ -268,18 +394,26 @@ export default function CheckoutPage() {
                 <input
                   type="text"
                   value={upiId}
-                  onChange={(e) => setUpiId(e.target.value)}
+                  onChange={(e) => {
+                    setUpiId(e.target.value);
+                    if (checkoutErrors.upi) setCheckoutErrors((prev) => ({ ...prev, upi: '' }));
+                  }}
                   placeholder="username@bank"
                   style={{
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: 'var(--radius-md)',
                     background: '#FFFFFF',
-                    border: '1px solid var(--border-color)',
+                    border: checkoutErrors.upi ? '1px solid #DC2626' : '1px solid var(--border-color)',
                     color: 'var(--text-primary)',
                     fontSize: 'var(--text-sm)',
                   }}
                 />
+                {checkoutErrors.upi && (
+                  <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>
+                    {checkoutErrors.upi}
+                  </div>
+                )}
               </div>
             )}
 
