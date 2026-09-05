@@ -8,6 +8,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { KycService } from './kyc.service';
 import { AuthRequest } from '../auth/strategies/jwt.strategy';
 import { InitiateKycDto } from '@ff/types';
@@ -30,9 +31,10 @@ export class KycController {
     return this.kycService.getKycRecord(req.user.id);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('initiate')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Initiate KRA verification using PAN and Date of Birth' })
+  @ApiOperation({ summary: 'Initiate KRA verification using PAN and Date of Birth (rate limited: 10 req/min)' })
   async initiateKyc(@Req() req: AuthRequest, @Body() dto: InitiateKycDto) {
     return this.kycService.initiateKyc(req.user.id, dto);
   }

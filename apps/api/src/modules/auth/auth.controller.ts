@@ -2,6 +2,7 @@ import {
   Controller, Post, Body, Get, UseGuards, Req, HttpCode, HttpStatus, Ip,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto, RefreshTokenDto, ForgotPasswordDto } from './dto/auth.dto';
 import { JwtAuthGuard, Public } from './guards/jwt-auth.guard';
@@ -18,9 +19,10 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new user account' })
+  @ApiOperation({ summary: 'Register a new user account (rate limited: 5 req/min)' })
   @ApiResponse({ status: 201, description: 'Account created, returns user + tokens' })
   @ApiResponse({ status: 409, description: 'Email already in use' })
   async register(@Body() dto: RegisterDto, @Ip() ip: string) {
@@ -28,9 +30,10 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login with email and password' })
+  @ApiOperation({ summary: 'Login with email and password (rate limited: 5 req/min)' })
   @ApiResponse({ status: 200, description: 'Returns user + access/refresh tokens' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() dto: LoginDto, @Ip() ip: string) {
@@ -54,9 +57,10 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request password reset email' })
+  @ApiOperation({ summary: 'Request password reset email (rate limited: 5 req/min)' })
   @ApiResponse({ status: 200, description: 'Email sent if account exists (no enumeration)' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     await this.authService.forgotPassword(dto.email);

@@ -11,6 +11,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { SubscriptionsService } from './subscriptions.service';
 import { Public } from '../auth/guards/jwt-auth.guard';
 import { AuthRequest } from '../auth/strategies/jwt.strategy';
@@ -59,10 +60,11 @@ export class SubscriptionsController {
     return this.subscriptionsService.getUserOrders(req.user.id);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('checkout')
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a Razorpay checkout order for a plan' })
+  @ApiOperation({ summary: 'Create a Razorpay checkout order for a plan (rate limited: 10 req/min)' })
   async createCheckout(
     @Req() req: AuthRequest,
     @Body() dto: CreateOrderRequest,
@@ -70,10 +72,11 @@ export class SubscriptionsController {
     return this.subscriptionsService.createCheckoutOrder(req.user.id, dto.planId);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('verify')
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify Razorpay payment signature and activate plan' })
+  @ApiOperation({ summary: 'Verify Razorpay payment signature and activate plan (rate limited: 10 req/min)' })
   async verifyPayment(
     @Req() req: AuthRequest,
     @Body() dto: VerifyPaymentRequest,

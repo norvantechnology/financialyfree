@@ -4,9 +4,68 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import type { Request, Response, NextFunction } from 'express';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'verbose'],
+  });
+
+  // ── Security Hardening: Trust Proxy & Helmet ────────────────────────
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
+
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // Managed via reverse proxy/Cloudflare and Next.js
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
+  app.use(cookieParser());
+
+  // ── CSRF Protection: Origin & Referer Verification for Mutations ────
+  const allowedOrigins: string[] = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    process.env.NEXT_PUBLIC_API_URL,
+    process.env.FRONTEND_URL,
+  ].filter((o): o is string => Boolean(o));
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    // Webhook endpoints authenticate via cryptographic signatures (e.g. Razorpay, BSE StAR)
+    if (req.path.includes('/webhook')) {
+      return next();
+    }
+
+    const mutationMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+    if (mutationMethods.includes(req.method)) {
+      const origin = req.headers['origin'];
+      const referer = req.headers['referer'];
+
+      if (origin) {
+        const isAllowed = allowedOrigins.some((allowed) => allowed && origin.startsWith(allowed));
+        if (!isAllowed && process.env.NODE_ENV === 'production') {
+          return res.status(403).json({
+            statusCode: 403,
+            message: 'Cross-site request forgery detected. Request origin rejected.',
+          });
+        }
+      } else if (referer) {
+        const isAllowed = allowedOrigins.some((allowed) => allowed && referer.startsWith(allowed));
+        if (!isAllowed && process.env.NODE_ENV === 'production') {
+          return res.status(403).json({
+            statusCode: 403,
+            message: 'Cross-site request forgery detected. Request referer rejected.',
+          });
+        }
+      }
+    }
+
+    next();
   });
 
   // ── Global Validation ────────────────────────────────────────────────
@@ -21,9 +80,7 @@ async function bootstrap() {
 
   // ── CORS ──────────────────────────────────────────────────────────────
   app.enableCors({
-    origin: process.env.NEXT_PUBLIC_API_URL
-      ? [process.env.NEXT_PUBLIC_API_URL, 'http://localhost:3000']
-      : 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: true,
   });
 

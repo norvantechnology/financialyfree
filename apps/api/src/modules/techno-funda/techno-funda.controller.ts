@@ -1,7 +1,8 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TechnoFundaService } from './techno-funda.service';
-import { Public } from '../auth/guards/jwt-auth.guard';
+import { Public, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { EntitlementGuard, RequireSku } from '../auth/guards/entitlement.guard';
 
 @ApiTags('Techno-Funda DIY Toolkit')
 @Controller('techno-funda')
@@ -15,23 +16,29 @@ export class TechnoFundaController {
     return this.tfService.getOverview();
   }
 
-  @Public()
   @Get('market-mood')
-  @ApiOperation({ summary: 'Get Market Mood Index (0–100) with breadth and historical drift' })
+  @UseGuards(JwtAuthGuard, EntitlementGuard)
+  @RequireSku('tools_1yr', 'course_lifetime')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get Market Mood Index (0–100) with breadth and historical drift (Requires tools_1yr or course_lifetime)' })
   getMarketMoodIndex() {
     return this.tfService.getMarketMoodIndex();
   }
 
-  @Public()
   @Get('pead')
-  @ApiOperation({ summary: 'Get Post-Earnings Announcement Drift (PEAD) screener events' })
+  @UseGuards(JwtAuthGuard, EntitlementGuard)
+  @RequireSku('tools_1yr', 'course_lifetime')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get Post-Earnings Announcement Drift (PEAD) screener events (Requires tools_1yr or course_lifetime)' })
   getPeadSurprises() {
     return this.tfService.getPeadSurprises();
   }
 
-  @Public()
   @Get('vahan')
-  @ApiOperation({ summary: 'Get Vahan automotive registration macro trends and OEM shares' })
+  @UseGuards(JwtAuthGuard, EntitlementGuard)
+  @RequireSku('tools_1yr', 'course_lifetime')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get Vahan automotive registration macro trends and OEM shares (Requires tools_1yr or course_lifetime)' })
   getVahanData() {
     return this.tfService.getVahanData();
   }

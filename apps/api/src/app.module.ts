@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AppConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -35,6 +37,20 @@ import { AdminModule } from './modules/admin/admin.module';
       },
     }),
 
+    // ── Security: Global Throttler / Rate Limiting ────────────────────
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,
+        limit: 120,
+      },
+      {
+        name: 'strict',
+        ttl: 60000,
+        limit: 10,
+      },
+    ]),
+
     // ── Feature Modules ───────────────────────────────────────────────
     AuthModule,
     UsersModule,
@@ -49,6 +65,12 @@ import { AdminModule } from './modules/admin/admin.module';
     NotificationsModule,
     TechnoFundaModule,
     AdminModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

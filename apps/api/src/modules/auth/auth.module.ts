@@ -9,6 +9,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { UserSessionEntity, RefreshTokenEntity } from '../../database/entities/session.entity';
+import { EntitlementEntity } from '../../database/entities/subscription.entity';
+import { EntitlementGuard } from './guards/entitlement.guard';
 import { UsersModule } from '../users/users.module';
 
 @Global()
@@ -23,11 +25,11 @@ import { UsersModule } from '../users/users.module';
         signOptions: { expiresIn: config.get('JWT_EXPIRES_IN', '15m') },
       }),
     }),
-    TypeOrmModule.forFeature([UserSessionEntity, RefreshTokenEntity]),
+    TypeOrmModule.forFeature([UserSessionEntity, RefreshTokenEntity, EntitlementEntity]),
     UsersModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard],
-  exports: [AuthService, JwtModule, JwtAuthGuard, RolesGuard],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, EntitlementGuard],
+  exports: [AuthService, JwtModule, JwtAuthGuard, RolesGuard, EntitlementGuard],
 })
 export class AuthModule {}
