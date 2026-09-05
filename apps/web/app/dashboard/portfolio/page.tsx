@@ -82,32 +82,39 @@ const INITIAL_HOLDINGS: FolioHolding[] = [
 
 export default function PortfolioPage() {
   const [holdings, setHoldings] = useState<FolioHolding[]>(INITIAL_HOLDINGS);
+  const [isLiveFeed, setIsLiveFeed] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('ff_portfolio');
-    if (saved) {
+    async function loadPortfolio() {
       try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const formatted: FolioHolding[] = parsed.map((item: any, idx: number) => ({
-            schemeCode: item.schemeCode || `SCH_${idx}`,
-            schemeName: item.schemeName || 'Active Mutual Fund Scheme',
-            amcName: item.amcName || 'Registered AMC',
-            folioNo: `BSE_${Math.floor(10000000 + Math.random() * 90000000)}/01`,
-            units: 50.0,
-            nav: (item.sipAmount || 5000) / 50.0,
-            currentValue: (item.sipAmount || 5000) * 1.05,
-            investedAmount: item.sipAmount || 5000,
-            gain: (item.sipAmount || 5000) * 0.05,
-            gainPct: 5.0,
-            goalName: item.goalName || 'Wealth Goal',
-          }));
-          setHoldings(formatted.length > 0 ? formatted : INITIAL_HOLDINGS);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${apiUrl}/api/v1/mutual-funds/portfolio`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.holdings && data.holdings.length > 0) {
+            const mapped: FolioHolding[] = data.holdings.map((h: any) => ({
+              schemeCode: h.schemeCode,
+              schemeName: h.schemeName,
+              amcName: h.amcName,
+              folioNo: h.folioNumber,
+              units: Number(h.units),
+              nav: Number(h.navCurrent),
+              currentValue: Number(h.currentValue),
+              investedAmount: Number(h.investedAmount),
+              gain: Number(h.gain),
+              gainPct: Number(h.gainPct),
+              goalName: h.goalName || 'Wealth Alpha & Compounding',
+            }));
+            setHoldings(mapped);
+            setIsLiveFeed(true);
+            return;
+          }
         }
-      } catch (e) {
-        console.error('Error parsing local portfolio', e);
+      } catch (err) {
+        console.warn('Portfolio live fetch fallback', err);
       }
     }
+    loadPortfolio();
   }, []);
 
   const isSampleData = holdings === INITIAL_HOLDINGS;
@@ -138,9 +145,14 @@ export default function PortfolioPage() {
           }}
         >
           <div>
-            <div className="category-tag">
+            <div className="category-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <Layers size={13} />
               <span>PORTFOLIO INTELLIGENCE / ASSET ALLOCATION</span>
+              {isLiveFeed && (
+                <span style={{ marginLeft: '8px', color: '#047857', fontWeight: 700 }}>
+                  • LIVE AMFI NAV SYNCED
+                </span>
+              )}
             </div>
             <h1
               className="font-serif"

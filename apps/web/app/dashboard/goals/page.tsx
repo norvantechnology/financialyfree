@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Target,
@@ -98,6 +98,36 @@ export default function GoalsDashboardPage() {
   const getReturnRate = (r: 'conservative' | 'balanced' | 'growth') =>
     r === 'conservative' ? 8.5 : r === 'growth' ? 14.0 : 12.0;
 
+  useEffect(() => {
+    async function loadGoals() {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${apiUrl}/api/v1/goals`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const mapped: ActiveGoal[] = data.map((g: any) => ({
+              id: g.id,
+              type: g.type,
+              name: g.name,
+              targetCorpus: Number(g.targetAmount || 0),
+              horizonYears: Number(g.horizonYears || 5),
+              currentSavings: Number(g.currentSavings || 0),
+              riskBand: g.riskBand || 'balanced',
+              expectedReturn: Number(g.expectedReturnPct || 12),
+              monthlySip: Number(g.monthlySipRequired || 0),
+              projectedCorpus: Number(g.projectedCorpus || g.targetAmount || 0),
+            }));
+            setGoals(mapped);
+          }
+        }
+      } catch (e) {
+        console.warn('Goals fetch fallback to initial state', e);
+      }
+    }
+    loadGoals();
+  }, []);
+
   // Simple pure calculation for wizard live preview
   const calcWizardSIP = () => {
     const r = getReturnRate(wizardRisk) / 100 / 12;
@@ -109,7 +139,7 @@ export default function GoalsDashboardPage() {
     return Math.ceil(sip);
   };
 
-  const handleAddGoal = () => {
+  const handleAddGoal = async () => {
     const errs: Record<string, string> = {};
     if (!wizardName || wizardName.trim().length < 2) {
       errs.name = 'Please provide a descriptive goal name (at least 2 characters).';
@@ -129,7 +159,7 @@ export default function GoalsDashboardPage() {
     }
     setWizardErrors({});
     const sip = calcWizardSIP();
-    const newGoal: ActiveGoal = {
+    const tempGoal: ActiveGoal = {
       id: `g-${Date.now()}`,
       type: wizardType,
       name: wizardName.trim(),
@@ -141,12 +171,42 @@ export default function GoalsDashboardPage() {
       monthlySip: sip,
       projectedCorpus: Math.round(wizardCorpus * 1.02),
     };
-    setGoals([newGoal, ...goals]);
+    setGoals([tempGoal, ...goals]);
     setIsWizardOpen(false);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${apiUrl}/api/v1/goals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: wizardType === 'home_purchase' ? 'wealth_creation' : wizardType,
+          name: wizardName.trim(),
+          targetAmount: wizardCorpus,
+          horizonYears: wizardHorizon,
+          currentSavings: wizardSavings,
+          riskBand: wizardRisk,
+        }),
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        setGoals((prev) =>
+          prev.map((g) => (g.id === tempGoal.id ? { ...g, id: saved.id, monthlySip: Number(saved.monthlySipRequired || g.monthlySip) } : g)),
+        );
+      }
+    } catch {
+      // Kept in optimistic local state
+    }
   };
 
-  const handleDeleteGoal = (id: string) => {
+  const handleDeleteGoal = async (id: string) => {
     setGoals(goals.filter((g) => g.id !== id));
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      await fetch(`${apiUrl}/api/v1/goals/${id}`, { method: 'DELETE' });
+    } catch {
+      // Silent error handling
+    }
   };
 
   const handleResetDefaults = () => {

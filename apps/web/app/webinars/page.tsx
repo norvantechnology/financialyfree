@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Video,
@@ -104,13 +104,42 @@ export default function WebinarsPage() {
   const [registeringId, setRegisteringId] = useState<string | null>(null);
   const [alertToast, setAlertToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  useEffect(() => {
+    async function loadWebinars() {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${apiUrl}/api/v1/webinars`);
+        if (res.ok) {
+          const list = await res.json();
+          if (Array.isArray(list) && list.length > 0) {
+            setWebinars(list);
+          }
+        }
+      } catch (err) {
+        console.warn('Webinars live fetch fallback', err);
+      }
+    }
+    loadWebinars();
+  }, []);
+
   const handleRegister = async (webinar: WebinarItem) => {
     setRegisteringId(webinar.id);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      let joinUrl = `https://live.financiallyfree.in/room/${webinar.slug}?u=demo-user-1&token=live_access_${Date.now()}`;
+      try {
+        const res = await fetch(`${apiUrl}/api/v1/webinars/${webinar.id}/register`, {
+          method: 'POST',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.joinUrl) joinUrl = data.joinUrl;
+        }
+      } catch {
+        // Fallback to local
+      }
 
-      const joinUrl = `https://live.financiallyfree.in/room/${webinar.slug}?u=demo-user-1&token=live_access_${Date.now()}`;
       setWebinars((prev) =>
         prev.map((w) =>
           w.id === webinar.id

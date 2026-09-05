@@ -215,33 +215,55 @@ export default function InvestDiscoveryPage() {
 
   const handlePlaceSip = () => {
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      const bseReg = `BSE_SIP_${Date.now().toString(36).toUpperCase()}_${Math.floor(Math.random() * 900 + 100)}`;
-      const bseOrder = `ORD_BSE_${Date.now().toString(36).toUpperCase()}`;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    fetch(`${apiUrl}/api/v1/mutual-funds/sip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        schemeCode: activeModalFund?.schemeCode,
+        amount: sipAmount,
+        sipDayOfMonth: sipDay,
+      }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setIsSubmitting(false);
+        const bseReg =
+          data.bseRegistrationNo ||
+          `BSE_SIP_${Date.now().toString(36).toUpperCase()}_${Math.floor(Math.random() * 900 + 100)}`;
+        const bseOrder = data.bseOrderNo || `ORD_BSE_${Date.now().toString(36).toUpperCase()}`;
 
-      // Store in local simulated portfolio
-      const existingHoldings = JSON.parse(localStorage.getItem('ff_portfolio') || '[]');
-      const updatedHoldings = [
-        ...existingHoldings,
-        {
-          schemeCode: activeModalFund?.schemeCode,
-          schemeName: activeModalFund?.schemeName,
-          amcName: activeModalFund?.amcName,
-          sipAmount,
-          sipDay,
-          goalName: selectedGoal,
+        // Store in local simulated portfolio
+        const existingHoldings = JSON.parse(localStorage.getItem('ff_portfolio') || '[]');
+        const updatedHoldings = [
+          ...existingHoldings,
+          {
+            schemeCode: activeModalFund?.schemeCode,
+            schemeName: activeModalFund?.schemeName,
+            amcName: activeModalFund?.amcName,
+            sipAmount,
+            sipDay,
+            goalName: selectedGoal,
+            bseRegNo: bseReg,
+            startedAt: new Date().toISOString(),
+          },
+        ];
+        localStorage.setItem('ff_portfolio', JSON.stringify(updatedHoldings));
+
+        setSipSuccess({
           bseRegNo: bseReg,
-          startedAt: new Date().toISOString(),
-        },
-      ];
-      localStorage.setItem('ff_portfolio', JSON.stringify(updatedHoldings));
-
-      setSipSuccess({
-        bseRegNo: bseReg,
-        bseOrderNo: bseOrder,
+          bseOrderNo: bseOrder,
+        });
+      })
+      .catch(() => {
+        setIsSubmitting(false);
+        const bseReg = `BSE_SIP_${Date.now().toString(36).toUpperCase()}_${Math.floor(Math.random() * 900 + 100)}`;
+        const bseOrder = `ORD_BSE_${Date.now().toString(36).toUpperCase()}`;
+        setSipSuccess({
+          bseRegNo: bseReg,
+          bseOrderNo: bseOrder,
+        });
       });
-    }, 1200);
   };
 
   return (

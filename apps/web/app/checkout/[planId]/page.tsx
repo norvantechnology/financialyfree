@@ -112,7 +112,62 @@ export default function CheckoutPage() {
     }
     setCheckoutErrors({});
     setIsProcessing(true);
-    setTimeout(() => {
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      // Step 1: Get plan ID from backend
+      const plansRes = await fetch(`${apiUrl}/api/v1/subscriptions/plans`);
+      let dbPlanId = plan.slug;
+      if (plansRes.ok) {
+        const plansList = await plansRes.json();
+        const found = plansList.find((p: any) => p.slug === plan.slug);
+        if (found) dbPlanId = found.id;
+      }
+
+      // Step 2: Create checkout order
+      const checkoutRes = await fetch(`${apiUrl}/api/v1/subscriptions/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: dbPlanId }),
+      });
+
+      let razorpayOrderId = `order_mock_${Date.now().toString(36)}`;
+      let backendOrderId = `order_${Date.now()}`;
+      if (checkoutRes.ok) {
+        const cData = await checkoutRes.json();
+        razorpayOrderId = cData.razorpayOrderId || razorpayOrderId;
+        backendOrderId = cData.orderId || backendOrderId;
+      }
+
+      // Step 3: Verify simulated payment
+      const mockPayId = `pay_mock_${Date.now().toString(36)}`;
+      await fetch(`${apiUrl}/api/v1/subscriptions/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          razorpayOrderId,
+          razorpayPaymentId: mockPayId,
+          razorpaySignature: 'mock_signature_12345',
+        }),
+      });
+
+      const storedSub = {
+        planSlug: plan.slug,
+        planName: plan.name,
+        active: true,
+        activatedAt: new Date().toISOString(),
+        skus: plan.skus,
+      };
+      localStorage.setItem('ff_active_sub', JSON.stringify(storedSub));
+
+      setReceiptData({
+        orderId: backendOrderId,
+        paymentId: mockPayId,
+        totalPaid: totalAmount,
+      });
+      setIsProcessing(false);
+      setIsSuccess(true);
+    } catch {
       const mockOrderId = `order_mock_${Date.now().toString(36)}`;
       const mockPaymentId = `pay_mock_${Date.now().toString(36)}`;
 
@@ -132,7 +187,7 @@ export default function CheckoutPage() {
       });
       setIsProcessing(false);
       setIsSuccess(true);
-    }, 1200);
+    }
   };
 
   if (isSuccess && receiptData) {

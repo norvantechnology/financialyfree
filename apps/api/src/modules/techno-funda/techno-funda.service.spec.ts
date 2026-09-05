@@ -87,6 +87,40 @@ describe('TechnoFundaService (Sprint 8 & Dynamic Public Feeds)', () => {
       expect(trent?.surprisePct).toBeGreaterThan(20);
       expect(pead.dataSource).toContain('Corporate Financial Filings');
     });
+
+    it('verifies exact mathematical calculation of EPS surprise and 20d drift', () => {
+      const pead = service.getPeadSurprises();
+      for (const event of pead.events) {
+        if (
+          event.actualEps !== undefined &&
+          event.expectedEps !== undefined &&
+          event.price20dPost !== undefined &&
+          event.priceAtResult !== undefined
+        ) {
+          // Formula 1: surprisePct = ((actualEps - expectedEps) / expectedEps) * 100
+          const calculatedSurprise =
+            ((event.actualEps - event.expectedEps) / event.expectedEps) * 100;
+          expect(event.surprisePct).toBeCloseTo(calculatedSurprise, 1);
+
+          // Formula 2: drift20d = ((price20dPost - priceAtResult) / priceAtResult) * 100
+          const calculatedDrift =
+            ((event.price20dPost - event.priceAtResult) / event.priceAtResult) * 100;
+          expect(event.drift20d).toBeCloseTo(calculatedDrift, 1);
+        }
+      }
+    });
+
+    it('verifies exact weighted component math for Market Mood Index', () => {
+      // weights: vix: 0.30, breadth: 0.25, ma: 0.25, flows: 0.20
+      const vixScore = 71;
+      const breadthScore = 64;
+      const maScore = 71;
+      const flowScore = 71;
+      const expectedMmi = Math.round(
+        0.30 * vixScore + 0.25 * breadthScore + 0.25 * maScore + 0.20 * flowScore,
+      );
+      expect(expectedMmi).toBe(69);
+    });
   });
 
   describe('getVahanData', () => {

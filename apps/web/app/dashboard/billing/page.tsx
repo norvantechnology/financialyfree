@@ -16,14 +16,37 @@ export default function BillingPage() {
   } | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('ff_active_sub');
-    if (saved) {
+    async function loadBilling() {
       try {
-        setActiveSub(JSON.parse(saved));
-      } catch {
-        // ignore
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${apiUrl}/api/v1/subscriptions/my`);
+        if (res.ok) {
+          const subs = await res.json();
+          if (Array.isArray(subs) && subs.length > 0) {
+            const active = subs.find((s: any) => s.status === 'active') || subs[0];
+            setActiveSub({
+              planSlug: active.plan?.slug || 'active-plan',
+              planName: active.plan?.name || 'Subscribed Plan',
+              active: active.status === 'active',
+              activatedAt: active.startedAt ? new Date(active.startedAt).toLocaleDateString('en-IN') : 'Active',
+              skus: active.plan?.skus || ['course_lifetime'],
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Billing live fetch fallback', err);
+      }
+      const saved = localStorage.getItem('ff_active_sub');
+      if (saved) {
+        try {
+          setActiveSub(JSON.parse(saved));
+        } catch {
+          // ignore
+        }
       }
     }
+    loadBilling();
   }, []);
 
   return (
