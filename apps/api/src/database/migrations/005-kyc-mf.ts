@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class KycMf1725000005 implements MigrationInterface {
-  name = 'KycMf1725000005';
+export class KycMf1725000000005 implements MigrationInterface {
+  name = 'KycMf1725000000005';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. kyc_records

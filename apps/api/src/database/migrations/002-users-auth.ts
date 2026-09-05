@@ -3,8 +3,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 /**
  * Migration 002: Users, sessions, and refresh tokens (Sprint 1 — Auth)
  */
-export class UsersAuth1725000002 implements MigrationInterface {
-  name = 'UsersAuth1725000002';
+export class UsersAuth1725000000002 implements MigrationInterface {
+  name = 'UsersAuth1725000000002';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // ── Users ──────────────────────────────────────────────────────────

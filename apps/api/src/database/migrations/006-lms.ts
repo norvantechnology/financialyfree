@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class Lms1725000006 implements MigrationInterface {
-  name = 'Lms1725000006';
+export class Lms1725000000006 implements MigrationInterface {
+  name = 'Lms1725000000006';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. courses

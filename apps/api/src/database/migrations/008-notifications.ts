@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class Notifications1725000008 implements MigrationInterface {
-  name = 'Notifications1725000008';
+export class Notifications1725000000008 implements MigrationInterface {
+  name = 'Notifications1725000000008';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Enums
@@ -42,9 +42,9 @@ export class Notifications1725000008 implements MigrationInterface {
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_notifications_user" ON "notifications"("userId")`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_notifications_is_read" ON "notifications"("isRead")`);
 
-    // 3. user_consents table
+    // 3. user_notification_preferences table
     await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "user_consents" (
+      CREATE TABLE IF NOT EXISTS "user_notification_preferences" (
         "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
         "userId" uuid UNIQUE NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
         "whatsappTransactional" boolean NOT NULL DEFAULT true,
@@ -56,11 +56,11 @@ export class Notifications1725000008 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_user_consents_user" ON "user_consents"("userId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_user_notification_preferences_user" ON "user_notification_preferences"("userId")`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TABLE IF EXISTS "user_consents"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "user_notification_preferences"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "notifications"`);
     await queryRunner.query(`DROP TYPE IF EXISTS "notification_channel_type_enum"`);
     await queryRunner.query(`DROP TYPE IF EXISTS "notification_category_enum"`);

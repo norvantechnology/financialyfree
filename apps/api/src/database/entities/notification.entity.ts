@@ -71,7 +71,7 @@ export class NotificationEntity {
   createdAt!: Date;
 }
 
-@Entity('user_consents')
+@Entity('user_notification_preferences')
 export class UserConsentEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

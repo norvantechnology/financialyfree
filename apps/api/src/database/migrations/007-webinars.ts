@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class Webinars1725000007 implements MigrationInterface {
-  name = 'Webinars1725000007';
+export class Webinars1725000000007 implements MigrationInterface {
+  name = 'Webinars1725000000007';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Create webinar status enum if not exists
