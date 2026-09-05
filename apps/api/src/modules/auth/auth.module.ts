@@ -30,6 +30,6 @@ import { UsersModule } from '../users/users.module';
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, EntitlementGuard],
-  exports: [AuthService, JwtModule, JwtAuthGuard, RolesGuard, EntitlementGuard],
+  exports: [AuthService, JwtModule, JwtAuthGuard, RolesGuard, EntitlementGuard, TypeOrmModule],
 })
 export class AuthModule {}
