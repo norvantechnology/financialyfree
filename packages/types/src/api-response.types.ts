@@ -19,13 +19,3 @@ export interface ResponseMeta {
   version?: string;
 }
 
-export interface NotificationDto {
-  id: string;
-  userId: string;
-  type: 'sip_reminder' | 'webinar_reminder' | 'course_progress' | 'kyc_status' | 'payment' | 'general';
-  title: string;
-  message: string;
-  isRead: boolean;
-  channel: 'in_app' | 'email' | 'whatsapp' | 'push';
-  createdAt: string;
-}

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslation } from '../lib/i18n/language-context';
 import { Globe, TrendingUp } from 'lucide-react';
+import { NotificationBell } from './notification-bell';
 
 export function Navbar() {
   const { language, setLanguage, t } = useTranslation();
@@ -58,33 +59,27 @@ export function Navbar() {
             style={{
               width: '36px',
               height: '36px',
-              borderRadius: 'var(--radius-md)',
+              borderRadius: 'var(--radius-lg)',
               background: 'linear-gradient(135deg, var(--color-primary-500), var(--color-secondary-500))',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)',
+              color: '#fff',
             }}
           >
-            <TrendingUp size={20} color="#ffffff" />
+            <TrendingUp size={20} />
           </div>
           <div>
-            <span
-              style={{
-                fontSize: 'var(--text-lg)',
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                background: 'linear-gradient(135deg, #ffffff 60%, var(--color-primary-400))',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              FinanciallyFree
-            </span>
+            <div style={{ fontWeight: 800, fontSize: 'var(--text-lg)', letterSpacing: '-0.02em', color: '#fff' }}>
+              Financially<span style={{ color: 'var(--color-primary-400)' }}>Free</span>
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: 1 }}>
+              ARN-350272 • Techno-Funda
+            </div>
           </div>
         </Link>
 
-        {/* Nav Links */}
+        {/* Navigation Links */}
         <nav
           style={{
             display: 'flex',
@@ -112,8 +107,11 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Action Controls: Language Toggle & Auth */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+        {/* Action Controls: Notification Bell, Language Toggle & Auth */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          {/* Notification Bell */}
+          <NotificationBell />
+
           {/* Language Switcher */}
           <button
             onClick={toggleLanguage}
