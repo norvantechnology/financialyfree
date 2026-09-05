@@ -4,11 +4,14 @@ export type LessonType = 'video' | 'text' | 'quiz';
 
 export interface CourseDto {
   id: UUID;
+  slug: string;
   title: string;
   description: string;
   thumbnailUrl?: string;
   totalDuration: number; // minutes
   lessonCount: number;
+  level: string;
+  requiredSku?: string;
   isPublished: boolean;
   createdAt: ISO8601;
 }
@@ -29,6 +32,7 @@ export interface LessonDto {
   duration?: number; // minutes for video lessons
   order: number;
   isPreview: boolean; // free preview before purchase
+  videoPlaybackUrl?: string;
 }
 
 export interface EnrollmentDto {
@@ -56,12 +60,43 @@ export interface VideoPlaybackTokenDto {
   expiresAt: ISO8601;
 }
 
+export interface QuizQuestionDto {
+  id: string;
+  question: string;
+  options: string[];
+  correctOptionIndex?: number;
+  explanation?: string;
+}
+
+export interface QuizDto {
+  id: UUID;
+  courseId: UUID;
+  title: string;
+  passingScorePct: number;
+  questions: QuizQuestionDto[];
+}
+
+export interface QuizSubmissionDto {
+  quizId: UUID;
+  answers: Record<string, number>; // questionId -> selectedOptionIndex
+}
+
+export interface QuizResultDto {
+  quizId: UUID;
+  scorePct: number;
+  passed: boolean;
+  totalQuestions: number;
+  correctCount: number;
+  certificateEligible: boolean;
+}
+
 export interface CertificateDto {
   id: UUID;
   userId: UUID;
   courseId: UUID;
   courseTitle: string;
   userName: string;
+  certificateNumber: string;
   issuedAt: ISO8601;
   certificateUrl: string;
 }
