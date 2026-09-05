@@ -33,10 +33,18 @@ export const viewport: Viewport = {
   themeColor: [{ media: '(prefers-color-scheme: dark)', color: '#0b0f1a' }],
 };
 
+import { LanguageProvider } from '../lib/i18n/language-context';
+import { Navbar } from '../components/navbar';
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body>{children}</body>
+      <body>
+        <LanguageProvider>
+          <Navbar />
+          <main>{children}</main>
+        </LanguageProvider>
+      </body>
     </html>
   );
 }

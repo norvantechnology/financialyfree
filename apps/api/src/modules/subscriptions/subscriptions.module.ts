@@ -1,10 +1,29 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import {
+  PlanEntity,
+  SubscriptionEntity,
+  EntitlementEntity,
+  PaymentOrderEntity,
+  PaymentEntity,
+} from '../../database/entities/subscription.entity';
+import { SubscriptionsService } from './subscriptions.service';
+import { SubscriptionsController } from './subscriptions.controller';
+import { PaymentsModule } from '../payments/payments.module';
 
-// Stub — will be implemented in its corresponding sprint.
 @Module({
-  imports: [],
-  controllers: [],
-  providers: [],
-  exports: [],
+  imports: [
+    TypeOrmModule.forFeature([
+      PlanEntity,
+      SubscriptionEntity,
+      EntitlementEntity,
+      PaymentOrderEntity,
+      PaymentEntity,
+    ]),
+    PaymentsModule,
+  ],
+  controllers: [SubscriptionsController],
+  providers: [SubscriptionsService],
+  exports: [SubscriptionsService],
 })
 export class SubscriptionsModule {}
