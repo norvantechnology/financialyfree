@@ -35,7 +35,7 @@ export class UsersService {
 
   async findByEmailWithPassword(email: string): Promise<UserEntity | null> {
     return this.usersRepo.createQueryBuilder('u')
-      .addSelect('u.password_hash')
+      .addSelect('u.passwordHash')
       .where('u.email = :email', { email })
       .getOne();
   }

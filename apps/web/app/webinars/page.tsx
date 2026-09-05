@@ -15,6 +15,8 @@ import {
   Tag,
 } from 'lucide-react';
 import { useTranslation } from '../../lib/i18n/language-context';
+import { SidebarLayout } from '../../components/sidebar-layout';
+import { StaticSnapshotBanner } from '../../components/static-snapshot-banner';
 
 interface WebinarItem {
   id: string;
@@ -106,7 +108,6 @@ export default function WebinarsPage() {
     setRegisteringId(webinar.id);
 
     try {
-      // Simulate API call to POST /webinars/:id/register
       await new Promise((resolve) => setTimeout(resolve, 600));
 
       const joinUrl = `https://live.financiallyfree.in/room/${webinar.slug}?u=demo-user-1&token=live_access_${Date.now()}`;
@@ -137,484 +138,397 @@ export default function WebinarsPage() {
   const replayList = webinars.filter((w) => w.status === 'completed');
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: 'var(--space-8) var(--space-4)' }}>
-      {/* Toast Alert */}
-      {alertToast && (
-        <div
-          style={{
-            position: 'fixed',
-            top: '24px',
-            right: '24px',
-            zIndex: 100,
-            padding: 'var(--space-4) var(--space-6)',
-            borderRadius: 'var(--radius-lg)',
-            background: alertToast.type === 'success' ? '#065f46' : '#991b1b',
-            color: '#fff',
-            border: `1px solid ${alertToast.type === 'success' ? '#34d399' : '#f87171'}`,
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            maxWidth: '450px',
-          }}
-        >
-          {alertToast.type === 'success' ? <CheckCircle2 size={20} /> : <X size={20} />}
-          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{alertToast.message}</span>
-        </div>
-      )}
-
-      {/* Header Banner */}
-      <div style={{ marginBottom: 'var(--space-8)' }}>
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            color: 'var(--color-primary-400)',
-            fontSize: 'var(--text-xs)',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            marginBottom: '4px',
-          }}
-        >
-          <Video size={14} />
-          <span>Interactive Masterclasses & Live Research</span>
-        </div>
-        <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 800 }}>
-          {t.nav.webinars} & Live Workshops
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-          Direct market analysis sessions with CMT & CFA chartered analysts. Review institutional setups, PEAD earnings surprises, and mutual fund construction frameworks.
-        </p>
-      </div>
-
-      {/* Navigation Tabs */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 'var(--space-2)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          marginBottom: 'var(--space-8)',
-        }}
-      >
-        <button
-          onClick={() => setActiveTab('upcoming')}
-          style={{
-            padding: 'var(--space-3) var(--space-6)',
-            background: 'none',
-            border: 'none',
-            borderBottom: activeTab === 'upcoming' ? '2px solid var(--color-primary-500)' : '2px solid transparent',
-            color: activeTab === 'upcoming' ? 'var(--color-primary-400)' : 'var(--text-muted)',
-            fontWeight: 600,
-            fontSize: 'var(--text-sm)',
-            cursor: 'pointer',
-          }}
-        >
-          Upcoming Masterclasses ({upcomingList.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('replays')}
-          style={{
-            padding: 'var(--space-3) var(--space-6)',
-            background: 'none',
-            border: 'none',
-            borderBottom: activeTab === 'replays' ? '2px solid var(--color-primary-500)' : '2px solid transparent',
-            color: activeTab === 'replays' ? 'var(--color-primary-400)' : 'var(--text-muted)',
-            fontWeight: 600,
-            fontSize: 'var(--text-sm)',
-            cursor: 'pointer',
-          }}
-        >
-          Recorded Replays ({replayList.length})
-        </button>
-      </div>
-
-      {/* Grid of Webinars */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-          gap: 'var(--space-6)',
-        }}
-      >
-        {(activeTab === 'upcoming' ? upcomingList : replayList).map((w) => (
+    <SidebarLayout activePath="/webinars">
+      <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+        {/* Toast Alert */}
+        {alertToast && (
           <div
-            key={w.id}
             style={{
-              background: 'var(--surface-card)',
-              borderRadius: 'var(--radius-xl)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              overflow: 'hidden',
+              position: 'fixed',
+              top: '24px',
+              right: '24px',
+              zIndex: 100,
+              padding: 'var(--space-4) var(--space-6)',
+              borderRadius: 'var(--radius-lg)',
+              background: alertToast.type === 'success' ? '#065F46' : '#991B1B',
+              color: '#FFFFFF',
+              border: `1px solid ${alertToast.type === 'success' ? '#34D399' : '#F87171'}`,
+              boxShadow: 'var(--shadow-lg)',
               display: 'flex',
-              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 'var(--space-3)',
+              maxWidth: '450px',
             }}
           >
-            {/* Thumbnail */}
+            {alertToast.type === 'success' ? <CheckCircle2 size={20} /> : <X size={20} />}
+            <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{alertToast.message}</span>
+          </div>
+        )}
+
+        <StaticSnapshotBanner
+          datasetName="Aureus Live Intelligence Feed"
+          sourceNotes="Live webinars and masterclasses conducted by CMT & CFA charterholders. Market commentary for investor education."
+        />
+
+        {/* Header Banner */}
+        <div style={{ marginBottom: 'var(--space-8)' }}>
+          <div className="category-tag">LIVE RESEARCH ROOM</div>
+          <h1
+            className="font-serif"
+            style={{
+              fontSize: 'clamp(2rem, 3.5vw, 2.75rem)',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              lineHeight: 1.15,
+              marginBottom: '8px',
+            }}
+          >
+            {t.nav.webinars} & Live Workshops
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', margin: 0, maxWidth: '680px' }}>
+            Direct market analysis sessions with CMT & CFA chartered analysts. Review institutional setups, PEAD earnings surprises, and mutual fund construction frameworks.
+          </p>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            marginBottom: 'var(--space-8)',
+          }}
+        >
+          <button
+            onClick={() => setActiveTab('upcoming')}
+            className={activeTab === 'upcoming' ? 'pill-btn pill-btn-active' : 'pill-btn'}
+          >
+            Upcoming Masterclasses ({upcomingList.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('replays')}
+            className={activeTab === 'replays' ? 'pill-btn pill-btn-active' : 'pill-btn'}
+          >
+            Recorded Replays ({replayList.length})
+          </button>
+        </div>
+
+        {/* Grid of Webinars */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+            gap: 'var(--space-6)',
+          }}
+        >
+          {(activeTab === 'upcoming' ? upcomingList : replayList).map((w) => (
             <div
+              key={w.id}
               style={{
-                height: '180px',
-                backgroundImage: `url(${w.thumbnailUrl})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                position: 'relative',
+                background: 'var(--bg-surface)',
+                borderRadius: 'var(--radius-xl)',
+                border: '1px solid var(--border-color)',
+                boxShadow: 'var(--shadow-sm)',
+                overflow: 'hidden',
                 display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                padding: 'var(--space-4)',
+                flexDirection: 'column',
               }}
             >
+              {/* Thumbnail */}
               <div
                 style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'linear-gradient(to bottom, rgba(10, 15, 29, 0.2), rgba(10, 15, 29, 0.85))',
-                }}
-              />
-              <span
-                style={{
+                  height: '170px',
+                  backgroundImage: `url(${w.thumbnailUrl})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
                   position: 'relative',
-                  zIndex: 1,
-                  padding: '4px 10px',
-                  borderRadius: 'var(--radius-full)',
-                  fontSize: 'var(--text-xs)',
-                  fontWeight: 700,
-                  background: w.tierRequired === 'FREE' ? '#065f46' : '#6d28d9',
-                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  padding: 'var(--space-4)',
                 }}
               >
-                {w.tierRequired === 'FREE' ? 'FREE ACCESS' : 'PRO MEMBER ONLY'}
-              </span>
-
-              {w.status === 'completed' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(to bottom, rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.7))',
+                  }}
+                />
                 <span
                   style={{
                     position: 'relative',
                     zIndex: 1,
                     padding: '4px 10px',
                     borderRadius: 'var(--radius-full)',
-                    fontSize: 'var(--text-xs)',
-                    fontWeight: 600,
-                    background: 'rgba(255, 255, 255, 0.15)',
-                    backdropFilter: 'blur(8px)',
-                    color: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    letterSpacing: '0.04em',
+                    background: w.tierRequired === 'FREE' ? '#0F766E' : '#0F172A',
+                    color: '#FFFFFF',
                   }}
                 >
-                  <PlayCircle size={12} />
-                  Replay Available
+                  {w.tierRequired === 'FREE' ? 'FREE ACCESS' : 'PRO ACCESS'}
                 </span>
-              )}
-            </div>
 
-            {/* Body */}
-            <div style={{ padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', flex: 1 }}>
-              {/* Topic */}
-              <div
-                style={{
-                  color: 'var(--color-primary-400)',
-                  fontSize: 'var(--text-xs)',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  marginBottom: 'var(--space-2)',
-                }}
-              >
-                {w.topic}
-              </div>
-
-              <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, marginBottom: 'var(--space-3)' }}>
-                {w.title}
-              </h2>
-
-              <p
-                style={{
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--text-secondary)',
-                  lineHeight: 1.6,
-                  marginBottom: 'var(--space-5)',
-                  flex: 1,
-                }}
-              >
-                {w.description}
-              </p>
-
-              {/* Meta information */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-2)',
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--text-muted)',
-                  borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-                  paddingTop: 'var(--space-4)',
-                  marginBottom: 'var(--space-6)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  <Calendar size={14} color="var(--color-primary-400)" />
-                  <span>
-                    {new Date(w.scheduledAt).toLocaleDateString('en-IN', {
-                      weekday: 'short',
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}{' '}
-                    IST
+                {w.status === 'completed' && (
+                  <span
+                    style={{
+                      position: 'relative',
+                      zIndex: 1,
+                      padding: '4px 10px',
+                      borderRadius: 'var(--radius-full)',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      background: 'rgba(255, 255, 255, 0.2)',
+                      backdropFilter: 'blur(8px)',
+                      color: '#FFFFFF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <PlayCircle size={12} />
+                    Replay
                   </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  <Clock size={14} color="var(--color-primary-400)" />
-                  <span>{w.durationMinutes} Minutes Session</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  <User size={14} color="var(--color-primary-400)" />
-                  <span>{w.instructorName}</span>
-                </div>
+                )}
               </div>
 
-              {/* Tickers Tag List */}
-              {w.linkedCompanies && w.linkedCompanies.length > 0 && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-2)',
-                    flexWrap: 'wrap',
-                    marginBottom: 'var(--space-6)',
-                  }}
-                >
-                  <Tag size={12} color="var(--text-muted)" />
-                  {w.linkedCompanies.map((ticker) => (
-                    <span
-                      key={ticker}
-                      style={{
-                        padding: '2px 8px',
-                        borderRadius: 'var(--radius-sm)',
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        fontSize: '11px',
-                        fontFamily: 'monospace',
-                        color: 'var(--text-secondary)',
-                      }}
-                    >
-                      {ticker}
-                    </span>
-                  ))}
+              {/* Body */}
+              <div style={{ padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <div className="category-tag" style={{ marginBottom: 'var(--space-2)' }}>
+                  {w.topic}
                 </div>
-              )}
 
-              {/* Action Button */}
-              {w.status === 'completed' ? (
-                <button
-                  onClick={() => setSelectedReplay(w)}
+                <h2
+                  className="font-serif"
+                  style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-2)', lineHeight: 1.3 }}
+                >
+                  {w.title}
+                </h2>
+
+                <p
                   style={{
-                    width: '100%',
-                    padding: 'var(--space-3)',
-                    borderRadius: 'var(--radius-lg)',
-                    background: 'var(--color-primary-500)',
-                    color: '#fff',
-                    border: 'none',
-                    fontWeight: 600,
-                    fontSize: 'var(--text-sm)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 'var(--space-2)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--text-secondary)',
+                    lineHeight: 1.6,
+                    marginBottom: 'var(--space-5)',
+                    flex: 1,
                   }}
                 >
-                  <PlayCircle size={16} />
-                  Watch Replay & Recording
-                </button>
-              ) : w.isRegistered ? (
+                  {w.description}
+                </p>
+
+                {/* Meta information */}
                 <div
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 'var(--space-2)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--text-secondary)',
+                    borderTop: '1px solid var(--border-color)',
+                    paddingTop: 'var(--space-4)',
+                    marginBottom: 'var(--space-4)',
                   }}
                 >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <Calendar size={14} color="var(--color-accent)" />
+                    <span>
+                      {new Date(w.scheduledAt).toLocaleDateString('en-IN', {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}{' '}
+                      IST
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <Clock size={14} color="var(--color-accent)" />
+                    <span>{w.durationMinutes} Minutes Session</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <User size={14} color="var(--color-accent)" />
+                    <span>{w.instructorName}</span>
+                  </div>
+                </div>
+
+                {/* Tickers Tag List */}
+                {w.linkedCompanies && w.linkedCompanies.length > 0 && (
                   <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
                       gap: 'var(--space-2)',
-                      padding: 'var(--space-2)',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'rgba(16, 185, 129, 0.1)',
-                      color: 'var(--color-success-400)',
-                      fontSize: 'var(--text-xs)',
-                      fontWeight: 600,
+                      flexWrap: 'wrap',
+                      marginBottom: 'var(--space-4)',
                     }}
                   >
-                    <CheckCircle2 size={14} />
-                    Seat Confirmed
+                    <Tag size={12} color="var(--text-muted)" />
+                    {w.linkedCompanies.map((ticker) => (
+                      <span
+                        key={ticker}
+                        className="badge-muted"
+                        style={{ fontFamily: 'monospace', fontSize: '11px' }}
+                      >
+                        {ticker}
+                      </span>
+                    ))}
                   </div>
-                  {w.userJoinUrl && (
-                    <a
-                      href={w.userJoinUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                )}
+
+                {/* Action Button */}
+                {w.status === 'completed' ? (
+                  <button
+                    onClick={() => setSelectedReplay(w)}
+                    className="btn btn-primary"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    <PlayCircle size={16} />
+                    <span>Watch Replay</span>
+                  </button>
+                ) : w.isRegistered ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    <div
                       style={{
-                        padding: 'var(--space-3)',
-                        borderRadius: 'var(--radius-lg)',
-                        background: 'linear-gradient(135deg, var(--color-primary-500), var(--color-secondary-500))',
-                        color: '#fff',
-                        textDecoration: 'none',
-                        textAlign: 'center',
-                        fontWeight: 600,
-                        fontSize: 'var(--text-sm)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: 'var(--space-2)',
+                        padding: 'var(--space-2)',
+                        borderRadius: 'var(--radius-md)',
+                        background: '#ECFDF5',
+                        color: '#065F46',
+                        fontSize: 'var(--text-xs)',
+                        fontWeight: 600,
                       }}
                     >
-                      <span>Join Live Room</span>
-                      <ExternalLink size={14} />
-                    </a>
-                  )}
-                </div>
-              ) : w.tierRequired === 'PRO' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                      <CheckCircle2 size={14} />
+                      Seat Confirmed
+                    </div>
+                    {w.userJoinUrl && (
+                      <a
+                        href={w.userJoinUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-primary"
+                        style={{ textDecoration: 'none', width: '100%', justifyContent: 'center' }}
+                      >
+                        <span>Join Live Room</span>
+                        <ExternalLink size={14} />
+                      </a>
+                    )}
+                  </div>
+                ) : w.tierRequired === 'PRO' ? (
                   <Link
                     href="/pricing"
-                    style={{
-                      width: '100%',
-                      padding: 'var(--space-3)',
-                      borderRadius: 'var(--radius-lg)',
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      color: 'var(--text-primary)',
-                      textDecoration: 'none',
-                      textAlign: 'center',
-                      fontWeight: 600,
-                      fontSize: 'var(--text-sm)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 'var(--space-2)',
-                    }}
+                    className="btn btn-outline"
+                    style={{ textDecoration: 'none', width: '100%', justifyContent: 'center' }}
                   >
                     <Lock size={14} />
-                    Upgrade to Pro to Register
+                    <span>Upgrade to Pro to Register</span>
                   </Link>
-                </div>
-              ) : (
-                <button
-                  disabled={registeringId === w.id}
-                  onClick={() => handleRegister(w)}
-                  style={{
-                    width: '100%',
-                    padding: 'var(--space-3)',
-                    borderRadius: 'var(--radius-lg)',
-                    background: 'var(--color-primary-500)',
-                    color: '#fff',
-                    border: 'none',
-                    fontWeight: 600,
-                    fontSize: 'var(--text-sm)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 'var(--space-2)',
-                    opacity: registeringId === w.id ? 0.7 : 1,
-                  }}
-                >
-                  <Video size={16} />
-                  <span>{registeringId === w.id ? 'Securing Seat...' : 'Reserve Free Seat'}</span>
-                </button>
-              )}
+                ) : (
+                  <button
+                    disabled={registeringId === w.id}
+                    onClick={() => handleRegister(w)}
+                    className="btn btn-primary"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  >
+                    <Video size={16} />
+                    <span>{registeringId === w.id ? 'Securing Seat...' : 'Reserve Free Seat'}</span>
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* Replay Video Player Modal */}
-      {selectedReplay && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100,
-            background: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(10px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 'var(--space-4)',
-          }}
-        >
+        {/* Replay Video Player Modal */}
+        {selectedReplay && (
           <div
             style={{
-              background: 'var(--surface-card)',
-              borderRadius: 'var(--radius-2xl)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              width: '100%',
-              maxWidth: '840px',
-              overflow: 'hidden',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+              position: 'fixed',
+              inset: 0,
+              zIndex: 100,
+              background: 'rgba(15, 23, 42, 0.75)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 'var(--space-4)',
             }}
           >
-            {/* Modal Header */}
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: 'var(--space-5) var(--space-6)',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                background: '#FFFFFF',
+                borderRadius: 'var(--radius-xl)',
+                border: '1px solid var(--border-color)',
+                width: '100%',
+                maxWidth: '840px',
+                overflow: 'hidden',
+                boxShadow: 'var(--shadow-lg)',
               }}
             >
-              <div>
-                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 700, marginBottom: '2px' }}>
-                  {selectedReplay.title}
-                </h3>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                  Presented by {selectedReplay.instructorName}
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedReplay(null)}
+              {/* Modal Header */}
+              <div
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  padding: 'var(--space-2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 'var(--space-4) var(--space-6)',
+                  borderBottom: '1px solid var(--border-color)',
+                  background: 'var(--bg-surface-raised)',
                 }}
               >
-                <X size={20} />
-              </button>
-            </div>
+                <div>
+                  <h3 className="font-serif" style={{ fontSize: 'var(--text-base)', fontWeight: 700, marginBottom: '2px', color: 'var(--text-primary)' }}>
+                    {selectedReplay.title}
+                  </h3>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                    Presented by {selectedReplay.instructorName}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedReplay(null)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    padding: 'var(--space-2)',
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
 
-            {/* Video Player */}
-            <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', background: '#000' }}>
-              <video
-                controls
-                autoPlay
-                playsInline
-                src={selectedReplay.replayUrl}
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-            </div>
+              {/* Video Player */}
+              <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', background: '#0F172A' }}>
+                <video
+                  controls
+                  autoPlay
+                  playsInline
+                  src={selectedReplay.replayUrl}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              </div>
 
-            {/* Notes footer */}
-            <div style={{ padding: 'var(--space-6)' }}>
-              <h4 style={{ fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>
-                Session Synopsis & Tickers Discussed
-              </h4>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                {selectedReplay.description}
-              </p>
+              {/* Notes footer */}
+              <div style={{ padding: 'var(--space-6)' }}>
+                <h4 className="font-serif" style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 'var(--space-2)', color: 'var(--text-primary)' }}>
+                  Session Synopsis & Tickers Discussed
+                </h4>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                  {selectedReplay.description}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </SidebarLayout>
   );
 }

@@ -1,49 +1,59 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { TrendingUp, BookOpen, BarChart3, Radio, ArrowRight, Shield, Award, Users } from 'lucide-react';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'FinanciallyFree — Invest with Purpose, Learn to Grow',
-  description:
-    'Goal-based mutual fund investing, Zero to Hero investing course, and Techno-Funda research tools. AMFI-registered distributor ARN-350272.',
-};
+import React from 'react';
+import Link from 'next/link';
+import {
+  TrendingUp,
+  BookOpen,
+  BarChart3,
+  Radio,
+  ArrowRight,
+  Shield,
+  Award,
+  ShieldCheck,
+  Briefcase,
+  GraduationCap,
+  Layers,
+} from 'lucide-react';
+import { SidebarLayout } from '../components/sidebar-layout';
+import { StaticSnapshotBanner } from '../components/static-snapshot-banner';
 
 const GOAL_TILES = [
   {
     id: 'emergency_fund',
-    emoji: '🛡️',
+    icon: ShieldCheck,
     title: 'Emergency Fund',
     titleHi: 'इमरजेंसी फंड',
-    desc: '3–6 months of expenses, safe and liquid',
-    color: 'var(--color-warning)',
-    href: '/goals/new?type=emergency_fund',
+    desc: '3–6 months of living expenses, fully safe and liquid.',
+    color: '#0F766E',
+    href: '/dashboard/goals?type=emergency_fund',
   },
   {
     id: 'retirement',
-    emoji: '🏡',
-    title: 'Retirement',
+    icon: Briefcase,
+    title: 'Retirement (FIRE)',
     titleHi: 'रिटायरमेंट',
-    desc: 'Retire at your number, on your timeline',
-    color: 'var(--color-accent)',
-    href: '/goals/new?type=retirement',
+    desc: 'Retire at your financial independence number on your timeline.',
+    color: '#0F172A',
+    href: '/dashboard/goals?type=retirement',
   },
   {
     id: 'child_education',
-    emoji: '🎓',
-    title: "Child's Education",
+    icon: GraduationCap,
+    title: "Child's Higher Education",
     titleHi: 'बच्चे की पढ़ाई',
-    desc: 'Fund the best education without stress',
-    color: 'var(--color-primary)',
-    href: '/goals/new?type=child_education',
+    desc: 'Fund premier higher education without taking on crippling debt.',
+    color: '#0F766E',
+    href: '/dashboard/goals?type=child_education',
   },
   {
     id: 'wealth_creation',
-    emoji: '📈',
-    title: 'Wealth Creation',
+    icon: Layers,
+    title: 'Long-Term Wealth Creation',
     titleHi: 'वेल्थ क्रिएशन',
-    desc: 'Grow your money beyond inflation',
-    color: 'hsl(266, 70%, 60%)',
-    href: '/goals/new?type=wealth_creation',
+    desc: 'Compound capital above inflation across diversified equity indices.',
+    color: '#0F172A',
+    href: '/dashboard/goals?type=wealth_creation',
   },
 ];
 
@@ -52,237 +62,348 @@ const FEATURES = [
     icon: TrendingUp,
     title: 'Done With You',
     subtitle: 'Goal-Based SIP Investing',
-    desc: 'Tell us your goal — retirement, education, emergency fund — and get a personalised SIP recommendation with full formula transparency. We are AMFI-registered distributor ARN-350272.',
+    desc: 'Personalized SIP recommendations with complete mathematical formula transparency, glide paths, and BSE StAR MF automated execution.',
     badge: 'Free',
-    badgeColor: 'badge-accent',
   },
   {
     icon: BookOpen,
     title: 'Do It Yourself',
-    subtitle: 'Zero to Hero Course',
-    desc: '24+ hours of Techno-Funda investing content in Hinglish. Taught by Shubham Sethi. Learn fundamental + technical analysis, pick winning companies, and manage your own portfolio.',
+    subtitle: 'Zero to Hero Masterclass',
+    desc: '24+ hours of structured Techno-Funda investing modules. Screening moats, stage analysis, and institutional post-earnings drift (PEAD).',
     badge: '₹14,999',
-    badgeColor: 'badge-primary',
   },
   {
     icon: BarChart3,
-    title: 'Techno-Funda Tools',
-    subtitle: 'Market Mood · Master Tracker · PEAD · Vahan',
-    desc: 'Premium analytics tools: Bull/Bear market sentiment gauge, curated quality watchlist, post-earnings drift screen, and VAHAN vehicle-registration alternative data.',
+    title: 'Techno-Funda Research Room',
+    subtitle: 'Valuation Lab · Buybacks · Results · Shareholding',
+    desc: 'Institutional analytics suite: DCF Valuation Lab, tender offer buyback arbitrage, quarterly earnings surprises, and bulk delivery trackers.',
     badge: '1-Year Access',
-    badgeColor: 'badge-editorial',
   },
   {
     icon: Radio,
     title: 'Live Case Studies',
-    subtitle: 'Weekly Zoom Sessions',
-    desc: 'Join live weekly Zoom sessions where real companies and quarterly results are analysed together. Access recording replays anytime.',
+    subtitle: 'Weekly Zoom Workshops',
+    desc: 'Live masterclasses breaking down real-time market setups with CMT & CFA charterholders. Includes full video replays and slide decks.',
     badge: 'Included',
-    badgeColor: 'badge-accent',
   },
 ];
 
 const STATS = [
   { value: '₹14,999', label: 'Course Price (₹75K listed)' },
-  { value: '24+', label: 'Hours of Course Content' },
-  { value: '1 Year', label: 'Tools & Webinar Access' },
+  { value: '24+', label: 'Hours of Curriculum Video' },
+  { value: '1 Year', label: 'Research Room Access' },
   { value: 'ARN-350272', label: 'AMFI Registered Distributor' },
 ];
 
 export default function HomePage() {
   return (
-    <main style={{ minHeight: '100dvh', overflowX: 'hidden' }}>
-      {/* ── Nav ─────────────────────────────────────────────────────── */}
-      <nav style={{
-        position: 'sticky', top: 0, zIndex: 'var(--z-nav)',
-        background: 'hsl(222, 47%, 7%, 0.85)',
-        backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid var(--bg-border)',
-        padding: 'var(--space-4) 0',
-      }}>
-        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <div style={{
-              width: 36, height: 36,
-              background: 'linear-gradient(135deg, var(--color-primary), var(--color-accent))',
-              borderRadius: 'var(--radius-md)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18, fontWeight: 800, color: 'white',
-            }}>FF</div>
-            <span style={{ fontWeight: 700, fontSize: 'var(--font-size-lg)', color: 'var(--text-primary)' }}>
-              FinanciallyFree
-            </span>
+    <SidebarLayout activePath="/">
+      <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+        <StaticSnapshotBanner
+          datasetName="Aureus Research & Wealth Platform"
+          sourceNotes="Market intelligence, goal planning algorithms, and LMS educational content operated under AMFI ARN-350272."
+        />
+
+        {/* Hero Section */}
+        <div
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-xl)',
+            padding: 'clamp(var(--space-8), 5vw, var(--space-12))',
+            boxShadow: 'var(--shadow-sm)',
+            marginBottom: 'var(--space-8)',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            className="category-tag"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              marginBottom: 'var(--space-4)',
+            }}
+          >
+            <Shield size={14} />
+            <span>AMFI-REGISTERED DISTRIBUTOR · ARN-350272</span>
           </div>
 
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-            <Link href="/auth/login" className="btn btn-ghost btn-sm">Log in</Link>
-            <Link href="/auth/register" className="btn btn-primary btn-sm">Get Started</Link>
-          </div>
-        </div>
-      </nav>
+          <h1
+            className="font-serif"
+            style={{
+              fontSize: 'clamp(2.25rem, 4.5vw, 3.25rem)',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              lineHeight: 1.15,
+              maxWidth: '800px',
+              margin: '0 auto var(--space-4)',
+            }}
+          >
+            Har Rupaye Ko Ek Maqsad Do
+          </h1>
 
-      {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <section style={{
-        padding: 'var(--space-20) 0 var(--space-16)',
-        background: `
-          radial-gradient(ellipse 80% 60% at 50% -20%, hsl(221, 83%, 53%, 0.2), transparent),
-          radial-gradient(ellipse 50% 40% at 80% 80%, hsl(158, 64%, 42%, 0.1), transparent)
-        `,
-        textAlign: 'center',
-      }}>
-        <div className="container">
-          <div style={{ maxWidth: 720, margin: '0 auto' }}>
-            <div className="badge badge-accent animate-fade-in" style={{ marginBottom: 'var(--space-4)', display: 'inline-flex' }}>
-              <Shield size={12} />
-              AMFI-Registered Distributor · ARN-350272
-            </div>
-
-            <h1 className="animate-slide-up" style={{ marginBottom: 'var(--space-5)', animationDelay: '0.1s' }}>
-              Har Rupaye Ko{' '}
-              <span className="gradient-text">Ek Maqsad Do</span>
-            </h1>
-
-            <p style={{
-              fontSize: 'var(--font-size-lg)',
+          <p
+            style={{
+              fontSize: 'var(--text-base)',
               color: 'var(--text-secondary)',
-              maxWidth: 560,
+              maxWidth: '620px',
               margin: '0 auto var(--space-8)',
-              lineHeight: 1.7,
-              animationDelay: '0.2s',
-            }} className="animate-fade-in">
-              Goal-based SIP investing for real people — Emergency Fund, Retirement, Child Education,
-              Wealth Creation. Plus a Techno-Funda course and premium market tools.
-            </p>
+              lineHeight: 1.6,
+            }}
+          >
+            Goal-based mutual fund investing engineered for disciplined wealth accumulation — Emergency Fund, Retirement, Child Education, and Wealth Creation. Combined with institutional Techno-Funda research tools.
+          </p>
 
-            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link href="/auth/register" className="btn btn-primary btn-lg animate-fade-in">
-                Start Your First Goal
-                <ArrowRight size={18} />
-              </Link>
-              <Link href="/auth/login" className="btn btn-outline btn-lg animate-fade-in" style={{ animationDelay: '0.15s' }}>
-                Explore the Course
-              </Link>
-            </div>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link
+              href="/dashboard/goals"
+              className="btn btn-primary"
+              style={{ textDecoration: 'none', padding: '12px 24px' }}
+            >
+              <span>Launch Goal Planner</span>
+              <ArrowRight size={16} />
+            </Link>
+            <Link
+              href="/techno-funda"
+              className="btn btn-outline"
+              style={{ textDecoration: 'none', padding: '12px 24px' }}
+            >
+              <span>Explore Research Room</span>
+            </Link>
           </div>
         </div>
-      </section>
 
-      {/* ── Stats Bar ────────────────────────────────────────────────── */}
-      <section style={{ padding: 'var(--space-8) 0', borderTop: '1px solid var(--bg-border)', borderBottom: '1px solid var(--bg-border)' }}>
-        <div className="container">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-6)' }}>
-            {STATS.map((stat) => (
-              <div key={stat.label} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 800, color: 'var(--color-primary-light)' }}>{stat.value}</div>
-                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginTop: 4 }}>{stat.label}</div>
+        {/* Stats Grid */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: 'var(--space-4)',
+            marginBottom: 'var(--space-8)',
+          }}
+        >
+          {STATS.map((stat) => (
+            <div
+              key={stat.label}
+              style={{
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-xl)',
+                padding: 'var(--space-6)',
+                textAlign: 'center',
+                boxShadow: 'var(--shadow-sm)',
+              }}
+            >
+              <div
+                className="font-serif"
+                style={{
+                  fontSize: 'var(--text-2xl)',
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  marginBottom: '4px',
+                }}
+              >
+                {stat.value}
               </div>
-            ))}
-          </div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>{stat.label}</div>
+            </div>
+          ))}
         </div>
-      </section>
 
-      {/* ── Goal Tiles ───────────────────────────────────────────────── */}
-      <section style={{ padding: 'var(--space-16) 0' }}>
-        <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: 'var(--space-10)' }}>
-            <h2>Pick Your <span className="gradient-text">Goal</span></h2>
-            <p style={{ marginTop: 'var(--space-3)', color: 'var(--text-secondary)' }}>
-              Answer 3 quick questions. Get your monthly SIP in under 2 minutes.
+        {/* Goal Tiles Grid */}
+        <div style={{ marginBottom: 'var(--space-10)' }}>
+          <div style={{ marginBottom: 'var(--space-6)' }}>
+            <div className="category-tag">SYSTEMATIC CAPITAL ALLOCATION</div>
+            <h2
+              className="font-serif"
+              style={{
+                fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                margin: '4px 0',
+              }}
+            >
+              Pick Your Goal & Simulate Your Horizon
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', margin: 0 }}>
+              Answer 3 quick financial parameters. Calculate required monthly SIP in under 2 minutes.
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-4)' }}>
-            {GOAL_TILES.map((tile, i) => (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: 'var(--space-4)',
+            }}
+          >
+            {GOAL_TILES.map((tile) => (
               <Link
                 key={tile.id}
                 href={tile.href}
-                className="glass-card"
                 style={{
-                  display: 'flex', flexDirection: 'column', gap: 'var(--space-3)',
-                  textDecoration: 'none', cursor: 'pointer',
-                  animationDelay: `${i * 0.08}s`,
-                  borderLeft: `3px solid ${tile.color}`,
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                  borderTop: `4px solid ${tile.color}`,
+                  borderRadius: 'var(--radius-xl)',
+                  padding: 'var(--space-6)',
+                  boxShadow: 'var(--shadow-sm)',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                 }}
               >
-                <span style={{ fontSize: 32 }}>{tile.emoji}</span>
                 <div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{tile.title}</div>
-                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>{tile.titleHi}</div>
+                  <div
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-surface-raised, #F4F1EA)',
+                      border: '1px solid var(--border-color)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: tile.color,
+                      marginBottom: 'var(--space-4)',
+                    }}
+                  >
+                    <tile.icon size={20} />
+                  </div>
+                  <h3
+                    className="font-serif"
+                    style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '2px' }}
+                  >
+                    {tile.title}
+                  </h3>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)' }}>
+                    {tile.titleHi}
+                  </div>
+                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 var(--space-4)' }}>
+                    {tile.desc}
+                  </p>
                 </div>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>{tile.desc}</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', color: tile.color, fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
-                  Calculate SIP <ArrowRight size={14} />
+
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    color: tile.color,
+                    fontSize: 'var(--text-xs)',
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>Calculate SIP</span>
+                  <ArrowRight size={14} />
                 </div>
               </Link>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* ── Features ─────────────────────────────────────────────────── */}
-      <section style={{ padding: 'var(--space-16) 0', background: 'var(--bg-surface)' }}>
-        <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: 'var(--space-10)' }}>
-            <h2>Everything You Need to <span className="gradient-text">Grow</span></h2>
+        {/* Platform Pillars */}
+        <div style={{ marginBottom: 'var(--space-10)' }}>
+          <div style={{ marginBottom: 'var(--space-6)' }}>
+            <div className="category-tag">ECOSYSTEM ARCHITECTURE</div>
+            <h2
+              className="font-serif"
+              style={{
+                fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                margin: '4px 0',
+              }}
+            >
+              Everything You Need to Compound Capital
+            </h2>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--space-4)' }}>
             {FEATURES.map((f) => (
-              <div key={f.title} className="glass-card" style={{ display: 'flex', gap: 'var(--space-5)', alignItems: 'flex-start' }}>
-                <div style={{
-                  width: 48, height: 48, flexShrink: 0,
-                  background: 'var(--color-primary-muted)',
-                  borderRadius: 'var(--radius-md)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <f.icon size={22} color="var(--color-primary-light)" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
-                    <h3 style={{ fontSize: 'var(--font-size-lg)' }}>{f.title}</h3>
-                    <span className={`badge ${f.badgeColor}`}>{f.badge}</span>
+              <div
+                key={f.title}
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-xl)',
+                  padding: 'var(--space-6)',
+                  boxShadow: 'var(--shadow-sm)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
+                    <div
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: 'var(--radius-lg)',
+                        background: 'var(--bg-surface-raised)',
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--color-accent)',
+                      }}
+                    >
+                      <f.icon size={20} />
+                    </div>
+                    <span className="badge-muted" style={{ fontWeight: 600 }}>
+                      {f.badge}
+                    </span>
                   </div>
-                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-accent)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>{f.subtitle}</div>
-                  <p style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>{f.desc}</p>
+
+                  <h3
+                    className="font-serif"
+                    style={{ fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '2px' }}
+                  >
+                    {f.title}
+                  </h3>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-accent)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>
+                    {f.subtitle}
+                  </div>
+                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+                    {f.desc}
+                  </p>
                 </div>
               </div>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* ── Trust & Compliance ────────────────────────────────────────── */}
-      <section style={{ padding: 'var(--space-12) 0', borderTop: '1px solid var(--bg-border)' }}>
-        <div className="container">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', alignItems: 'center', textAlign: 'center' }}>
-            <Award size={24} color="var(--text-muted)" />
-            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', maxWidth: 640, lineHeight: 1.7 }}>
-              Operated by <strong style={{ color: 'var(--text-secondary)' }}>FutureZenith Insights LLP</strong> · AMFI-registered Mutual Fund Distributor · ARN-350272 ·
-              Mutual Fund investments are subject to market risk. Read all scheme-related documents carefully before investing.
-              This platform provides education and goal-based distribution services; it does not provide personalised buy/sell recommendations.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA ──────────────────────────────────────────────────────── */}
-      <section style={{
-        padding: 'var(--space-16) 0',
-        background: `linear-gradient(135deg, hsl(221, 83%, 53%, 0.1), hsl(158, 64%, 42%, 0.08))`,
-        textAlign: 'center',
-      }}>
-        <div className="container">
-          <Users size={40} color="var(--color-primary-light)" style={{ margin: '0 auto var(--space-4)' }} />
-          <h2 style={{ marginBottom: 'var(--space-4)' }}>Ready to Start?</h2>
-          <p style={{ marginBottom: 'var(--space-8)' }}>
-            Create your free account. Pick a goal. Get your SIP in 2 minutes.
+        {/* Trust & Statutory Compliance */}
+        <div
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-xl)',
+            padding: 'var(--space-8)',
+            boxShadow: 'var(--shadow-sm)',
+            textAlign: 'center',
+            marginBottom: 'var(--space-8)',
+          }}
+        >
+          <Award size={28} color="#D97706" style={{ margin: '0 auto var(--space-3)' }} />
+          <div className="category-tag">STATUTORY REGULATORY DISCLOSURE</div>
+          <p
+            style={{
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-secondary)',
+              maxWidth: '680px',
+              margin: 'var(--space-2) auto 0',
+              lineHeight: 1.7,
+            }}
+          >
+            Operated by <strong style={{ color: 'var(--text-primary)' }}>FutureZenith Insights LLP</strong> · AMFI-registered Mutual Fund Distributor · ARN-350272. Mutual Fund investments are subject to market risks, read all scheme-related documents carefully.
           </p>
-          <Link href="/auth/register" className="btn btn-primary btn-lg animate-pulse-glow">
-            Create Free Account
-            <ArrowRight size={18} />
-          </Link>
         </div>
-      </section>
-    </main>
+      </div>
+    </SidebarLayout>
   );
 }

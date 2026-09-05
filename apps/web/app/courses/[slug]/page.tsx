@@ -10,6 +10,8 @@ import {
   Award,
   Sparkles,
 } from 'lucide-react';
+import { SidebarLayout } from '../../../components/sidebar-layout';
+import { StaticSnapshotBanner } from '../../../components/static-snapshot-banner';
 
 export default function CourseDetailPage() {
   const course = {
@@ -50,180 +52,217 @@ export default function CourseDetailPage() {
   };
 
   return (
-    <div style={{ maxWidth: '1000px', margin: 'var(--space-10) auto', padding: '0 var(--space-6)' }}>
-      {/* Course Hero Banner */}
-      <div
-        style={{
-          background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.8) 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: 'var(--radius-xl)',
-          padding: 'var(--space-8)',
-          marginBottom: 'var(--space-8)',
-        }}
-      >
+    <SidebarLayout activePath="/courses">
+      <div style={{ maxWidth: '1040px', margin: '0 auto', width: '100%' }}>
+        <StaticSnapshotBanner
+          datasetName="Aureus Syllabus Architecture"
+          sourceNotes="Structured curriculum aligned with SEBI guidelines for retail education and systematic equity execution."
+        />
+
+        {/* Course Hero Banner */}
         <div
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            color: 'var(--color-primary-400)',
-            fontSize: 'var(--text-xs)',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            marginBottom: 'var(--space-2)',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-xl)',
+            padding: 'clamp(var(--space-6), 4vw, var(--space-8))',
+            marginBottom: 'var(--space-8)',
+            boxShadow: 'var(--shadow-sm)',
           }}
         >
-          <Sparkles size={14} />
-          <span>Flagship Curriculum</span>
-        </div>
-        <h1 style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginBottom: 'var(--space-4)' }}>
-          {course.title}
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-base)', maxWidth: '720px', marginBottom: 'var(--space-6)' }}>
-          {course.description}
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-6)', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-6)' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Clock size={16} />
-            {course.duration} on-demand video
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <BookOpen size={16} />
-            {course.totalLessons} lessons & assignments
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Award size={16} />
-            Verifiable Completion Certificate
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
-          <Link
-            href="/courses/techno-funda-masterclass/lesson/1"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '12px 24px',
-              borderRadius: 'var(--radius-lg)',
-              background: 'linear-gradient(135deg, var(--color-primary-500), var(--color-secondary-500))',
-              color: '#ffffff',
-              fontWeight: 700,
-              fontSize: 'var(--text-sm)',
-              textDecoration: 'none',
-              boxShadow: '0 4px 14px rgba(14, 165, 233, 0.3)',
-            }}
-          >
-            <PlayCircle size={18} />
-            <span>Start Learning (Free Preview)</span>
-          </Link>
-          <Link
-            href="/checkout/diy-masterclass"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '12px 20px',
-              borderRadius: 'var(--radius-lg)',
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: 'var(--text-primary)',
-              fontSize: 'var(--text-sm)',
-              fontWeight: 600,
-              textDecoration: 'none',
-            }}
-          >
-            <span>Unlock Lifetime Access (₹14,999)</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* Curriculum Syllabus Accordion */}
-      <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>
-        Course Curriculum & Lessons
-      </h3>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        {course.modules.map((mod, mIdx) => (
-          <div
-            key={mod.id}
-            style={{
-              background: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: 'var(--radius-xl)',
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ padding: 'var(--space-6)', borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
-              <span style={{ fontSize: '11px', color: 'var(--color-primary-400)', fontWeight: 600 }}>
-                Module {mIdx + 1}
-              </span>
-              <h4 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, marginTop: '2px' }}>{mod.title}</h4>
-              <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)', marginTop: '2px' }}>
-                {mod.description}
-              </p>
-            </div>
-
-            <div style={{ padding: 'var(--space-4) var(--space-6)' }}>
-              {mod.lessons.map((lesson) => (
-                <div
-                  key={lesson.id}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '12px 0',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {lesson.isPreview ? (
-                      <PlayCircle size={16} color="var(--color-primary-400)" />
-                    ) : (
-                      <Lock size={16} color="var(--text-muted)" />
-                    )}
-                    <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{lesson.title}</span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{lesson.duration}</span>
-                    {lesson.isPreview ? (
-                      <Link
-                        href={`/courses/techno-funda-masterclass/lesson/${lesson.id}`}
-                        style={{
-                          fontSize: '11px',
-                          color: 'var(--color-primary-400)',
-                          background: 'rgba(14, 165, 233, 0.1)',
-                          padding: '3px 8px',
-                          borderRadius: 'var(--radius-sm)',
-                          textDecoration: 'none',
-                          fontWeight: 600,
-                        }}
-                      >
-                        Free Preview
-                      </Link>
-                    ) : (
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          color: 'var(--text-muted)',
-                          background: 'rgba(255, 255, 255, 0.04)',
-                          padding: '3px 8px',
-                          borderRadius: 'var(--radius-sm)',
-                        }}
-                      >
-                        Enrolled Only
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="category-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <Sparkles size={13} />
+            <span>FLAGSHIP CURRICULUM</span>
           </div>
-        ))}
+          <h1
+            className="font-serif"
+            style={{
+              fontSize: 'clamp(1.85rem, 4vw, 2.5rem)',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              marginBottom: 'var(--space-3)',
+              lineHeight: 1.2,
+            }}
+          >
+            {course.title}
+          </h1>
+          <p
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: 'var(--text-base)',
+              maxWidth: '720px',
+              marginBottom: 'var(--space-6)',
+              lineHeight: 1.6,
+            }}
+          >
+            {course.description}
+          </p>
+
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 'var(--space-4)',
+              color: 'var(--text-secondary)',
+              fontSize: 'var(--text-xs)',
+              marginBottom: 'var(--space-6)',
+            }}
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Clock size={16} color="var(--color-accent)" />
+              {course.duration} on-demand video
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <BookOpen size={16} color="var(--color-accent)" />
+              {course.totalLessons} lessons & assignments
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Award size={16} color="var(--color-accent)" />
+              Verifiable Completion Certificate
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+            <Link
+              href="/courses/techno-funda-masterclass/lesson/1"
+              className="btn btn-primary"
+              style={{
+                textDecoration: 'none',
+              }}
+            >
+              <PlayCircle size={16} />
+              <span>Start Learning (Free Preview)</span>
+            </Link>
+            <Link
+              href="/checkout/diy-masterclass"
+              className="btn btn-outline"
+              style={{
+                textDecoration: 'none',
+              }}
+            >
+              <span>Unlock Lifetime Access (₹14,999)</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Curriculum Syllabus Header */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 'var(--space-4)',
+          }}
+        >
+          <h2
+            className="font-serif"
+            style={{
+              fontSize: 'clamp(1.25rem, 2.5vw, 1.5rem)',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+            }}
+          >
+            Course Curriculum & Lessons
+          </h2>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+            {course.modules.length} Modules · {course.totalLessons} Lessons
+          </span>
+        </div>
+
+        {/* Modules List */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginBottom: 'var(--space-12)' }}>
+          {course.modules.map((mod, mIdx) => (
+            <div
+              key={mod.id}
+              style={{
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-xl)',
+                boxShadow: 'var(--shadow-sm)',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  padding: 'var(--space-4) var(--space-6)',
+                  borderBottom: '1px solid var(--border-color)',
+                  background: 'var(--bg-surface-raised)',
+                }}
+              >
+                <span className="category-tag">
+                  Module {mIdx + 1}
+                </span>
+                <h3
+                  className="font-serif"
+                  style={{ fontSize: 'var(--text-base)', fontWeight: 700, marginTop: '2px', color: 'var(--text-primary)' }}
+                >
+                  {mod.title}
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)', marginTop: '2px', margin: 0 }}>
+                  {mod.description}
+                </p>
+              </div>
+
+              <div style={{ padding: 'var(--space-2) var(--space-6)' }}>
+                {mod.lessons.map((lesson) => (
+                  <div
+                    key={lesson.id}
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 'var(--space-2)',
+                      padding: '14px 0',
+                      borderBottom: '1px solid #F0ECE1',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 220px' }}>
+                      {lesson.isPreview ? (
+                        <PlayCircle size={18} color="var(--color-accent)" style={{ flexShrink: 0 }} />
+                      ) : (
+                        <Lock size={18} color="#94A3B8" style={{ flexShrink: 0 }} />
+                      )}
+                      <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-primary)' }}>
+                        {lesson.title}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>{lesson.duration}</span>
+                      {lesson.isPreview ? (
+                        <Link
+                          href={`/courses/techno-funda-masterclass/lesson/${lesson.id}`}
+                          className="badge-muted"
+                          style={{
+                            color: 'var(--color-accent)',
+                            background: '#F0FDF4',
+                            border: '1px solid #BBF7D0',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          Free Preview
+                        </Link>
+                      ) : (
+                        <span
+                          className="badge-muted"
+                          style={{
+                            color: '#64748B',
+                            background: '#F1F5F9',
+                            border: '1px solid #E2E8F0',
+                          }}
+                        >
+                          Enrolled Only
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </SidebarLayout>
   );
 }

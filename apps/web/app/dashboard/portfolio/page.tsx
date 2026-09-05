@@ -4,64 +4,83 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Layers,
-  ArrowUpRight,
   ArrowRight,
+  ArrowUpRight,
 } from 'lucide-react';
+import { SidebarLayout } from '../../../components/sidebar-layout';
+import { StaticSnapshotBanner } from '../../../components/static-snapshot-banner';
 
-interface Holding {
+interface FolioHolding {
+  schemeCode: string;
   schemeName: string;
   amcName: string;
   folioNo: string;
   units: number;
-  navCurrent: number;
-  investedAmount: number;
+  nav: number;
   currentValue: number;
+  investedAmount: number;
   gain: number;
   gainPct: number;
   goalName: string;
 }
 
-const DEFAULT_HOLDINGS: Holding[] = [
+const INITIAL_HOLDINGS: FolioHolding[] = [
   {
+    schemeCode: '119551',
     schemeName: 'Parag Parikh Flexi Cap Fund - Direct Plan - Growth',
     amcName: 'PPFAS Mutual Fund',
-    folioNo: 'FOLIO_PPFA_98231',
-    units: 363.85,
-    navCurrent: 82.45,
-    investedAmount: 25000,
-    currentValue: 30000,
-    gain: 5000,
-    gainPct: 20.0,
+    folioNo: '10928374/01',
+    units: 324.52,
+    nav: 78.42,
+    currentValue: 25448.86,
+    investedAmount: 20000.0,
+    gain: 5448.86,
+    gainPct: 27.24,
     goalName: 'Early Retirement (FIRE 45)',
   },
   {
-    schemeName: 'Mirae Asset Large Cap Fund - Direct Plan - Growth',
+    schemeCode: '120503',
+    schemeName: 'Mirae Asset Large & Midcap Fund - Direct Plan - Growth',
     amcName: 'Mirae Asset Mutual Fund',
-    folioNo: 'FOLIO_MIRA_77142',
-    units: 142.37,
-    navCurrent: 112.38,
-    investedAmount: 14000,
-    currentValue: 16000,
-    gain: 2000,
-    gainPct: 14.28,
-    goalName: '3BHK Villa Down Payment',
+    folioNo: '98472910/02',
+    units: 185.12,
+    nav: 124.8,
+    currentValue: 23102.97,
+    investedAmount: 18000.0,
+    gain: 5102.97,
+    gainPct: 28.35,
+    goalName: "Aarav's Overseas Masters Degree",
   },
   {
-    schemeName: 'Nippon India Small Cap Fund - Direct Plan - Growth',
-    amcName: 'Nippon India Mutual Fund',
-    folioNo: 'FOLIO_NIPP_33890',
-    units: 68.72,
-    navCurrent: 174.62,
-    investedAmount: 10000,
-    currentValue: 12000,
-    gain: 2000,
-    gainPct: 20.0,
-    goalName: "Aarav's Overseas Masters Degree",
+    schemeCode: '125497',
+    schemeName: 'SBI Small Cap Fund - Direct Plan - Growth',
+    amcName: 'SBI Funds Management',
+    folioNo: '44738291/03',
+    units: 82.4,
+    nav: 165.25,
+    currentValue: 13616.6,
+    investedAmount: 10000.0,
+    gain: 3616.6,
+    gainPct: 36.17,
+    goalName: 'Wealth Alpha Creation',
+  },
+  {
+    schemeCode: '118989',
+    schemeName: 'HDFC Liquid Fund - Direct Plan - Growth',
+    amcName: 'HDFC AMC',
+    folioNo: '55667788/04',
+    units: 5.12,
+    nav: 4621.5,
+    currentValue: 23662.08,
+    investedAmount: 23000.0,
+    gain: 662.08,
+    gainPct: 2.88,
+    goalName: 'Emergency Reserve Fund',
   },
 ];
 
 export default function PortfolioPage() {
-  const [holdings, setHoldings] = useState<Holding[]>(DEFAULT_HOLDINGS);
+  const [holdings, setHoldings] = useState<FolioHolding[]>(INITIAL_HOLDINGS);
 
   useEffect(() => {
     const saved = localStorage.getItem('ff_portfolio');
@@ -69,22 +88,23 @@ export default function PortfolioPage() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const userHoldings: Holding[] = parsed.map((p, idx) => ({
-            schemeName: p.schemeName,
-            amcName: p.amcName,
-            folioNo: `FOLIO_BSE_${idx + 100}`,
-            units: 121.34,
-            navCurrent: 82.45,
-            investedAmount: p.sipAmount,
-            currentValue: Math.round(p.sipAmount * 1.05),
-            gain: Math.round(p.sipAmount * 0.05),
+          const formatted: FolioHolding[] = parsed.map((item: any, idx: number) => ({
+            schemeCode: item.schemeCode || `SCH_${idx}`,
+            schemeName: item.schemeName || 'Active Mutual Fund Scheme',
+            amcName: item.amcName || 'Registered AMC',
+            folioNo: `BSE_${Math.floor(10000000 + Math.random() * 90000000)}/01`,
+            units: 50.0,
+            nav: (item.sipAmount || 5000) / 50.0,
+            currentValue: (item.sipAmount || 5000) * 1.05,
+            investedAmount: item.sipAmount || 5000,
+            gain: (item.sipAmount || 5000) * 0.05,
             gainPct: 5.0,
-            goalName: p.goalName,
+            goalName: item.goalName || 'Wealth Goal',
           }));
-          setHoldings([...DEFAULT_HOLDINGS, ...userHoldings]);
+          setHoldings([...INITIAL_HOLDINGS, ...formatted]);
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        console.error('Error parsing local portfolio', e);
       }
     }
   }, []);
@@ -95,200 +115,176 @@ export default function PortfolioPage() {
   const overallReturnPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
 
   return (
-    <div style={{ maxWidth: '1280px', margin: '0 auto', padding: 'var(--space-8) var(--space-6)' }}>
-      {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 'var(--space-4)',
-          marginBottom: 'var(--space-8)',
-        }}
-      >
-        <div>
-          <div
+    <SidebarLayout>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        {/* Static Snapshot Banner */}
+        <StaticSnapshotBanner
+          datasetNote="Aureus demo dataset - last modeled 02 Sep 2026"
+          sourceNote="Not live market data or investment advice."
+        />
+
+        {/* Header */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 'var(--space-4)',
+            marginBottom: 'var(--space-8)',
+          }}
+        >
+          <div>
+            <div className="category-tag">
+              <Layers size={13} />
+              <span>PORTFOLIO INTELLIGENCE / ASSET ALLOCATION</span>
+            </div>
+            <h1
+              className="font-serif"
+              style={{
+                fontSize: 'clamp(2rem, 3.5vw, 2.75rem)',
+                fontWeight: 700,
+                color: 'var(--text-primary, #111827)',
+                marginBottom: '6px',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              Mutual Fund Portfolio
+            </h1>
+            <p style={{ color: 'var(--text-secondary, #4B5563)', fontSize: 'var(--text-sm)', maxWidth: '640px' }}>
+              Real-time portfolio tracking across AMCs executed via BSE StAR MF.
+            </p>
+          </div>
+
+          <Link
+            href="/dashboard/invest"
+            className="btn btn-primary"
             style={{
+              minHeight: '38px',
+              padding: '8px 20px',
+              fontSize: '13px',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              color: 'var(--color-primary-400)',
-              fontSize: 'var(--text-xs)',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              marginBottom: '4px',
             }}
           >
-            <Layers size={14} />
-            <span>Goal-Linked Folio Holdings</span>
-          </div>
-          <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 800 }}>
-            Mutual Fund Portfolio
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-            Real-time portfolio tracking across AMCs executed via BSE StAR MF.
-          </p>
+            <span>Start New SIP</span>
+            <ArrowRight size={14} />
+          </Link>
         </div>
 
-        <Link
-          href="/dashboard/invest"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '12px 20px',
-            borderRadius: 'var(--radius-lg)',
-            background: 'linear-gradient(135deg, var(--color-primary-500), var(--color-secondary-500))',
-            color: '#ffffff',
-            fontWeight: 700,
-            fontSize: 'var(--text-sm)',
-            textDecoration: 'none',
-          }}
-        >
-          <span>Start New SIP</span>
-          <ArrowRight size={16} />
-        </Link>
-      </div>
-
-      {/* Portfolio Performance Summary Cards */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: 'var(--space-4)',
-          marginBottom: 'var(--space-8)',
-        }}
-      >
+        {/* Portfolio Performance Summary Cards */}
         <div
           style={{
-            background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: 'var(--radius-xl)',
-            padding: 'var(--space-6)',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+            gap: 'var(--space-4)',
+            marginBottom: 'var(--space-8)',
           }}
         >
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Current Value</span>
-          <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: '4px', color: '#ffffff' }}>
-            ₹{totalCurrentValue.toLocaleString('en-IN')}
+          <div className="card">
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted, #6B7280)' }}>Current Value</span>
+            <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: '4px', color: 'var(--text-primary, #111827)' }}>
+              ₹{totalCurrentValue.toLocaleString('en-IN')}
+            </div>
+            <div style={{ fontSize: '11px', color: '#16A34A', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+              <ArrowUpRight size={14} />
+              <span>+{overallReturnPct.toFixed(2)}% Overall Returns</span>
+            </div>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--color-success-400)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <ArrowUpRight size={14} />
-            <span>+{overallReturnPct.toFixed(2)}% Overall Returns</span>
+
+          <div className="card">
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted, #6B7280)' }}>Total Invested</span>
+            <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: '4px', color: 'var(--text-primary, #111827)' }}>
+              ₹{totalInvested.toLocaleString('en-IN')}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary, #4B5563)', marginTop: '4px' }}>
+              Across {holdings.length} Folio Holdings
+            </div>
+          </div>
+
+          <div className="card">
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted, #6B7280)' }}>Total Gain</span>
+            <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: '4px', color: '#16A34A' }}>
+              +₹{totalGain.toLocaleString('en-IN')}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary, #4B5563)', marginTop: '4px' }}>
+              Unrealized Capital Gains
+            </div>
+          </div>
+
+          <div className="card">
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted, #6B7280)' }}>Portfolio XIRR</span>
+            <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: '4px', color: 'var(--color-primary, #0F172A)' }}>
+              18.4%
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary, #4B5563)', marginTop: '4px' }}>
+              Annualized Cashflow Return
+            </div>
           </div>
         </div>
 
+        {/* Holdings Table */}
         <div
+          className="card table-scroll-container"
           style={{
-            background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: 'var(--radius-xl)',
             padding: 'var(--space-6)',
+            marginBottom: 'var(--space-8)',
           }}
         >
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Total Invested</span>
-          <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: '4px' }}>
-            ₹{totalInvested.toLocaleString('en-IN')}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+            <h3 className="font-serif" style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary, #111827)' }}>
+              Folio Holdings & Goal Mapping
+            </h3>
+            <span style={{ fontSize: '11px', color: '#6B7280' }}>BSE StAR MF Live Sync</span>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Across {holdings.length} Active Folios
-          </div>
-        </div>
 
-        <div
-          style={{
-            background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: 'var(--radius-xl)',
-            padding: 'var(--space-6)',
-          }}
-        >
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Total Net Gain</span>
-          <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: '4px', color: 'var(--color-success-400)' }}>
-            +₹{totalGain.toLocaleString('en-IN')}
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Unrealized Capital Gains
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: 'var(--radius-xl)',
-            padding: 'var(--space-6)',
-          }}
-        >
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Portfolio XIRR</span>
-          <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: '4px', color: 'var(--color-primary-400)' }}>
-            18.4%
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Annualized Cashflow Return
-          </div>
-        </div>
-      </div>
-
-      {/* Holdings Table */}
-      <div
-        style={{
-          background: 'rgba(255, 255, 255, 0.02)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: 'var(--radius-xl)',
-          padding: 'var(--space-8)',
-          overflowX: 'auto',
-        }}
-      >
-        <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>
-          Folio Holdings & Goal Mapping
-        </h3>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 'var(--text-sm)' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', color: 'var(--text-muted)' }}>
-              <th style={{ padding: '12px 8px' }}>Scheme Name</th>
-              <th style={{ padding: '12px 8px' }}>Mapped Goal</th>
-              <th style={{ padding: '12px 8px' }}>Units</th>
-              <th style={{ padding: '12px 8px' }}>Invested</th>
-              <th style={{ padding: '12px 8px' }}>Current Value</th>
-              <th style={{ padding: '12px 8px' }}>Returns</th>
-            </tr>
-          </thead>
-          <tbody>
-            {holdings.map((h, idx) => (
-              <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                <td style={{ padding: '14px 8px' }}>
-                  <div style={{ fontWeight: 600, color: '#ffffff' }}>{h.schemeName}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{h.folioNo} • {h.amcName}</div>
-                </td>
-                <td style={{ padding: '14px 8px' }}>
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      padding: '3px 8px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'rgba(14, 165, 233, 0.1)',
-                      border: '1px solid rgba(14, 165, 233, 0.2)',
-                      color: 'var(--color-primary-300)',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {h.goalName}
-                  </span>
-                </td>
-                <td style={{ padding: '14px 8px', fontFamily: 'monospace' }}>{h.units.toFixed(2)}</td>
-                <td style={{ padding: '14px 8px' }}>₹{h.investedAmount.toLocaleString('en-IN')}</td>
-                <td style={{ padding: '14px 8px', fontWeight: 600 }}>₹{h.currentValue.toLocaleString('en-IN')}</td>
-                <td style={{ padding: '14px 8px', color: 'var(--color-success-400)', fontWeight: 600 }}>
-                  +₹{h.gain.toLocaleString('en-IN')} ({h.gainPct}%)
-                </td>
+          <table style={{ width: '100%', minWidth: '650px', borderCollapse: 'collapse', textAlign: 'left', fontSize: 'var(--text-sm)' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-color, #E8E4DC)', color: '#6B7280', fontSize: '12px' }}>
+                <th style={{ padding: '12px 8px', fontWeight: 600 }}>Scheme Name</th>
+                <th style={{ padding: '12px 8px', fontWeight: 600 }}>Mapped Goal</th>
+                <th style={{ padding: '12px 8px', fontWeight: 600 }}>Units</th>
+                <th style={{ padding: '12px 8px', fontWeight: 600 }}>Invested</th>
+                <th style={{ padding: '12px 8px', fontWeight: 600 }}>Current Value</th>
+                <th style={{ padding: '12px 8px', fontWeight: 600 }}>Returns</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {holdings.map((h, idx) => (
+                <tr key={idx} style={{ borderBottom: '1px solid #F0ECE3' }}>
+                  <td style={{ padding: '14px 8px' }}>
+                    <div style={{ fontWeight: 600, color: '#111827' }}>{h.schemeName}</div>
+                    <div style={{ fontSize: '11px', color: '#6B7280' }}>{h.folioNo} • {h.amcName}</div>
+                  </td>
+                  <td style={{ padding: '14px 8px' }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        padding: '3px 8px',
+                        borderRadius: 'var(--radius-sm, 4px)',
+                        background: '#F4F1EA',
+                        border: '1px solid #E8E4DC',
+                        color: '#374151',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {h.goalName}
+                    </span>
+                  </td>
+                  <td style={{ padding: '14px 8px', fontFamily: 'monospace', color: '#111827' }}>{h.units.toFixed(2)}</td>
+                  <td style={{ padding: '14px 8px', color: '#374151' }}>₹{h.investedAmount.toLocaleString('en-IN')}</td>
+                  <td style={{ padding: '14px 8px', fontWeight: 600, color: '#111827' }}>₹{h.currentValue.toLocaleString('en-IN')}</td>
+                  <td style={{ padding: '14px 8px', color: '#16A34A', fontWeight: 600 }}>
+                    +₹{h.gain.toLocaleString('en-IN')} ({h.gainPct}%)
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </SidebarLayout>
   );
 }

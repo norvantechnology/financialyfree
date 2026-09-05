@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Playfair_Display } from 'next/font/google';
 import '../styles/globals.css';
 
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-inter',
+});
+
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-serif',
 });
 
 export const metadata: Metadata = {
@@ -34,15 +40,13 @@ export const viewport: Viewport = {
 };
 
 import { LanguageProvider } from '../lib/i18n/language-context';
-import { Navbar } from '../components/navbar';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body>
+    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
+      <body style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
         <LanguageProvider>
-          <Navbar />
-          <main>{children}</main>
+          <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>{children}</main>
         </LanguageProvider>
       </body>
     </html>

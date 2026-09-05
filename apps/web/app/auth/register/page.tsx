@@ -4,54 +4,140 @@ import { RegisterForm } from './register-form';
 import { Shield } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Create Account',
-  description: 'Join FinanciallyFree — start your goal-based investing journey today',
+  title: 'Create Account | Aureus / FinanciallyFree Research Room',
+  description: 'Join FinanciallyFree — start your institutional research and goal planning today',
 };
 
 export default function RegisterPage() {
   return (
-    <div style={{
-      minHeight: '100dvh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 'var(--space-6)',
-      background: `
-        radial-gradient(ellipse 70% 50% at 50% 0%, hsl(158, 64%, 42%, 0.12), transparent),
-        var(--bg-base)
-      `,
-    }}>
-      <Link href="/" style={{ marginBottom: 'var(--space-8)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-        <div style={{
-          width: 40, height: 40,
-          background: 'linear-gradient(135deg, var(--color-primary), var(--color-accent))',
-          borderRadius: 'var(--radius-md)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontWeight: 800, color: 'white', fontSize: 18,
-        }}>FF</div>
-        <span style={{ fontWeight: 700, fontSize: 'var(--font-size-xl)', color: 'var(--text-primary)' }}>FinanciallyFree</span>
-      </Link>
+    <div
+      className="auth-wrapper"
+      style={{
+        background: 'var(--bg-base, #F8F6F1)',
+        minHeight: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 'var(--space-6) var(--space-4)',
+      }}
+    >
+      <div
+        className="card"
+        style={{
+          width: '100%',
+          maxWidth: '460px',
+          background: '#FFFFFF',
+          border: '1px solid var(--border-color, #E8E4DC)',
+          borderRadius: 'var(--radius-xl, 14px)',
+          padding: 'clamp(24px, 5vw, 36px)',
+          boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03)',
+        }}
+      >
+        <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
+          <Link
+            href="/"
+            style={{
+              display: 'inline-flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textDecoration: 'none',
+              marginBottom: '16px',
+            }}
+          >
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '50%',
+                border: '1.5px solid #D97706',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#F59E0B',
+                fontFamily: 'var(--font-serif)',
+                fontWeight: 700,
+                fontSize: '20px',
+                background: 'rgba(217, 119, 6, 0.08)',
+                marginBottom: '6px',
+              }}
+            >
+              A
+            </div>
+            <div
+              style={{
+                fontFamily: 'var(--font-serif)',
+                color: '#111827',
+                fontWeight: 700,
+                fontSize: '13px',
+                letterSpacing: '0.08em',
+              }}
+            >
+              AUREUS
+            </div>
+            <div
+              style={{
+                fontSize: '9px',
+                color: '#6B7280',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                fontWeight: 600,
+              }}
+            >
+              RESEARCH ROOM
+            </div>
+          </Link>
 
-      <div className="glass-card animate-slide-up" style={{ width: '100%', maxWidth: 440 }}>
-        <div style={{ marginBottom: 'var(--space-6)' }}>
-          <h1 style={{ fontSize: 'var(--font-size-2xl)', marginBottom: 'var(--space-1)' }}>Create your account</h1>
-          <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Free to join. Set your first goal in minutes.</p>
+          <h1
+            className="font-serif"
+            style={{
+              fontSize: '24px',
+              fontWeight: 700,
+              color: 'var(--text-primary, #111827)',
+              marginBottom: '4px',
+            }}
+          >
+            Create your account
+          </h1>
+          <p style={{ color: 'var(--text-secondary, #4B5563)', fontSize: '13px' }}>
+            Join the research room. Plan goals and model company valuations.
+          </p>
         </div>
 
         <RegisterForm />
 
-        <div style={{ textAlign: 'center', marginTop: 'var(--space-6)' }}>
-          <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>Already have an account? </span>
-          <Link href="/auth/login" style={{ color: 'var(--color-primary-light)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+        <div
+          style={{
+            marginTop: 'var(--space-6)',
+            textAlign: 'center',
+            fontSize: '13px',
+            color: 'var(--text-secondary, #4B5563)',
+            borderTop: '1px solid var(--border-color, #E8E4DC)',
+            paddingTop: 'var(--space-4)',
+          }}
+        >
+          Already have an account?{' '}
+          <Link
+            href="/auth/login"
+            style={{ color: 'var(--color-primary, #0F172A)', fontWeight: 600, textDecoration: 'underline' }}
+          >
             Sign in
           </Link>
         </div>
       </div>
 
-      <div style={{ marginTop: 'var(--space-6)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--text-muted)', fontSize: 'var(--font-size-xs)', textAlign: 'center', maxWidth: 380 }}>
-        <Shield size={12} style={{ flexShrink: 0 }} />
-        AMFI Distributor ARN-350272 · Education platform · Not investment advice · Mutual fund investments are subject to market risk
+      <div
+        style={{
+          marginTop: '20px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          color: 'var(--text-muted, #6B7280)',
+          fontSize: '11px',
+        }}
+      >
+        <Shield size={13} color="var(--color-accent, #0F766E)" />
+        <span>AMFI Registered Distributor ARN-350272 • India DPDP Act 2023 Compliant</span>
       </div>
     </div>
   );
