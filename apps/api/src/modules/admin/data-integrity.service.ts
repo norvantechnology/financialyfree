@@ -77,9 +77,9 @@ export const DATA_SOURCES_CATALOG: DataSourceDefinition[] = [
   },
   {
     sourceKey: 'news',
-    sourceName: 'Exchange Corporate Announcements Desk',
-    mode: 'STATIC_SEED',
-    upstreamRef: 'NSE Corporate Announcements & BSE Announcements Desk',
+    sourceName: 'Exchange Corporate Announcements & News Feed',
+    mode: 'LIVE_FETCH',
+    upstreamRef: 'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms (Live Indian Equities Announcements)',
   },
 ];
 
@@ -382,15 +382,56 @@ export class DataIntegrityService implements OnModuleInit {
         }
 
         case 'news': {
+          const feedUrl = 'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms';
+          const resp = await fetch(feedUrl, {
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
+              Accept: 'application/rss+xml, application/xml, text/xml',
+            },
+            signal: AbortSignal.timeout(10000),
+          });
+
+          if (!resp.ok) {
+            throw new Error(`Failed to fetch live news feed: HTTP ${resp.status}`);
+          }
+
+          const xml = await resp.text();
+          const items: Array<{ title: string; link: string; pubDate: string; description: string }> = [];
+          const itemMatches = xml.match(/<item>([\s\S]*?)<\/item>/g) || [];
+
+          for (const itemXml of itemMatches.slice(0, 6)) {
+            const titleMatch = itemXml.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/);
+            const linkMatch = itemXml.match(/<link>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/link>/);
+            const pubDateMatch = itemXml.match(/<pubDate>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/pubDate>/);
+            const descMatch = itemXml.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/);
+
+            if (titleMatch && titleMatch[1]) {
+              const cleanTitle = titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim();
+              const cleanLink = (linkMatch ? linkMatch[1] : '').replace(/<!\[CDATA\[|\]\]>/g, '').trim();
+              const cleanPubDate = (pubDateMatch ? pubDateMatch[1] : '').replace(/<!\[CDATA\[|\]\]>/g, '').trim();
+              const cleanDesc = (descMatch ? descMatch[1] : '')
+                .replace(/<!\[CDATA\[|\]\]>/g, '')
+                .replace(/<[^>]+>/g, '')
+                .trim()
+                .slice(0, 160);
+
+              items.push({
+                title: cleanTitle,
+                link: cleanLink,
+                pubDate: cleanPubDate || new Date().toISOString(),
+                description: cleanDesc,
+              });
+            }
+          }
+
           rawSnippet = JSON.stringify(
             {
-              deskName: 'NSE/BSE Corporate Announcements & Disclosures Feed',
-              curatedItems: [
-                { title: 'L&T wins large-scale transmission and rail package', source: 'Exchange announcement', published: '2h ago' },
-                { title: 'BSE derivatives volumes set another monthly record', source: 'Company release', published: '5h ago' },
-                { title: 'Indian IT demand signals improve in BFSI and cloud', source: 'Sector digest', published: 'Yesterday' },
-              ],
-              refreshedAt: new Date().toISOString(),
+              deskName: 'Live Economic Times & Exchange Announcements Feed',
+              feedSourceUrl: feedUrl,
+              itemsCount: items.length,
+              latestHeadlines: items,
+              retrievedAt: new Date().toISOString(),
             },
             null,
             2,
