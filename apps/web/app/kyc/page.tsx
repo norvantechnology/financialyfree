@@ -19,11 +19,11 @@ import { StaticSnapshotBanner } from '../../components/static-snapshot-banner';
 
 export default function KycOnboardingPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [pan, setPan] = useState('ABCDE1234F');
-  const [dob, setDob] = useState('15-08-1990');
-  const [aadhaarLast4, setAadhaarLast4] = useState('5678');
-  const [bankAccount, setBankAccount] = useState('50100234567890');
-  const [ifsc, setIfsc] = useState('HDFC0000060');
+  const [pan, setPan] = useState('');
+  const [dob, setDob] = useState('');
+  const [aadhaarLast4, setAadhaarLast4] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
+  const [ifsc, setIfsc] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [kraResult, setKraResult] = useState<{
@@ -34,6 +34,15 @@ export default function KycOnboardingPage() {
   } | null>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handleFillDemoKyc = () => {
+    setPan('ABCDE1234F');
+    setDob('15-08-1990');
+    setAadhaarLast4('5678');
+    setBankAccount('50100234567890');
+    setIfsc('HDFC0000060');
+    setErrors({});
+  };
 
   const handleVerifyPan = () => {
     const errs: Record<string, string> = {};
@@ -53,9 +62,18 @@ export default function KycOnboardingPage() {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
+      let investorName = 'VERIFIED INVESTOR';
+      try {
+        const u = JSON.parse(localStorage.getItem('user') || '{}');
+        if (u.first_name || u.last_name) {
+          investorName = `${u.first_name || ''} ${u.last_name || ''}`.trim().toUpperCase();
+        } else if (u.email) {
+          investorName = u.email.split('@')[0].toUpperCase();
+        }
+      } catch {}
       setKraResult({
         verified: true,
-        name: 'RAHUL SHARMA',
+        name: investorName,
         kra: 'CVL KRA (SEBI Registered)',
         ucc: `UCC_FF_${pan.slice(0, 5)}_${Date.now().toString(36).toUpperCase()}`,
       });
@@ -232,7 +250,30 @@ export default function KycOnboardingPage() {
         >
           {step === 1 && (
             <div>
-              <div className="category-tag">STEP 1 OF 3</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="category-tag">STEP 1 OF 3</div>
+                {process.env.NODE_ENV !== 'production' && (
+                  <button
+                    type="button"
+                    onClick={handleFillDemoKyc}
+                    style={{
+                      fontSize: '11px',
+                      padding: '4px 8px',
+                      background: '#F4F1EA',
+                      border: '1px solid #E8E4DC',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      color: '#4B5563',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <Sparkles size={12} color="#D97706" />
+                    <span>Autofill Demo KYC</span>
+                  </button>
+                )}
+              </div>
               <h2 className="font-serif" style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-2)' }}>
                 Enter PAN & Date of Birth
               </h2>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -9,7 +9,6 @@ import {
   Sliders,
   Activity,
   Target,
-  Layers,
   ChevronRight,
   RefreshCw,
   Calendar,
@@ -26,6 +25,10 @@ import {
   Bell,
   Menu,
   X,
+  Gauge,
+  BarChart3,
+  Truck,
+  LogOut,
 } from 'lucide-react';
 
 interface SidebarLayoutProps {
@@ -37,6 +40,25 @@ export function SidebarLayout({ children, activePath }: SidebarLayoutProps) {
   const pathname = usePathname();
   const currentPath = activePath || pathname;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState<{ email?: string; first_name?: string; last_name?: string; role?: string } | null>(null);
+  const [askAureusOpen, setAskAureusOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        setUser(JSON.parse(stored));
+      }
+    } catch {}
+  }, []);
+
+  const handleSignOut = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('accessToken');
+    setUser(null);
+    window.location.href = '/';
+  };
 
   const workspaceNav = [
     { label: 'Overview', href: '/', icon: LayoutDashboard },
@@ -49,14 +71,15 @@ export function SidebarLayout({ children, activePath }: SidebarLayoutProps) {
   ];
 
   const researchNav = [
-    { label: 'Valuation lab', href: '/techno-funda', icon: Activity },
+    { label: 'Valuation lab', href: '/techno-funda?tab=valuation', icon: Activity },
     { label: 'Stock universe', href: '/dashboard/invest', icon: Search },
-    { label: 'Big orders', href: '/techno-funda', icon: Layers },
-    { label: 'Demergers', href: '/techno-funda', icon: ChevronRight },
-    { label: 'Buybacks', href: '/techno-funda', icon: RefreshCw },
-    { label: 'Results calendar', href: '/techno-funda', icon: Calendar },
-    { label: 'Shareholding', href: '/techno-funda', icon: Shield },
-    { label: 'News & filings', href: '/techno-funda', icon: FileText },
+    { label: 'Market Mood', href: '/techno-funda?tab=mmi', icon: Gauge },
+    { label: 'PEAD Screener', href: '/techno-funda?tab=pead', icon: BarChart3 },
+    { label: 'Vahan Auto', href: '/techno-funda?tab=vahan', icon: Truck },
+    { label: 'Buybacks & Arbitrage', href: '/techno-funda?tab=buybacks', icon: RefreshCw },
+    { label: 'Results calendar', href: '/techno-funda?tab=results', icon: Calendar },
+    { label: 'Shareholding', href: '/techno-funda?tab=shareholding', icon: Shield },
+    { label: 'News & filings', href: '/techno-funda?tab=news', icon: FileText },
   ];
 
   const yourRoomNav = [
@@ -246,7 +269,7 @@ export function SidebarLayout({ children, activePath }: SidebarLayoutProps) {
             <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
               {researchNav.map((item) => {
                 const Icon = item.icon;
-                const isActive = currentPath === item.href && item.label === 'Valuation lab';
+                const isActive = currentPath === item.href || (currentPath.startsWith('/techno-funda') && item.href.includes(currentPath));
                 return (
                   <Link
                     key={item.label}
@@ -338,17 +361,19 @@ export function SidebarLayout({ children, activePath }: SidebarLayoutProps) {
               width: '38px',
               height: '38px',
               borderRadius: '50%',
-              background: '#D97706',
-              color: '#0F172A',
+              background: user ? '#D97706' : '#475569',
+              color: user ? '#0F172A' : '#F1F5F9',
               fontWeight: 700,
-              fontSize: '14px',
+              fontSize: '13px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
             }}
           >
-            AS
+            {user
+              ? (user.first_name ? user.first_name[0] : (user.email ? user.email[0] : 'U')).toUpperCase()
+              : 'GI'}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
@@ -361,20 +386,40 @@ export function SidebarLayout({ children, activePath }: SidebarLayoutProps) {
                 textOverflow: 'ellipsis',
               }}
             >
-              Arjun Shah
+              {user
+                ? (user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user.email?.split('@')[0])
+                : 'Guest Investor'}
             </div>
             <div
               style={{
-                color: '#F59E0B',
+                color: user?.role === 'admin' ? '#34D399' : user ? '#F59E0B' : '#94A3B8',
                 fontSize: '10px',
                 fontWeight: 700,
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
               }}
             >
-              PRIVATE ACCESS
+              {user?.role === 'admin' ? 'ADMINISTRATOR' : user ? 'VERIFIED INVESTOR' : 'GUEST ACCESS'}
             </div>
           </div>
+          {user && (
+            <button
+              onClick={handleSignOut}
+              title="Sign Out"
+              aria-label="Sign Out"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#94A3B8',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <LogOut size={16} />
+            </button>
+          )}
         </div>
       </aside>
 
@@ -422,19 +467,20 @@ export function SidebarLayout({ children, activePath }: SidebarLayoutProps) {
           </div>
 
           {/* Right: Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative' }}>
             <button
+              onClick={() => setAskAureusOpen(true)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
                 background: 'none',
-                border: 'none',
+                border: '1px solid #E5E7EB',
                 fontSize: '12px',
                 fontWeight: 600,
                 color: '#4B5563',
                 cursor: 'pointer',
-                padding: '6px 10px',
+                padding: '5px 10px',
                 borderRadius: '6px',
               }}
             >
@@ -444,6 +490,7 @@ export function SidebarLayout({ children, activePath }: SidebarLayoutProps) {
 
             <div style={{ position: 'relative' }}>
               <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
                 aria-label="View system notifications"
                 style={{
                   background: 'none',
@@ -468,25 +515,201 @@ export function SidebarLayout({ children, activePath }: SidebarLayoutProps) {
                   background: '#F59E0B',
                 }}
               />
+
+              {/* Notifications Popover */}
+              {notificationsOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '36px',
+                    width: '320px',
+                    background: '#FFFFFF',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                    padding: '14px',
+                    zIndex: 200,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>System Alerts</span>
+                    <button
+                      onClick={() => setNotificationsOpen(false)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px', color: '#4B5563' }}>
+                    <div style={{ padding: '8px', background: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                      <div style={{ fontWeight: 600, color: '#0F172A', marginBottom: '2px' }}>DPDP Consent Preferences Active</div>
+                      <div>Transactional SIP reminder channels enabled. Marketing opt-out respected.</div>
+                    </div>
+                    <div style={{ padding: '8px', background: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                      <div style={{ fontWeight: 600, color: '#0F172A', marginBottom: '2px' }}>AMFI NAV Snapshot Synced</div>
+                      <div>Latest scheme NAV values updated for goal allocation engine.</div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '10px', textAlign: 'right' }}>
+                    <Link
+                      href="/dashboard/settings/notifications"
+                      onClick={() => setNotificationsOpen(false)}
+                      style={{ fontSize: '11px', color: '#0F766E', fontWeight: 600, textDecoration: 'none' }}
+                    >
+                      Manage DPDP Settings →
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <Link
-              href="/auth/login"
-              style={{
-                fontSize: '12px',
-                fontWeight: 600,
-                color: '#111827',
-                border: '1px solid #E5E7EB',
-                padding: '6px 14px',
-                borderRadius: 'var(--radius-full)',
-                textDecoration: 'none',
-                background: '#FFFFFF',
-              }}
-            >
-              Sign In
-            </Link>
+            {user ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: '#4B5563', fontWeight: 500 }}>
+                  {user.email}
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="btn btn-outline"
+                  style={{
+                    minHeight: '28px',
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    borderRadius: 'var(--radius-full)',
+                  }}
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/auth/login"
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#111827',
+                  border: '1px solid #E5E7EB',
+                  padding: '6px 14px',
+                  borderRadius: 'var(--radius-full)',
+                  textDecoration: 'none',
+                  background: '#FFFFFF',
+                }}
+              >
+                Sign In
+              </Link>
+            )}
           </div>
         </header>
+
+        {/* Ask Aureus Intelligence Modal */}
+        {askAureusOpen && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(15, 23, 42, 0.6)',
+              backdropFilter: 'blur(2px)',
+              zIndex: 500,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+            }}
+          >
+            <div
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '12px',
+                maxWidth: '520px',
+                width: '100%',
+                border: '1px solid #E5E7EB',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+                padding: '24px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={18} color="#D97706" />
+                  <h3 className="font-serif" style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>
+                    Ask Aureus Intelligence
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setAskAureusOpen(false)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <p style={{ fontSize: '13px', color: '#4B5563', lineHeight: 1.5, marginBottom: '16px' }}>
+                Aureus is your institutional research co-pilot. Quickly jump to key financial tools or inspect stock metrics:
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <Link
+                  href="/techno-funda?tab=valuation"
+                  onClick={() => setAskAureusOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    background: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    textDecoration: 'none',
+                    color: '#0F172A',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>📊 Run DCF Valuation Lab on Listed Equities</span>
+                  <ChevronRight size={16} color="#64748B" />
+                </Link>
+                <Link
+                  href="/techno-funda?tab=pead"
+                  onClick={() => setAskAureusOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    background: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    textDecoration: 'none',
+                    color: '#0F172A',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>📈 Inspect PEAD Earnings Momentum Signals</span>
+                  <ChevronRight size={16} color="#64748B" />
+                </Link>
+                <Link
+                  href="/dashboard/goals"
+                  onClick={() => setAskAureusOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    background: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    textDecoration: 'none',
+                    color: '#0F172A',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>🎯 Optimize Goal-Linked Mutual Fund SIPs</span>
+                  <ChevronRight size={16} color="#64748B" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content Canvas */}
         <main style={{ flex: 1, padding: 'clamp(20px, 3vw, 36px)' }}>

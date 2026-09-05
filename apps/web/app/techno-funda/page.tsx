@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Gauge,
   BarChart3,
@@ -16,8 +17,16 @@ import {
 import { SidebarLayout } from '../../components/sidebar-layout';
 import { StaticSnapshotBanner } from '../../components/static-snapshot-banner';
 
-export default function TechnoFundaPage() {
+function TechnoFundaContent() {
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState<'valuation' | 'buybacks' | 'results' | 'news' | 'shareholding' | 'mmi' | 'pead' | 'vahan'>('valuation');
+
+  useEffect(() => {
+    if (tabParam && ['valuation', 'buybacks', 'results', 'news', 'shareholding', 'mmi', 'pead', 'vahan'].includes(tabParam)) {
+      setActiveTab(tabParam as any);
+    }
+  }, [tabParam]);
 
   // Valuation Lab State (matching Screenshot 2)
   const [method, setMethod] = useState<'DCF' | 'Reverse DCF' | 'P/E' | 'EV/EBITDA' | 'P/B'>('DCF');
@@ -699,5 +708,13 @@ export default function TechnoFundaPage() {
         )}
       </div>
     </SidebarLayout>
+  );
+}
+
+export default function TechnoFundaPage() {
+  return (
+    <Suspense fallback={null}>
+      <TechnoFundaContent />
+    </Suspense>
   );
 }

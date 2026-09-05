@@ -50,7 +50,7 @@ const INITIAL_HOLDINGS: FolioHolding[] = [
     investedAmount: 18000.0,
     gain: 5102.97,
     gainPct: 28.35,
-    goalName: "Aarav's Overseas Masters Degree",
+    goalName: "Higher Education Fund (Sample)",
   },
   {
     schemeCode: '125497',
@@ -102,13 +102,15 @@ export default function PortfolioPage() {
             gainPct: 5.0,
             goalName: item.goalName || 'Wealth Goal',
           }));
-          setHoldings([...INITIAL_HOLDINGS, ...formatted]);
+          setHoldings(formatted.length > 0 ? formatted : INITIAL_HOLDINGS);
         }
       } catch (e) {
         console.error('Error parsing local portfolio', e);
       }
     }
   }, []);
+
+  const isSampleData = holdings === INITIAL_HOLDINGS;
 
   const totalInvested = holdings.reduce((s, h) => s + h.investedAmount, 0);
   const totalCurrentValue = holdings.reduce((s, h) => s + h.currentValue, 0);
@@ -173,6 +175,62 @@ export default function PortfolioPage() {
             <ArrowRight size={14} />
           </Link>
         </div>
+
+        {isSampleData && (
+          <div
+            style={{
+              padding: '10px 16px',
+              background: '#FEF3C7',
+              border: '1px solid #FDE68A',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 'var(--space-6)',
+              fontSize: '12px',
+              color: '#92400E',
+              flexWrap: 'wrap',
+              gap: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>⚠️</span>
+              <span><strong>Sample Demonstration Portfolio</strong> — Showing simulated folios for demonstration. Start a SIP or import CAS to see real investments.</span>
+            </div>
+            <button
+              onClick={() => setHoldings([])}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#92400E',
+                textDecoration: 'underline',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 600,
+              }}
+            >
+              Clear Demo Folios
+            </button>
+          </div>
+        )}
+
+        {holdings.length === 0 && (
+          <div style={{ marginBottom: 'var(--space-4)', textAlign: 'right' }}>
+            <button
+              onClick={() => setHoldings(INITIAL_HOLDINGS)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#0F766E',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              ↺ Load Sample Demonstration Folios
+            </button>
+          </div>
+        )}
 
         {/* Portfolio Performance Summary Cards */}
         <div

@@ -389,10 +389,15 @@ export default function AdminDashboardPage() {
             }}
           >
             <div>
-              <h2 className="font-serif" style={{ fontSize: 'var(--text-base)', fontWeight: 700, marginBottom: '2px', color: 'var(--text-primary)' }}>
-                Pending KYC Verification Queue (Compliance Fallback)
-              </h2>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h2 className="font-serif" style={{ fontSize: 'var(--text-base)', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                  Pending KYC Verification Queue (Compliance Fallback)
+                </h2>
+                <span className="badge-muted" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', fontSize: '10px' }}>
+                  Simulated Queue (Sample Records)
+                </span>
+              </div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 Manual approval queue for profiles requiring secondary identity or penny-drop confirmation.
               </div>
             </div>

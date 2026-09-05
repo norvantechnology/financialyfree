@@ -46,7 +46,7 @@ const INITIAL_GOALS: ActiveGoal[] = [
   {
     id: 'g-child',
     type: 'child_education',
-    name: "Aarav's Overseas Masters Degree",
+    name: "Higher Education Fund (Sample)",
     targetCorpus: 5000000, // ₹50 L
     horizonYears: 8,
     currentSavings: 400000,
@@ -394,21 +394,91 @@ export default function GoalsDashboardPage() {
         </div>
 
         {/* Active Goals Grid */}
-        <h3
-          className="font-serif"
-          style={{ fontSize: 'var(--text-xl)', fontWeight: 700, marginBottom: 'var(--space-4)', color: 'var(--text-primary)' }}
-        >
-          Your Active Goals & Glide Paths
-        </h3>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
-            gap: 'var(--space-6)',
-            marginBottom: 'var(--space-12)',
-          }}
-        >
-          {goals.map((goal) => {
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3
+              className="font-serif"
+              style={{ fontSize: 'var(--text-xl)', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}
+            >
+              Your Active Goals & Glide Paths
+            </h3>
+            {goals === INITIAL_GOALS && (
+              <span className="badge-muted" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', fontSize: '10px' }}>
+                Sample Demo Data
+              </span>
+            )}
+          </div>
+          {goals.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setGoals([])}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#6B7280',
+                fontSize: '11px',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >
+              Clear to Empty State
+            </button>
+          )}
+          {goals.length === 0 && (
+            <button
+              type="button"
+              onClick={() => setGoals(INITIAL_GOALS)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#0F766E',
+                fontSize: '11px',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              ↺ Load Sample Goals
+            </button>
+          )}
+        </div>
+
+        {goals.length === 0 ? (
+          <div
+            className="card"
+            style={{
+              padding: '40px 20px',
+              textAlign: 'center',
+              marginBottom: 'var(--space-12)',
+            }}
+          >
+            <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#F4F1EA', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+              <Target size={22} color="#6B7280" />
+            </div>
+            <h4 className="font-serif" style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '6px' }}>
+              No Custom Goals Created Yet
+            </h4>
+            <p style={{ fontSize: '13px', color: '#6B7280', maxWidth: '420px', margin: '0 auto 16px' }}>
+              Calculate your financial independence number, children’s higher education, or emergency reserve with our transparent mathematical models.
+            </p>
+            <button
+              onClick={() => setIsWizardOpen(true)}
+              className="btn btn-primary"
+              style={{ padding: '8px 18px', fontSize: '12px' }}
+            >
+              <Plus size={14} />
+              <span>Create Your First Goal</span>
+            </button>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+              gap: 'var(--space-6)',
+              marginBottom: 'var(--space-12)',
+            }}
+          >
+            {goals.map((goal) => {
             return (
               <div
                 key={goal.id}
@@ -497,6 +567,7 @@ export default function GoalsDashboardPage() {
             );
           })}
         </div>
+      )}
 
         {/* Goal Questionnaire Wizard Modal */}
         {isWizardOpen && (

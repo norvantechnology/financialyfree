@@ -68,12 +68,19 @@ export function LoginForm() {
     }
   };
 
+  const [googleNotice, setGoogleNotice] = useState(false);
+
+  const handleGoogleClick = () => {
+    setGoogleNotice(true);
+    setTimeout(() => setGoogleNotice(false), 5000);
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-      {/* Google Sign In Button (Reference Screenshot 1 Match) */}
+      {/* Google Sign In Button */}
       <button
         type="button"
-        onClick={fillInvestorCreds}
+        onClick={handleGoogleClick}
         className="btn btn-outline"
         style={{
           width: '100%',
@@ -109,6 +116,22 @@ export function LoginForm() {
         <span>Continue with Google</span>
       </button>
 
+      {googleNotice && (
+        <div
+          style={{
+            fontSize: '11px',
+            color: '#B45309',
+            background: '#FEF3C7',
+            border: '1px solid #FDE68A',
+            borderRadius: '6px',
+            padding: '8px 10px',
+            lineHeight: 1.4,
+          }}
+        >
+          Google OAuth is enabled in production when <code>GOOGLE_CLIENT_ID</code> is configured. Please use email & password or the demo autofill credentials below.
+        </div>
+      )}
+
       {/* Divider */}
       <div style={{ display: 'flex', alignItems: 'center', margin: '4px 0', color: '#9CA3AF', fontSize: '11px' }}>
         <div style={{ flex: 1, height: '1px', background: '#E5E7EB' }} />
@@ -116,67 +139,68 @@ export function LoginForm() {
         <div style={{ flex: 1, height: '1px', background: '#E5E7EB' }} />
       </div>
 
-      {/* 1-Click Demo Credentials Panel */}
-      <div
-        style={{
-          background: 'var(--bg-surface-raised, #F4F1EA)',
-          border: '1px solid var(--border-color, #E8E4DC)',
-          borderRadius: 'var(--radius-md)',
-          padding: '10px 12px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary, #4B5563)', marginBottom: '8px' }}>
-          <KeyRound size={12} color="var(--color-accent, #0F766E)" />
-          <span>Demo Autofill Credentials:</span>
+      {/* 1-Click Demo Credentials Panel (Non-Production Only) */}
+      {process.env.NODE_ENV !== 'production' && (
+        <div
+          style={{
+            background: 'var(--bg-surface-raised, #F4F1EA)',
+            border: '1px solid var(--border-color, #E8E4DC)',
+            borderRadius: 'var(--radius-md)',
+            padding: '10px 12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary, #4B5563)', marginBottom: '8px' }}>
+            <KeyRound size={12} color="var(--color-accent, #0F766E)" />
+            <span>Development Sandbox — Autofill Credentials:</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={fillInvestorCreds}
+              style={{
+                padding: '6px 10px',
+                minHeight: '34px',
+                borderRadius: 'var(--radius-sm, 4px)',
+                background: '#FFFFFF',
+                border: '1px solid #D1D5DB',
+                color: '#111827',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <User size={13} color="#4B5563" />
+              <span>Investor Demo</span>
+            </button>
+            <button
+              type="button"
+              onClick={fillAdminCreds}
+              style={{
+                padding: '6px 10px',
+                minHeight: '34px',
+                borderRadius: 'var(--radius-sm, 4px)',
+                background: '#FFFFFF',
+                border: '1px solid #D1D5DB',
+                color: '#111827',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <ShieldCheck size={13} color="#4B5563" />
+              <span>Admin Demo</span>
+            </button>
+          </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-          <button
-            type="button"
-            onClick={fillInvestorCreds}
-            style={{
-              padding: '6px 10px',
-              minHeight: '34px',
-              borderRadius: 'var(--radius-sm, 4px)',
-              background: '#FFFFFF',
-              border: '1px solid #D1D5DB',
-              color: '#111827',
-              fontSize: '11px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-            }}
-          >
-            <User size={13} color="#4B5563" />
-            <span>Investor</span>
-          </button>
-          <button
-            type="button"
-            onClick={fillAdminCreds}
-            style={{
-              padding: '6px 10px',
-              minHeight: '34px',
-              borderRadius: 'var(--radius-sm, 4px)',
-              background: '#FFFFFF',
-              border: '1px solid #D1D5DB',
-              color: '#111827',
-              fontSize: '11px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-            }}
-          >
-            <ShieldCheck size={13} color="#4B5563" />
-            <span>Admin</span>
-          </button>
-        </div>
-      </div>
-
+      )}
       {/* API Error */}
       {apiError && (
         <div

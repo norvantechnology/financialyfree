@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { CheckCircle2, Lock, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+import { CheckCircle2, Lock, ArrowRight, Loader2, Sparkles, UserCheck } from 'lucide-react';
 import { useTranslation } from '../../../lib/i18n/language-context';
 import { SidebarLayout } from '../../../components/sidebar-layout';
 import { StaticSnapshotBanner } from '../../../components/static-snapshot-banner';
@@ -47,12 +47,35 @@ export default function CheckoutPage() {
   const plan = PLAN_DATA[planSlug] || PLAN_DATA['all-access-bundle'];
 
   const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'netbanking'>('upi');
-  const [upiId, setUpiId] = useState('investor@okhdfcbank');
-  const [billingName, setBillingName] = useState('Arjun Shah');
-  const [billingEmail, setBillingEmail] = useState('investor@example.com');
-  const [billingPhone, setBillingPhone] = useState('9876543210');
+  const [upiId, setUpiId] = useState('');
+  const [billingName, setBillingName] = useState('');
+  const [billingEmail, setBillingEmail] = useState('');
+  const [billingPhone, setBillingPhone] = useState('');
   const [checkoutErrors, setCheckoutErrors] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        const u = JSON.parse(stored);
+        if (u.email) setBillingEmail(u.email);
+        if (u.first_name || u.last_name) {
+          setBillingName(`${u.first_name || ''} ${u.last_name || ''}`.trim());
+        } else if (u.name) {
+          setBillingName(u.name);
+        }
+        if (u.phone) setBillingPhone(u.phone);
+      }
+    } catch {}
+  }, []);
+
+  const handleFillDemoBilling = () => {
+    setBillingName('Demo Investor');
+    setBillingEmail('investor@financiallyfree.in');
+    setBillingPhone('9876543210');
+    setUpiId('investor@okhdfcbank');
+  };
   const [isSuccess, setIsSuccess] = useState(false);
   const [receiptData, setReceiptData] = useState<{
     orderId: string;
@@ -252,9 +275,32 @@ export default function CheckoutPage() {
           >
             {/* Customer Information */}
             <div style={{ marginBottom: 'var(--space-6)', paddingBottom: 'var(--space-6)', borderBottom: '1px solid var(--border-color)' }}>
-              <h3 className="font-serif" style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-4)' }}>
-                Billing Information
-              </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                <h3 className="font-serif" style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  Billing Information
+                </h3>
+                {process.env.NODE_ENV !== 'production' && (
+                  <button
+                    type="button"
+                    onClick={handleFillDemoBilling}
+                    style={{
+                      fontSize: '11px',
+                      padding: '4px 8px',
+                      background: '#F4F1EA',
+                      border: '1px solid #E8E4DC',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      color: '#4B5563',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <UserCheck size={12} />
+                    <span>Autofill Demo Info</span>
+                  </button>
+                )}
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 600 }}>
@@ -267,7 +313,7 @@ export default function CheckoutPage() {
                       setBillingName(e.target.value);
                       if (checkoutErrors.name) setCheckoutErrors((prev) => ({ ...prev, name: '' }));
                     }}
-                    placeholder="e.g. Arjun Shah"
+                    placeholder="e.g. Full Legal Name"
                     style={{
                       width: '100%',
                       padding: '10px 14px',

@@ -297,15 +297,46 @@ export default function InvestDiscoveryPage() {
         </div>
 
         {/* Schemes Grid */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
-            gap: 'var(--space-6)',
-            marginBottom: 'var(--space-12)',
-          }}
-        >
-          {filteredFunds.map((fund) => {
+        {filteredFunds.length === 0 ? (
+          <div
+            className="card"
+            style={{
+              padding: '40px 20px',
+              textAlign: 'center',
+              marginBottom: 'var(--space-12)',
+            }}
+          >
+            <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#F4F1EA', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+              <Search size={22} color="#6B7280" />
+            </div>
+            <h4 className="font-serif" style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '6px' }}>
+              No Matching Mutual Fund Schemes Found
+            </h4>
+            <p style={{ fontSize: '13px', color: '#6B7280', maxWidth: '420px', margin: '0 auto 16px' }}>
+              No schemes match your criteria. Try adjusting the search query or category filter.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('all');
+              }}
+              className="btn btn-outline"
+              style={{ padding: '8px 18px', fontSize: '12px' }}
+            >
+              Reset Search & Filters
+            </button>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+              gap: 'var(--space-6)',
+              marginBottom: 'var(--space-12)',
+            }}
+          >
+            {filteredFunds.map((fund) => {
             return (
               <div
                 key={fund.schemeCode}
@@ -388,6 +419,7 @@ export default function InvestDiscoveryPage() {
             );
           })}
         </div>
+      )}
 
         {/* Goal-Linked SIP Setup Modal */}
         {activeModalFund && (
