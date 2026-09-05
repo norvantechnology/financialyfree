@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
-FROM node:20-alpine AS base
-RUN npm install -g pnpm@9
+FROM node:22-alpine AS base
+RUN corepack enable
 
 # ── Dependencies ──────────────────────────────────────────────────────────
 FROM base AS deps
@@ -29,11 +29,19 @@ RUN pnpm --filter @ff/validators build
 RUN pnpm --filter api build
 
 # ── Runner ────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=builder /app/apps/api/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages ./packages
+
+# Security: Run as non-root user 'node' (UID 1000)
+USER node
+
+COPY --chown=node:node --from=builder /app/apps/api/dist ./dist
+COPY --chown=node:node --from=builder /app/node_modules ./node_modules
+COPY --chown=node:node --from=builder /app/packages ./packages
+
 EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:3001/api/v1/subscriptions/plans || exit 1
+
 CMD ["node", "dist/main"]

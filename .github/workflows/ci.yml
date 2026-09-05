@@ -1,0 +1,60 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Lint, Typecheck, Test & Production Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      NODE_ENV: test
+      USE_MOCK_MF_EXECUTION: 'true'
+      USE_MOCK_KYC: 'true'
+      USE_MOCK_PAYMENTS: 'true'
+      USE_MOCK_MESSAGING: 'true'
+      USE_MOCK_VIDEO: 'true'
+      USE_MOCK_MARKET_DATA: 'true'
+      JWT_SECRET: 'ci_jwt_secret_must_be_at_least_32_characters_long_for_security'
+      JWT_REFRESH_SECRET: 'ci_refresh_secret_must_be_at_least_32_characters_long'
+      NEXT_PUBLIC_API_URL: 'http://localhost:3001'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Linter
+        run: pnpm -r lint
+
+      - name: Run Typecheck
+        run: pnpm -r typecheck
+
+      - name: Run Unit & Integration Tests
+        run: pnpm test
+
+      - name: Run Production Monorepo Build
+        run: pnpm build

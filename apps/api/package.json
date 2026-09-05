@@ -11,9 +11,10 @@
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
-    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
-    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
+    "migration:generate": "node -r ts-node/register/transpile-only -r dotenv/config ./node_modules/typeorm/cli.js migration:generate -d src/database/data-source.ts",
+    "migration:run": "node -r ts-node/register/transpile-only -r dotenv/config ./node_modules/typeorm/cli.js migration:run -d src/database/data-source.ts",
+    "migration:show": "node -r ts-node/register/transpile-only -r dotenv/config ./node_modules/typeorm/cli.js migration:show -d src/database/data-source.ts",
+    "migration:revert": "node -r ts-node/register/transpile-only -r dotenv/config ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",
     "seed": "ts-node src/database/seeds/run-seeds.ts"
   },
   "dependencies": {
