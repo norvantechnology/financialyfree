@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "module": "CommonJS",
+    "paths": {
+      "@ff/types": ["../../packages/types/dist"],
+      "@ff/calc": ["../../packages/calc/dist"],
+      "@ff/validators": ["../../packages/validators/dist"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+}

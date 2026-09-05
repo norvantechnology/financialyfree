@@ -1,0 +1,33 @@
+version: '3.9'
+
+# ── Development overrides — hot reload, no build step ────────────────────
+services:
+  api:
+    build: ~
+    image: ~
+    command: pnpm --filter api dev
+    volumes:
+      - ../apps/api:/app/apps/api
+      - ../packages:/app/packages
+      - /app/node_modules
+      - /app/apps/api/node_modules
+    environment:
+      NODE_ENV: development
+      USE_MOCK_MF_EXECUTION: 'true'
+      USE_MOCK_KYC: 'true'
+      USE_MOCK_PAYMENTS: 'true'
+      USE_MOCK_MESSAGING: 'true'
+      USE_MOCK_VIDEO: 'true'
+      USE_MOCK_MARKET_DATA: 'true'
+
+  web:
+    build: ~
+    image: ~
+    command: pnpm --filter web dev
+    volumes:
+      - ../apps/web:/app/apps/web
+      - ../packages:/app/packages
+      - /app/node_modules
+      - /app/apps/web/node_modules
+    environment:
+      NODE_ENV: development

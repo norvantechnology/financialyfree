@@ -1,0 +1,26 @@
+{
+  "name": "financiallyfree",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter api dev\" \"pnpm --filter web dev\"",
+    "build": "pnpm --filter types build && pnpm --filter calc build && pnpm --filter validators build && pnpm --filter api build && pnpm --filter web build",
+    "test": "pnpm -r test",
+    "test:calc": "pnpm --filter @ff/calc test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:migrate": "pnpm --filter api migration:run",
+    "db:seed": "pnpm --filter api seed",
+    "docker:up": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.override.yml up -d",
+    "docker:down": "docker compose -f infra/docker-compose.yml down",
+    "docker:logs": "docker compose -f infra/docker-compose.yml logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
