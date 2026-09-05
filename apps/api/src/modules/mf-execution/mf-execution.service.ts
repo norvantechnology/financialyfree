@@ -53,12 +53,12 @@ export class MfExecutionService implements OnModuleInit {
     this.logger.log('🌱 Seeding curated AMFI Mutual Fund schemes...');
     const schemes: Partial<MfSchemeEntity>[] = [
       {
-        schemeCode: '119551',
+        schemeCode: '122639',
         schemeName: 'Parag Parikh Flexi Cap Fund - Direct Plan - Growth',
         amcName: 'PPFAS Mutual Fund',
         category: 'Equity - Flexi Cap',
         subCategory: 'Growth',
-        navCurrent: 82.451,
+        navCurrent: 90.5289,
         navDate: new Date().toISOString().split('T')[0],
         expenseRatio: 0.62,
         exitLoad: '2% within 365 days, 1% within 730 days',
@@ -71,12 +71,12 @@ export class MfExecutionService implements OnModuleInit {
         isActive: true,
       },
       {
-        schemeCode: '120503',
+        schemeCode: '118825',
         schemeName: 'Mirae Asset Large Cap Fund - Direct Plan - Growth',
         amcName: 'Mirae Asset Mutual Fund',
         category: 'Equity - Large Cap',
         subCategory: 'Growth',
-        navCurrent: 112.38,
+        navCurrent: 127.063,
         navDate: new Date().toISOString().split('T')[0],
         expenseRatio: 0.54,
         exitLoad: '1% within 365 days',
@@ -94,7 +94,7 @@ export class MfExecutionService implements OnModuleInit {
         amcName: 'Nippon India Mutual Fund',
         category: 'Equity - Small Cap',
         subCategory: 'Growth',
-        navCurrent: 174.62,
+        navCurrent: 210.4787,
         navDate: new Date().toISOString().split('T')[0],
         expenseRatio: 0.69,
         exitLoad: '1% within 30 days',
@@ -107,12 +107,12 @@ export class MfExecutionService implements OnModuleInit {
         isActive: true,
       },
       {
-        schemeCode: '120847',
+        schemeCode: '120197',
         schemeName: 'ICICI Prudential Liquid Fund - Direct Plan - Growth',
         amcName: 'ICICI Prudential Mutual Fund',
         category: 'Debt - Liquid',
         subCategory: 'Growth',
-        navCurrent: 365.12,
+        navCurrent: 420.1097,
         navDate: new Date().toISOString().split('T')[0],
         expenseRatio: 0.2,
         exitLoad: 'Graded exit load up to 7 days, Nil thereafter',
@@ -124,13 +124,52 @@ export class MfExecutionService implements OnModuleInit {
         isRecommended: true,
         isActive: true,
       },
+      {
+        schemeCode: '120828',
+        schemeName: 'Quant Small Cap Fund - Direct Plan - Growth',
+        amcName: 'Quant Mutual Fund',
+        category: 'Equity - Small Cap',
+        subCategory: 'Growth',
+        navCurrent: 322.6375,
+        navDate: new Date().toISOString().split('T')[0],
+        expenseRatio: 0.77,
+        exitLoad: '1% within 365 days',
+        returns1yr: 42.1,
+        returns3yr: 32.4,
+        returns5yr: 34.6,
+        riskLevel: 'very_high',
+        minSipAmount: 1000,
+        isRecommended: true,
+        isActive: true,
+      },
+      {
+        schemeCode: '120716',
+        schemeName: 'UTI Nifty 50 Index Fund - Direct Plan - Growth',
+        amcName: 'UTI Mutual Fund',
+        category: 'Equity - Index Fund',
+        subCategory: 'Growth',
+        navCurrent: 168.3146,
+        navDate: new Date().toISOString().split('T')[0],
+        expenseRatio: 0.22,
+        exitLoad: 'Nil',
+        returns1yr: 26.2,
+        returns3yr: 15.8,
+        returns5yr: 17.5,
+        riskLevel: 'very_high',
+        minSipAmount: 500,
+        isRecommended: true,
+        isActive: true,
+      },
     ];
 
     for (const s of schemes) {
-      const entity = this.schemeRepo.create(s);
-      await this.schemeRepo.save(entity);
+      const existing = await this.schemeRepo.findOne({ where: { schemeCode: s.schemeCode } });
+      if (!existing) {
+        const entity = this.schemeRepo.create(s);
+        await this.schemeRepo.save(entity);
+      }
     }
-    this.logger.log('✅ Seeded 4 curated mutual fund schemes');
+    this.logger.log('✅ Seeded 6 curated mutual fund schemes with AMFI master codes');
   }
 
   async getSchemes(category?: string): Promise<MutualFundDto[]> {

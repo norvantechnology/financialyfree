@@ -4,12 +4,14 @@ import {
   Post,
   Body,
   Query,
+  Param,
   Req,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MfExecutionService } from './mf-execution.service';
+import { AmfiNavService } from './amfi-nav.service';
 import { AuthRequest } from '../auth/strategies/jwt.strategy';
 import { Public } from '../auth/guards/jwt-auth.guard';
 import { CreateSipOrderRequest } from '@ff/types';
@@ -17,13 +19,36 @@ import { CreateSipOrderRequest } from '@ff/types';
 @ApiTags('Mutual Funds & BSE StAR MF Execution')
 @Controller('mutual-funds')
 export class MfExecutionController {
-  constructor(private readonly mfService: MfExecutionService) {}
+  constructor(
+    private readonly mfService: MfExecutionService,
+    private readonly amfiNavService: AmfiNavService,
+  ) {}
 
   @Public()
   @Get('schemes')
   @ApiOperation({ summary: 'List curated mutual fund schemes with NAVs and returns' })
   async getSchemes(@Query('category') category?: string) {
     return this.mfService.getSchemes(category);
+  }
+
+  @Public()
+  @Post('sync-nav')
+  @ApiOperation({ summary: 'Trigger ingestion of official public AMFI daily NAV file' })
+  async syncNav() {
+    return this.amfiNavService.syncDailyNavs();
+  }
+
+  @Public()
+  @Get('nav-history/:schemeCode')
+  @ApiOperation({ summary: 'Get daily NAV history snapshots for a scheme' })
+  async getNavHistory(
+    @Param('schemeCode') schemeCode: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.amfiNavService.getNavHistory(
+      schemeCode,
+      limit ? parseInt(limit, 10) : 30,
+    );
   }
 
   @Get('portfolio')
@@ -48,3 +73,4 @@ export class MfExecutionController {
     return this.mfService.getUserOrders(req.user.id);
   }
 }
+

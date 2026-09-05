@@ -177,3 +177,23 @@ export class MfFolioEntity {
   @UpdateDateColumn({ type: 'timestamptz' })
   lastUpdated!: Date;
 }
+
+@Entity('mf_nav_history')
+export class MfNavHistoryEntity {
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
+
+  @Index()
+  @Column({ length: 30 })
+  schemeCode!: string;
+
+  @Column({ type: 'decimal', precision: 12, scale: 4 })
+  nav!: number;
+
+  @Column({ type: 'date' })
+  navDate!: string;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  recordedAt!: Date;
+}
+

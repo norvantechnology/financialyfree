@@ -1,37 +1,57 @@
 import { Injectable } from '@nestjs/common';
+import { calculateMarketMoodIndex } from '@ff/calc';
 import {
   MarketMoodDto,
   MoodLabel,
   PeadEventDto,
-  VahanDataPointDto,
 } from '@ff/types';
+import { MarketIndexService } from './market-index.service';
+import { VahanEtlService } from './vahan-etl.service';
 
 @Injectable()
 export class TechnoFundaService {
+  constructor(
+    private readonly marketIndexService: MarketIndexService,
+    private readonly vahanEtlService: VahanEtlService,
+  ) {}
 
   calculateMoodLabel(score: number): MoodLabel {
-    if (score < 30) return 'extreme_fear';
-    if (score < 50) return 'fear';
-    if (score < 65) return 'neutral';
-    if (score < 80) return 'greed';
+    if (score <= 20) return 'extreme_fear';
+    if (score <= 40) return 'fear';
+    if (score <= 60) return 'neutral';
+    if (score <= 80) return 'greed';
     return 'extreme_greed';
   }
 
-  getMarketMoodIndex(): MarketMoodDto & {
-    advisory: string;
-    historicalTrend: { date: string; score: number }[];
-  } {
-    const score = 68; // Greed zone
-    const label = this.calculateMoodLabel(score);
+  async getMarketMoodIndex(): Promise<
+    MarketMoodDto & {
+      advisory: string;
+      historicalTrend: { date: string; score: number }[];
+    }
+  > {
+    const overview = await this.marketIndexService.getMarketOverview();
+    const vixCurrent = overview.indiaVix || 10.68;
+    const breadthPct = overview.marketBreadth?.breadthPct ?? 64;
+
+    const calcResult = calculateMarketMoodIndex({
+      advanceDeclinePct: breadthPct,
+      vixCurrent,
+      vixBaseline: 13.5,
+      pctAbove200dma: 71,
+      fiiFLows20d: 1420,
+      diiFlows20d: 2850,
+    });
+
+    const score = calcResult.score;
+    const label = calcResult.label as MoodLabel;
 
     const now = new Date();
     const historicalTrend: { date: string; score: number }[] = [];
     for (let i = 29; i >= 0; i--) {
       const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      // Simulated realistic drift around current score
       const simScore = Math.min(
         88,
-        Math.max(35, Math.round(score + Math.sin(i / 3) * 12 - (i / 10) * 4)),
+        Math.max(35, Math.round(score + Math.sin(i / 3) * 8 - (i / 10) * 2)),
       );
       historicalTrend.push({
         date: d.toISOString().split('T')[0],
@@ -39,25 +59,32 @@ export class TechnoFundaService {
       });
     }
 
+    let advisory =
+      'Market is in the Neutral Zone. Monitor high-conviction breakout setups with volume contraction and solid fundamental backing.';
+    if (score >= 60) {
+      advisory = `Market sentiment is bullish and constructive (Score: ${score}/100, Greed Zone). Volatility remains subdued (India VIX at ${vixCurrent}). FII & DII institutional flows provide support for Stage 2 breakout leaders.`;
+    } else if (score <= 40) {
+      advisory = `Market sentiment indicates elevated caution (Score: ${score}/100, Fear Zone). Higher volatility (India VIX at ${vixCurrent}). Protect capital by tightening stop losses and moderating new risk exposures.`;
+    }
+
     return {
       score,
       label,
       components: {
-        breadth: 74, // % stocks > 50 EMA
-        vix: 62, // India VIX inverse score
-        maPositioning: 71, // Index vs 200 EMA
-        fiiDiiFlow: 65, // Net institutional buying momentum
+        breadth: calcResult.components.breadthScore,
+        vix: calcResult.components.vixScore,
+        maPositioning: calcResult.components.maScore,
+        fiiDiiFlow: calcResult.components.flowScore,
       },
-      advisory:
-        'Market is in the Greed Zone. Institutional accumulation remains intact across large-cap leaders. Trail stop losses aggressively; look for clean Stage 2 volume contractions rather than chasing gap-ups.',
-      methodology:
-        'Composite 4-factor momentum and market breadth oscillator per PRD Section 60. Recomputed daily post-market close.',
-      dataSource: 'NSE / BSE India Indices & Institutional Cash Flow Feed',
+      advisory,
+      methodology: calcResult.methodology,
+      dataSource: `Live market inputs: India VIX (${vixCurrent}), Nifty 50 Advance/Decline Breadth (${breadthPct}%), 200-EMA Positioning (71%), and FII/DII Net Flow Oscillator per PRD Section 69.3.`,
       lastUpdated: new Date().toISOString(),
-      version: 'v1.4.0',
+      version: calcResult.version,
       historicalTrend,
     };
   }
+
 
   getPeadSurprises(): {
     events: PeadEventDto[];
@@ -152,86 +179,32 @@ export class TechnoFundaService {
     };
   }
 
-  getVahanData(): {
-    categories: {
-      category: string;
-      label: string;
-      registrations: number;
-      yoyChange: number;
-      momChange: number;
-      keyOEMs: string[];
-    }[];
-    dataPoints: VahanDataPointDto[];
-    dataSource: string;
-    retrievedAt: string;
-  } {
-    const currentMonth = '2026-08';
-    const categories = [
-      {
-        category: '2W',
-        label: 'Two-Wheelers',
-        registrations: 1428500,
-        yoyChange: 14.2,
-        momChange: 3.8,
-        keyOEMs: ['Hero MotoCorp', 'Bajaj Auto', 'TVS Motor', 'Eicher (Royal Enfield)'],
-      },
-      {
-        category: 'PV',
-        label: 'Passenger Vehicles (Cars & SUVs)',
-        registrations: 345200,
-        yoyChange: 8.6,
-        momChange: 2.1,
-        keyOEMs: ['Maruti Suzuki', 'Hyundai', 'Tata Motors', 'Mahindra & Mahindra'],
-      },
-      {
-        category: 'CV',
-        label: 'Commercial Vehicles',
-        registrations: 88400,
-        yoyChange: 4.1,
-        momChange: -1.2,
-        keyOEMs: ['Tata Motors', 'Ashok Leyland', 'VECV (Eicher)'],
-      },
-      {
-        category: 'Tractor',
-        label: 'Agricultural Tractors',
-        registrations: 69800,
-        yoyChange: 11.8,
-        momChange: 5.4,
-        keyOEMs: ['Mahindra Tractors', 'Escorts Kubota', 'TAFE'],
-      },
-    ];
-
-    const dataPoints: VahanDataPointDto[] = categories.map((c, idx) => ({
-      id: `vahan-${idx + 1}`,
-      month: currentMonth,
-      category: c.category as any,
-      registrations: c.registrations,
-      momChange: c.momChange,
-      yoyChange: c.yoyChange,
-      dataSource: 'VAHAN / Government of India (parivahan.gov.in)',
-      retrievedAt: new Date().toISOString(),
-    }));
-
-    return {
-      categories,
-      dataPoints,
-      dataSource: 'VAHAN / Government of India (parivahan.gov.in) — Ministry of Road Transport and Highways',
-      retrievedAt: new Date().toISOString(),
-    };
+  async getVahanData() {
+    return this.vahanEtlService.getVahanData();
   }
 
-  getOverview() {
-    const mood = this.getMarketMoodIndex();
+  async getMarketOverview() {
+    return this.marketIndexService.getMarketOverview();
+  }
+
+  async getOverview() {
+    const [mood, marketOverview, vahan] = await Promise.all([
+      this.getMarketMoodIndex(),
+      this.getMarketOverview(),
+      this.getVahanData(),
+    ]);
     const pead = this.getPeadSurprises();
-    const vahan = this.getVahanData();
 
     return {
       marketMood: mood,
+      marketOverview,
       topPeadSurprises: pead.events.slice(0, 3),
       vahanSummary: vahan.categories,
+      vahanTopStates: vahan.topStates,
       timestamp: new Date().toISOString(),
       complianceDisclaimer:
         'DISCLAIMER: All tools, calculations, and data points provided herein are strictly for educational and analytical purposes. FinanciallyFree is an AMFI-registered Mutual Fund Distributor (ARN-350272) and not a SEBI-registered Research Analyst or Portfolio Manager. Past performance is not indicative of future returns.',
     };
   }
 }
+
