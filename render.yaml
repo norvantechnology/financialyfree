@@ -14,7 +14,7 @@ services:
     plan: free
     region: singapore
     rootDir: .
-    buildCommand: npm install -g pnpm@9.15.0 && pnpm install --frozen-lockfile && pnpm --filter @ff/types build && pnpm --filter @ff/calc build && pnpm --filter @ff/validators build && pnpm --filter @ff/api build
+    buildCommand: npm install -g pnpm@9.15.0 && pnpm install --frozen-lockfile --prod=false && pnpm --filter @ff/types build && pnpm --filter @ff/calc build && pnpm --filter @ff/validators build && pnpm --filter @ff/api build
     startCommand: pnpm --filter @ff/api start
     healthCheckPath: /health
     envVars:

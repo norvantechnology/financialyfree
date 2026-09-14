@@ -29,7 +29,7 @@ API base: `/api/v1`
 
 ### Manual Web Service (if not using Blueprint)
 - **Runtime**: Node
-- **Build**: `npm install -g pnpm@9.15.0 && pnpm install --frozen-lockfile && pnpm --filter @ff/types build && pnpm --filter @ff/calc build && pnpm --filter @ff/validators build && pnpm --filter @ff/api build`
+- **Build**: `npm install -g pnpm@9.15.0 && pnpm install --frozen-lockfile --prod=false && pnpm --filter @ff/types build && pnpm --filter @ff/calc build && pnpm --filter @ff/validators build && pnpm --filter @ff/api build`
 - **Start**: `pnpm --filter @ff/api start`
 - **Health check path**: `/health`
 - **Env**: set `NODE_VERSION=20.19.0` (avoid Node 26)
