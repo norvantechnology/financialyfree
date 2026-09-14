@@ -1,7 +1,7 @@
 import { calculateSIPRequired, calculateCorpusProjection, calculateCAGR, calculateXIRR } from '../goal.calc';
 
 describe('calculateSIPRequired', () => {
-  test('Emergency Fund: ₹6L in 1 year at 6% — should be ~₹48,500/mo', () => {
+  test('Emergency Fund: ₹6L in 1 year at 6%  should be ~₹48,500/mo', () => {
     const result = calculateSIPRequired({
       targetCorpus: 600_000,
       horizonYears: 1,
@@ -12,7 +12,7 @@ describe('calculateSIPRequired', () => {
     expect(result.monthlySip).toBeLessThan(50_000);
   });
 
-  test('Retirement: ₹5Cr in 25 years at 12% — SIP should be reasonable', () => {
+  test('Retirement: ₹5Cr in 25 years at 12%  SIP should be reasonable', () => {
     const result = calculateSIPRequired({
       targetCorpus: 50_000_000,
       horizonYears: 25,
@@ -122,7 +122,7 @@ describe('calculateCAGR', () => {
 });
 
 describe('calculateXIRR', () => {
-  test('Single investment and redemption — XIRR should match expected', () => {
+  test('Single investment and redemption  XIRR should match expected', () => {
     const cashflows = [
       { amount: -100_000, date: new Date('2024-01-01') },
       { amount: 120_000, date: new Date('2025-01-01') },

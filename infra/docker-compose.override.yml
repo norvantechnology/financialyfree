@@ -1,6 +1,6 @@
 version: '3.9'
 
-# ── Development overrides — hot reload, no build step ────────────────────
+# ── Development overrides  hot reload, no build step ────────────────────
 services:
   api:
     build: ~

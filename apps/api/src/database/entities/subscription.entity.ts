@@ -220,3 +220,62 @@ export class PaymentEntity {
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 }
+
+@Entity('invoices')
+export class InvoiceEntity {
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
+
+  @Index({ unique: true })
+  @Column({ length: 50 })
+  invoiceNumber!: string;
+
+  @Index()
+  @Column({ type: 'uuid' })
+  userId!: string;
+
+  @ManyToOne(() => UserEntity, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
+  user!: UserEntity;
+
+  @Column({ type: 'uuid', nullable: true })
+  subscriptionId?: string;
+
+  @ManyToOne(() => SubscriptionEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'subscriptionId' })
+  subscription?: SubscriptionEntity;
+
+  @Column({ type: 'uuid' })
+  planId!: string;
+
+  @ManyToOne(() => PlanEntity)
+  @JoinColumn({ name: 'planId' })
+  plan!: PlanEntity;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  amount!: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  gstAmount!: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  totalAmount!: number;
+
+  @Column({ length: 10, default: 'INR' })
+  currency!: string;
+
+  @Column({ length: 20, default: 'paid' })
+  status!: string;
+
+  @Column({ length: 50, default: 'Razorpay (UPI)' })
+  paymentMethod!: string;
+
+  @Column({ length: 100, nullable: true })
+  razorpayPaymentId?: string;
+
+  @Column({ type: 'timestamptz' })
+  paidAt!: Date;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  createdAt!: Date;
+}

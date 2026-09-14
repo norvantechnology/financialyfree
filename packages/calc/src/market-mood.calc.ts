@@ -1,6 +1,6 @@
 /**
  * Market Mood Index calculator (Section 69.3).
- * House-built composite gauge — version is tracked for reproducibility.
+ * House-built composite gauge  version is tracked for reproducibility.
  * Range: 0–100. Labels: Extreme Fear → Fear → Neutral → Greed → Extreme Greed
  */
 
@@ -45,7 +45,7 @@ export function calculateMarketMoodIndex(input: MarketMoodInput): MarketMoodResu
   // Component 1: Market Breadth (advance/decline %) → 0–100
   const breadthScore = clamp(advanceDeclinePct, 0, 100);
 
-  // Component 2: VIX (inverted — high VIX = fear)
+  // Component 2: VIX (inverted  high VIX = fear)
   const vixRatio = vixBaseline > 0 ? vixCurrent / vixBaseline : 1;
   const vixScore = clamp(100 - (vixRatio - 0.5) * 100, 0, 100);
 

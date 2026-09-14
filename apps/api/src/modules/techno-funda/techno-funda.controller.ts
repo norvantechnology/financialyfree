@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TechnoFundaService } from './techno-funda.service';
 import { Public, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -25,7 +25,7 @@ export class TechnoFundaController {
 
   @Public()
   @Get('market-mood')
-  @ApiOperation({ summary: 'Get Market Mood Index (0–100) computed from live India VIX and index breadth' })
+  @ApiOperation({ summary: 'Get Market Mood Index (0-100) computed from live India VIX and index breadth' })
   getMarketMoodIndex() {
     return this.tfService.getMarketMoodIndex();
   }
@@ -45,5 +45,156 @@ export class TechnoFundaController {
   getVahanData() {
     return this.tfService.getVahanData();
   }
+
+  @Public()
+  @Get('buybacks')
+  @ApiOperation({ summary: 'Get live corporate actions, demergers, and tender offer events from NSE register' })
+  getBuybacks() {
+    return this.tfService.getBuybacks();
+  }
+
+  @Public()
+  @Get('results-calendar')
+  @ApiOperation({ summary: 'Get live statutory quarterly earnings & corporate board meetings from NSE event calendar' })
+  getResultsCalendar(@Query('refresh') refresh?: string) {
+    return this.tfService.getResultsCalendar(refresh === 'true');
+  }
+
+  @Public()
+  @Get('news')
+  @ApiOperation({ summary: 'Get live Indian stock market & exchange announcements from Economic Times RSS feed' })
+  getNews(@Query('refresh') refresh?: string) {
+    return this.tfService.getNewsFeed(refresh === 'true');
+  }
+
+  @Public()
+  @Get('shareholding')
+  @ApiOperation({ summary: 'Get live SEBI Reg 31 promoter & institutional shareholding patterns from NSE master feed' })
+  getShareholding(@Query('refresh') refresh?: string) {
+    return this.tfService.getShareholding(refresh === 'true');
+  }
+
+  @Public()
+  @Get('valuation-financials')
+  @ApiOperation({ summary: 'Get live listed company financials + Aureus score for any NSE symbol (Screener.in + Yahoo)' })
+  getValuationFinancials(@Query('symbol') symbol?: string) {
+    return this.tfService.getValuationFinancials(symbol || 'RELIANCE');
+  }
+
+  @Public()
+  @Get('pead-feed')
+  @ApiOperation({ summary: 'Get live Post-Earnings Announcement Drift (PEAD) surprises with drift tracking' })
+  getPeadFeed() {
+    return this.tfService.getPeadFeed();
+  }
+
+  @Public()
+  @Get('financial-modelling')
+  @ApiOperation({ summary: 'Get forward financial statement modeling and scenario forecasts (Base, Bull, Bear, Management)' })
+  getFinancialModelling(
+    @Query('symbol') symbol?: string,
+    @Query('scenario') scenario?: string,
+  ) {
+    return this.tfService.getFinancialModelling(symbol, scenario);
+  }
+
+  @Public()
+  @Get('master-tracker')
+  @ApiOperation({ summary: 'Get live curated growth stock watchlist with real-time CMP, 20/100 DMA, and Guidance vs Actuals matrix' })
+  getMasterTracker(@Query('refresh') refresh?: string) {
+    return this.tfService.getMasterTracker(refresh === 'true');
+  }
+
+  @Public()
+  @Get('orders')
+  @ApiOperation({ summary: 'Get live corporate order wins & contracts from BSE/NSE filings with % of company annual revenue' })
+  getOrderTracker(@Query('refresh') refresh?: string) {
+    return this.tfService.getOrderTracker(refresh === 'true');
+  }
+
+  @Public()
+  @Get('bank-nbfc')
+  @ApiOperation({ summary: 'Get 12-year historical Cost of Funds (%), Return on Assets (%), and balance sheet deposits across 12 major Indian banks' })
+  getBankNbfcData() {
+    return this.tfService.getBankNbfcData();
+  }
+
+  @Public()
+  @Get('vahan-makers')
+  @ApiOperation({ summary: 'Get Top 50 automobile manufacturers monthly production and YoY growth matrix' })
+  getVahanMakers() {
+    return this.tfService.getVahanMakersData();
+  }
+
+  @Public()
+  @Get('52w-high-low')
+  @ApiOperation({ summary: 'Get daily 52-week high breakout and low breakdown screener from NSE' })
+  get52WeekHighLow(@Query('refresh') refresh?: string) {
+    return this.tfService.get52WeekHighLow(refresh === 'true');
+  }
+
+  @Public()
+  @Get('bulk-block-deals')
+  @ApiOperation({ summary: 'Get daily NSE/BSE bulk and block deal transactions with marquee investor flags' })
+  getBulkBlockDeals(@Query('refresh') refresh?: string) {
+    return this.tfService.getBulkBlockDeals(refresh === 'true');
+  }
+
+  @Public()
+  @Get('fno-oi')
+  @ApiOperation({ summary: 'Get F&O open interest, Put-Call Ratio (PCR), max-pain strikes, and rollover data' })
+  getFnoOpenInterest(@Query('refresh') refresh?: string) {
+    return this.tfService.getFnoOpenInterest(refresh === 'true');
+  }
+
+  @Public()
+  @Get('insider-trading')
+  @ApiOperation({ summary: 'Get SEBI PIT / SAST promoter and insider trading disclosures' })
+  getInsiderTrading(@Query('refresh') refresh?: string) {
+    return this.tfService.getInsiderTrading(refresh === 'true');
+  }
+
+  @Public()
+  @Get('ipo-tracker')
+  @ApiOperation({ summary: 'Get Mainboard & SME IPO calendar with live bidding subscription multiples' })
+  getIpoTracker(@Query('refresh') refresh?: string) {
+    return this.tfService.getIpoTracker(refresh === 'true');
+  }
+
+  @Public()
+  @Get('dividends')
+  @ApiOperation({ summary: 'Get standalone dividend ex-dates calendar, yields, bonus issues, and splits' })
+  getDividendsCalendar(@Query('refresh') refresh?: string) {
+    return this.tfService.getDividendsCalendar(refresh === 'true');
+  }
+
+  @Public()
+  @Get('sector-heatmap')
+  @ApiOperation({ summary: 'Get 11 NSE sectoral indices performance heatmap, rotation state, and breadth' })
+  getSectorHeatmap(@Query('refresh') refresh?: string) {
+    return this.tfService.getSectorHeatmap(refresh === 'true');
+  }
+
+  @Public()
+  @Get('delivery-screener')
+  @ApiOperation({ summary: 'Get 52-week high momentum stocks with high delivery percentage (>50%)' })
+  getDeliveryMomentum(@Query('refresh') refresh?: string) {
+    return this.tfService.getDeliveryMomentum(refresh === 'true');
+  }
+
+  @Public()
+  @Get('circuit-breakers')
+  @ApiOperation({ summary: 'Get stocks locked in Upper Circuit and Lower Circuit with pending order volume' })
+  getCircuitBreakers(@Query('refresh') refresh?: string) {
+    return this.tfService.getCircuitBreakers(refresh === 'true');
+  }
+
+  @Public()
+  @Get('rbi-macro')
+  @ApiOperation({ summary: 'Get RBI Policy Repo Rate history, MPC calendar, CRR/SDF, and inflation metrics' })
+  getRbiMacroCalendar(@Query('refresh') refresh?: string) {
+    return this.tfService.getRbiMacroCalendar(refresh === 'true');
+  }
 }
+
 

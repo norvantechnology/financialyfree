@@ -3,8 +3,8 @@ dist/
 .next/
 build/
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
 *.log
 coverage/
 .turbo/
@@ -12,3 +12,12 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 Thumbs.db
+scratch/
+scripts/
+*.zip
+packages/types/src/**/*.js
+packages/types/src/**/*.js.map
+packages/types/src/**/*.d.ts
+packages/types/src/**/*.d.ts.map
+apps/**/coverage/
+**/.nyc_output/

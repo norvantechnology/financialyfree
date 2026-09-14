@@ -17,6 +17,21 @@ import { AuthTokensDto, LoginResponseDto, JwtPayload } from '@ff/types';
 
 @Injectable()
 export class AuthService {
+  /**
+   * Diagnostic in-memory buffer for pending password reset tokens.
+   * Real email delivery is blocked pending AWS SES / Twilio credentials.
+   * This buffer allows the admin account-integrity endpoint to surface tokens
+   * so the flow can be tested end-to-end without live email.
+   * Max 100 entries to prevent unbounded growth.
+   */
+  public readonly pendingPasswordResets: {
+    email: string;
+    tokenHash: string;
+    expiresAt: Date;
+    requestedAt: Date;
+    emailDeliveryStatus: 'PENDING_CREDENTIALS';
+  }[] = [];
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
@@ -121,12 +136,27 @@ export class AuthService {
     const user = await this.usersService.findByEmail(email.toLowerCase());
     if (!user) return;
 
-    // TODO: Generate token, store hash in password_reset_tokens, send via SES
-    // This is intentionally stubbed — wire the NotificationsModule in Sprint 7
     const resetToken = crypto.randomBytes(32).toString('hex');
     const tokenHash = this.hashToken(resetToken);
-    // ... store tokenHash in DB with 15 min expiry
-    console.log(`[AUTH] Password reset token for ${email}: ${resetToken} (hash: ${tokenHash})`);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min expiry
+
+    // Buffer the pending reset for admin diagnostic inspection.
+    // Real email delivery is blocked pending AWS SES / Twilio credentials.
+    if (this.pendingPasswordResets.length >= 100) {
+      this.pendingPasswordResets.shift(); // evict oldest
+    }
+    this.pendingPasswordResets.push({
+      email: email.toLowerCase(),
+      tokenHash,
+      expiresAt,
+      requestedAt: new Date(),
+      emailDeliveryStatus: 'PENDING_CREDENTIALS',
+    });
+
+    // Surface token to server log for immediate dev testing
+    console.log(
+      `[AUTH-DIAGNOSTIC] Reset token for ${email}: ${resetToken} | expires: ${expiresAt.toISOString()}`,
+    );
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────
@@ -156,10 +186,13 @@ export class AuthService {
       expiresIn: this.config.get('JWT_EXPIRES_IN', '15m'),
     });
 
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: this.config.getOrThrow('JWT_REFRESH_SECRET'),
-      expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
-    });
+    const refreshToken = this.jwtService.sign(
+      { ...payload, jti: crypto.randomUUID() },
+      {
+        secret: this.config.getOrThrow('JWT_REFRESH_SECRET'),
+        expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
+      },
+    );
 
     // Store refresh token hash
     const expiresAt = new Date();

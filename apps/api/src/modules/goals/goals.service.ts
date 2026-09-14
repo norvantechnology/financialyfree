@@ -88,35 +88,10 @@ export class GoalsService {
   }
 
   async getGoals(userId: string): Promise<GoalDto[]> {
-    let goals = await this.goalRepo.find({
+    const goals = await this.goalRepo.find({
       where: { userId, isActive: true },
       order: { createdAt: 'DESC' },
     });
-
-    if (goals.length === 0) {
-      // Seed initial goals in Postgres for this user
-      await this.createGoal(userId, {
-        type: 'retirement',
-        name: 'Early Retirement (FIRE 45)',
-        targetAmount: 5000000,
-        horizonYears: 8,
-        currentSavings: 400000,
-        riskBand: 'balanced',
-      });
-      await this.createGoal(userId, {
-        type: 'wealth_creation',
-        name: '3BHK Villa Down Payment',
-        targetAmount: 3000000,
-        horizonYears: 4,
-        currentSavings: 800000,
-        riskBand: 'conservative',
-      });
-
-      goals = await this.goalRepo.find({
-        where: { userId, isActive: true },
-        order: { createdAt: 'DESC' },
-      });
-    }
 
     return goals.map((g) => this.mapGoal(g));
   }

@@ -8,14 +8,17 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MfExecutionService } from './mf-execution.service';
 import { AmfiNavService } from './amfi-nav.service';
-import { Public } from '../auth/guards/jwt-auth.guard';
+import { Public, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateSipOrderRequest } from '@ff/types';
 
 @ApiTags('Mutual Funds & BSE StAR MF Execution')
+@UseGuards(JwtAuthGuard)
 @Controller('mutual-funds')
 export class MfExecutionController {
   constructor(
@@ -51,7 +54,10 @@ export class MfExecutionController {
   }
 
   private getUserId(req: any): string {
-    return req.user?.id || 'f47cfaa8-74c1-4257-81a1-fe803c31e0c0';
+    if (!req.user?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    return req.user.id;
   }
 
   @Get('portfolio')

@@ -19,12 +19,25 @@ describe('AdminService (Sprint 9)', () => {
     };
     mockGoalRepo = {
       count: jest.fn().mockResolvedValue(950),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ sum: '18500000' }),
+      }),
     };
     mockKycRepo = {
       count: jest.fn().mockResolvedValue(300),
-      find: jest.fn().mockResolvedValue([]),
+      find: jest.fn().mockResolvedValue([
+        {
+          id: 'kyc-pending-1',
+          pan: 'ABCDE1234F',
+          status: 'pending',
+          createdAt: new Date(),
+          user: { firstName: 'Vikram', lastName: 'Singhania' },
+        },
+      ]),
       findOne: jest.fn(),
       save: jest.fn().mockImplementation((e) => Promise.resolve(e)),
+      create: jest.fn().mockImplementation((e) => e),
       createQueryBuilder: jest.fn().mockReturnValue({
         where: jest.fn().mockReturnThis(),
         getCount: jest.fn().mockResolvedValue(0),

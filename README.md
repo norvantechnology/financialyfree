@@ -3,6 +3,8 @@
 > **AMFI-Registered Mutual Fund Distributor Platform** (ARN-350272 / FutureZenith Insights LLP)  
 > Combining Goal-Based Mutual Fund Execution, Systematic Asset Allocation, LMS Education, and Techno-Funda Decision Support.
 
+📘 **Comprehensive Master Documentation**: See [PLATFORM_COMPREHENSIVE_REFERENCE.md](file:///home/ig-008/Documents/MY/financiallyfree/PLATFORM_COMPREHENSIVE_REFERENCE.md) for full architectural documentation covering all UI features, backend modules, third-party integrations (BSE StAR MF, Digio, Razorpay, Yahoo Finance, NSE/BSE, Vahan, ET RSS), and detailed tab-by-tab mathematical logic.
+
 ---
 
 ## Architecture & Technology Stack
@@ -48,7 +50,7 @@ pnpm docker:up
 # Run all 8 TypeORM migrations against the local PostgreSQL instance
 pnpm db:migrate
 
-# (Optional) Seed demo courses, sample webinars, and test admin users
+# (Optional) Seed demo courses and test admin users
 pnpm db:seed
 ```
 

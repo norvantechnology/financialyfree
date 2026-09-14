@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2, KeyRound, ShieldAlert, User, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2, ShieldAlert } from 'lucide-react';
 import { loginSchema, type LoginInput } from '@ff/validators';
+import { getApiBaseUrl, dispatchAuthChange } from '../../../lib/auth-client';
 
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -15,54 +16,58 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
-
-  const fillInvestorCreds = () => {
-    setValue('email', 'investor@financiallyfree.in', { shouldValidate: true });
-    setValue('password', 'Password123!', { shouldValidate: true });
-  };
-
-  const fillAdminCreds = () => {
-    setValue('email', 'admin@financiallyfree.in', { shouldValidate: true });
-    setValue('password', 'AdminPassword123!', { shouldValidate: true });
-  };
 
   const onSubmit = async (data: LoginInput) => {
     setIsLoading(true);
     setApiError(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const res = await fetch(`${apiUrl}/api/v1/auth/login`, {
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       const json = (await res.json()) as {
-        user?: { role: string; email: string };
-        tokens?: { accessToken: string };
-        message?: string;
+        user?: { role: string; email: string; firstName?: string; lastName?: string; id?: string };
+        tokens?: { accessToken: string; refreshToken?: string; expiresIn?: number };
+        message?: string | string[];
       };
       if (!res.ok) {
-        setApiError(json.message ?? 'Login failed. Please check credentials.');
+        const errorMsg = Array.isArray(json.message)
+          ? json.message.join(', ')
+          : (json.message || 'Invalid email or password. Please check your credentials.');
+        setApiError(errorMsg);
         return;
       }
-      // Store tokens
+      // Store tokens in both localStorage and cookies for seamless session persistence across reloads & SSR
       if (json.tokens?.accessToken) {
         localStorage.setItem('accessToken', json.tokens.accessToken);
+        document.cookie = `accessToken=${json.tokens.accessToken}; path=/; max-age=604800; SameSite=Lax`;
+      }
+      if (json.tokens?.refreshToken) {
+        localStorage.setItem('refreshToken', json.tokens.refreshToken);
+        document.cookie = `refreshToken=${json.tokens.refreshToken}; path=/; max-age=2592000; SameSite=Lax`;
       }
       if (json.user) {
         localStorage.setItem('user', JSON.stringify(json.user));
       }
-      // Role-aware redirect
-      if (json.user?.role === 'admin') {
+      // Dispatch immediate notification to all headers and components
+      dispatchAuthChange();
+
+      // Check for redirect query parameter
+      const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const redirectParam = searchParams?.get('redirect');
+      if (redirectParam && redirectParam.startsWith('/')) {
+        window.location.href = redirectParam;
+      } else if (json.user?.role === 'admin') {
         window.location.href = '/admin';
       } else {
         window.location.href = '/dashboard/goals';
       }
     } catch {
-      setApiError('Network error connecting to API. Please make sure the backend is running.');
+      setApiError('Unable to connect to service. Please check your internet connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -76,26 +81,19 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+    <form
+      method="POST"
+      noValidate
+      onSubmit={handleSubmit(onSubmit)}
+      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+    >
       {/* Google Sign In Button */}
       <button
         type="button"
         onClick={handleGoogleClick}
-        className="btn btn-outline"
-        style={{
-          width: '100%',
-          minHeight: '42px',
-          padding: '8px 16px',
-          borderRadius: 'var(--radius-md)',
-          background: '#FFFFFF',
-          border: '1px solid #E5E7EB',
-          color: '#374151',
-          fontSize: '13px',
-          fontWeight: 500,
-          gap: '8px',
-        }}
+        className="auth-google-btn"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24">
+        <svg width="18" height="18" viewBox="0 0 24 24">
           <path
             fill="#4285F4"
             d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
@@ -119,88 +117,26 @@ export function LoginForm() {
       {googleNotice && (
         <div
           style={{
-            fontSize: '11px',
+            fontSize: '11.5px',
             color: '#B45309',
             background: '#FEF3C7',
             border: '1px solid #FDE68A',
-            borderRadius: '6px',
-            padding: '8px 10px',
-            lineHeight: 1.4,
+            borderRadius: '8px',
+            padding: '10px 12px',
+            lineHeight: 1.45,
           }}
         >
-          Google OAuth is enabled in production when <code>GOOGLE_CLIENT_ID</code> is configured. Please use email & password or the demo autofill credentials below.
+          Google OAuth is enabled in production when <code>GOOGLE_CLIENT_ID</code> is configured. Please sign in with your email & password below.
         </div>
       )}
 
       {/* Divider */}
-      <div style={{ display: 'flex', alignItems: 'center', margin: '4px 0', color: '#9CA3AF', fontSize: '11px' }}>
-        <div style={{ flex: 1, height: '1px', background: '#E5E7EB' }} />
-        <span style={{ padding: '0 10px', textTransform: 'uppercase' }}>or</span>
-        <div style={{ flex: 1, height: '1px', background: '#E5E7EB' }} />
+      <div style={{ display: 'flex', alignItems: 'center', margin: '4px 0', color: '#94A3B8', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div style={{ flex: 1, height: '1px', background: '#E2E8F0' }} />
+        <span style={{ padding: '0 12px', fontWeight: 600 }}>or email</span>
+        <div style={{ flex: 1, height: '1px', background: '#E2E8F0' }} />
       </div>
 
-      {/* 1-Click Demo Credentials Panel (Non-Production Only) */}
-      {process.env.NODE_ENV !== 'production' && (
-        <div
-          style={{
-            background: 'var(--bg-surface-raised, #F4F1EA)',
-            border: '1px solid var(--border-color, #E8E4DC)',
-            borderRadius: 'var(--radius-md)',
-            padding: '10px 12px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary, #4B5563)', marginBottom: '8px' }}>
-            <KeyRound size={12} color="var(--color-accent, #0F766E)" />
-            <span>Development Sandbox — Autofill Credentials:</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={fillInvestorCreds}
-              style={{
-                padding: '6px 10px',
-                minHeight: '34px',
-                borderRadius: 'var(--radius-sm, 4px)',
-                background: '#FFFFFF',
-                border: '1px solid #D1D5DB',
-                color: '#111827',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-              }}
-            >
-              <User size={13} color="#4B5563" />
-              <span>Investor Demo</span>
-            </button>
-            <button
-              type="button"
-              onClick={fillAdminCreds}
-              style={{
-                padding: '6px 10px',
-                minHeight: '34px',
-                borderRadius: 'var(--radius-sm, 4px)',
-                background: '#FFFFFF',
-                border: '1px solid #D1D5DB',
-                color: '#111827',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-              }}
-            >
-              <ShieldCheck size={13} color="#4B5563" />
-              <span>Admin Demo</span>
-            </button>
-          </div>
-        </div>
-      )}
       {/* API Error */}
       {apiError && (
         <div
@@ -208,7 +144,7 @@ export function LoginForm() {
             padding: '10px 12px',
             background: '#FEE2E2',
             border: '1px solid #FECACA',
-            borderRadius: 'var(--radius-md)',
+            borderRadius: '10px',
             color: '#991B1B',
             fontSize: '12px',
             display: 'flex',
@@ -216,136 +152,105 @@ export function LoginForm() {
             gap: '8px',
           }}
         >
-          <ShieldAlert size={15} style={{ flexShrink: 0 }} />
+          <ShieldAlert size={16} style={{ flexShrink: 0 }} />
           <span>{apiError}</span>
         </div>
       )}
 
       {/* Email */}
-      <div className="form-group">
-        <label htmlFor="login-email" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-          Email address
+      <div className="auth-form-group">
+        <label htmlFor="login-email" className="auth-form-label">
+          <span>Email address</span>
         </label>
-        <div style={{ position: 'relative' }}>
-          <Mail
-            size={16}
-            style={{
-              position: 'absolute',
-              left: 14,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#9CA3AF',
-            }}
-          />
+        <div className="auth-input-wrapper">
+          <div className="auth-input-icon">
+            <Mail size={16} />
+          </div>
           <input
             id="login-email"
             type="email"
-            placeholder="Enter your email address"
-            style={{
-              width: '100%',
-              padding: '10px 12px 10px 38px',
-              borderRadius: 'var(--radius-md)',
-              background: '#FFFFFF',
-              border: `1px solid ${errors.email ? '#EF4444' : '#D1D5DB'}`,
-              color: '#111827',
-              fontSize: '13px',
-              outline: 'none',
-            }}
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck="false"
+            placeholder="name@example.com"
+            className={`auth-input ${errors.email ? 'has-error' : ''}`}
             autoComplete="email"
             {...register('email')}
           />
         </div>
-        {errors.email && <span style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>{errors.email.message}</span>}
+        {errors.email && <span className="auth-error-msg">{errors.email.message}</span>}
       </div>
 
       {/* Password */}
-      <div className="form-group">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-          <label htmlFor="login-password" style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>
-            Password
-          </label>
+      <div className="auth-form-group">
+        <div className="auth-form-label">
+          <label htmlFor="login-password">Password</label>
           <Link
             href="/auth/forgot-password"
-            style={{ fontSize: '11px', color: '#4B5563', textDecoration: 'underline' }}
+            style={{ fontSize: '12px', color: '#0F766E', textDecoration: 'none', fontWeight: 500 }}
           >
             Forgot password?
           </Link>
         </div>
-        <div style={{ position: 'relative' }}>
-          <Lock
-            size={16}
-            style={{
-              position: 'absolute',
-              left: 14,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#9CA3AF',
-            }}
-          />
+        <div className="auth-input-wrapper">
+          <div className="auth-input-icon">
+            <Lock size={16} />
+          </div>
           <input
             id="login-password"
             type={showPassword ? 'text' : 'password'}
             placeholder="••••••••••••"
-            style={{
-              width: '100%',
-              padding: '10px 40px 10px 38px',
-              borderRadius: 'var(--radius-md)',
-              background: '#FFFFFF',
-              border: `1px solid ${errors.password ? '#EF4444' : '#D1D5DB'}`,
-              color: '#111827',
-              fontSize: '13px',
-              outline: 'none',
-            }}
+            className={`auth-input ${errors.password ? 'has-error' : ''}`}
+            style={{ paddingRight: '44px' }}
             autoComplete="current-password"
             {...register('password')}
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            style={{
-              position: 'absolute',
-              right: 12,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              background: 'none',
-              border: 'none',
-              color: '#9CA3AF',
-              cursor: 'pointer',
-              padding: 0,
-            }}
+            className="auth-password-toggle-btn"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
-        {errors.password && <span style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>{errors.password.message}</span>}
+        {errors.password && <span className="auth-error-msg">{errors.password.message}</span>}
       </div>
 
-      {/* Submit Button (Dark Navy Solid with Arrow) */}
+      {/* Remember me option */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '2px 0 6px' }}>
+        <input
+          id="remember-me"
+          type="checkbox"
+          defaultChecked
+          style={{
+            width: '16px',
+            height: '16px',
+            accentColor: '#0F766E',
+            cursor: 'pointer',
+            borderRadius: '4px',
+          }}
+        />
+        <label htmlFor="remember-me" style={{ fontSize: '12.5px', color: '#475569', cursor: 'pointer', userSelect: 'none' }}>
+          Keep me signed in on this device
+        </label>
+      </div>
+
+      {/* Submit Button */}
       <button
         type="submit"
         disabled={isLoading}
-        className="btn btn-primary"
-        style={{
-          width: '100%',
-          minHeight: '44px',
-          marginTop: '6px',
-          borderRadius: 'var(--radius-md)',
-          background: '#0F172A',
-          color: '#FFFFFF',
-          fontSize: '13px',
-          fontWeight: 600,
-          gap: '8px',
-        }}
+        className="auth-submit-btn"
       >
         {isLoading ? (
           <>
             <Loader2 size={16} className="animate-spin" />
-            <span>Authenticating...</span>
+            <span>Signing in...</span>
           </>
         ) : (
           <>
-            <span>Continue</span>
-            <ArrowRight size={14} />
+            <span>Sign In</span>
+            <ArrowRight size={15} />
           </>
         )}
       </button>

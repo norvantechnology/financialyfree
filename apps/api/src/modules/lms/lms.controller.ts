@@ -7,10 +7,12 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { LmsService } from './lms.service';
-import { Public } from '../auth/guards/jwt-auth.guard';
+import { Public, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('LMS Courses & Learning')
 @Controller('courses')
@@ -19,7 +21,7 @@ export class LmsController {
 
   @Public()
   @Get()
-  @ApiOperation({ summary: 'List all published courses' })
+  @ApiOperation({ summary: 'List all published courses with modules count & duration' })
   async getCourses() {
     return this.lmsService.getCourses();
   }
@@ -32,10 +34,15 @@ export class LmsController {
   }
 
   private getUserId(req: any): string {
-    return req.user?.id || 'f47cfaa8-74c1-4257-81a1-fe803c31e0c0';
+    const uid = req.user?.id || req.user?.userId;
+    if (!uid) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    return uid;
   }
 
   @Get(':slug/lessons/:lessonId')
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get lesson content and video playback (enforces plan entitlement)' })
   async getLessonContent(

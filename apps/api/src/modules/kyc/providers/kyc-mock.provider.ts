@@ -37,7 +37,7 @@ export class KycMockProvider implements IKycProvider {
       pan: pan.toUpperCase(),
       name: 'INVESTOR VERIFIED',
       verifiedAt: new Date().toISOString(),
-      message: 'KYC Verified (CVL KRA) — Investor eligible for Mutual Fund execution',
+      message: 'KYC Verified (CVL KRA)  Investor eligible for Mutual Fund execution',
     };
   }
 

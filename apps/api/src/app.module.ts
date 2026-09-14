@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { AppThrottlerGuard } from './modules/auth/guards/app-throttler.guard';
 import { AppConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -14,10 +15,11 @@ import { KycModule } from './modules/kyc/kyc.module';
 import { MutualFundsModule } from './modules/mutual-funds/mutual-funds.module';
 import { MfExecutionModule } from './modules/mf-execution/mf-execution.module';
 import { LmsModule } from './modules/lms/lms.module';
-import { WebinarsModule } from './modules/webinars/webinars.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { TechnoFundaModule } from './modules/techno-funda/techno-funda.module';
+import { WatchlistModule } from './modules/watchlist/watchlist.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { SystemConfigModule } from './modules/system-config/system-config.module';
 
 @Module({
   imports: [
@@ -44,11 +46,6 @@ import { AdminModule } from './modules/admin/admin.module';
         ttl: 60000,
         limit: 120,
       },
-      {
-        name: 'strict',
-        ttl: 60000,
-        limit: 10,
-      },
     ]),
 
     // ── Feature Modules ───────────────────────────────────────────────
@@ -61,15 +58,16 @@ import { AdminModule } from './modules/admin/admin.module';
     MutualFundsModule,
     MfExecutionModule,
     LmsModule,
-    WebinarsModule,
     NotificationsModule,
     TechnoFundaModule,
+    WatchlistModule,
     AdminModule,
+    SystemConfigModule,
   ],
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: AppThrottlerGuard,
     },
   ],
 })

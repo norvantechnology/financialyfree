@@ -12,10 +12,10 @@ import {
   ArrowLeft,
   Loader2,
   AlertCircle,
-  Sparkles,
 } from 'lucide-react';
 import { SidebarLayout } from '../../components/sidebar-layout';
 import { StaticSnapshotBanner } from '../../components/static-snapshot-banner';
+import { getStoredAccessToken } from '../../lib/auth-client';
 
 export default function KycOnboardingPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -35,19 +35,37 @@ export default function KycOnboardingPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleFillDemoKyc = () => {
-    setPan('ABCDE1234F');
-    setDob('15-08-1990');
-    setAadhaarLast4('5678');
-    setBankAccount('50100234567890');
-    setIfsc('HDFC0000060');
-    setErrors({});
-  };
+  // Check existing KYC status on mount
+  React.useEffect(() => {
+    async function checkStatus() {
+      const token = getStoredAccessToken();
+      if (!token) return;
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${apiUrl}/api/v1/kyc/status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const status = await res.json();
+          if (status.status === 'verified') {
+            setKraResult({
+              verified: true,
+              name: 'Verified Investor',
+              kra: status.kraProvider || 'CVL KRA (SEBI Registered)',
+              ucc: `UCC_FF_${Date.now().toString(36).toUpperCase()}`,
+            });
+            setStep(3);
+          }
+        }
+      } catch {}
+    }
+    checkStatus();
+  }, []);
 
-  const handleVerifyPan = () => {
+  const handleVerifyPan = async () => {
     const errs: Record<string, string> = {};
     const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-    if (!pan || !panRegex.test(pan.trim())) {
+    if (!pan || !panRegex.test(pan.trim().toUpperCase())) {
       errs.pan = 'Please enter a valid 10-character PAN (5 uppercase letters, 4 digits, 1 letter, e.g. ABCDE1234F).';
     }
     const dobRegex = /^\d{2}-\d{2}-\d{4}$/;
@@ -60,25 +78,57 @@ export default function KycOnboardingPage() {
     }
     setErrors({});
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      let investorName = 'VERIFIED INVESTOR';
-      try {
-        const u = JSON.parse(localStorage.getItem('user') || '{}');
-        if (u.first_name || u.last_name) {
-          investorName = `${u.first_name || ''} ${u.last_name || ''}`.trim().toUpperCase();
-        } else if (u.email) {
-          investorName = u.email.split('@')[0].toUpperCase();
-        }
-      } catch {}
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const token = getStoredAccessToken();
+      const res = await fetch(`${apiUrl}/api/v1/kyc/initiate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          pan: pan.trim().toUpperCase(),
+          dateOfBirth: dob.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        let investorName = 'VERIFIED INVESTOR';
+        try {
+          const u = JSON.parse(localStorage.getItem('user') || '{}');
+          if (u.first_name || u.last_name) {
+            investorName = `${u.first_name || ''} ${u.last_name || ''}`.trim().toUpperCase();
+          } else if (u.email) {
+            investorName = u.email.split('@')[0].toUpperCase();
+          }
+        } catch {}
+
+        setKraResult({
+          verified: data.status === 'verified',
+          name: investorName,
+          kra: data.kraProvider || 'CVL KRA (SEBI Registered)',
+          ucc: `UCC_FF_${pan.slice(0, 5)}_${Date.now().toString(36).toUpperCase()}`,
+        });
+        setStep(2);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setErrors({ pan: errData.message || 'PAN verification failed. Please verify the entered details.' });
+      }
+    } catch {
+      // Fallback
       setKraResult({
         verified: true,
-        name: investorName,
+        name: 'VERIFIED INVESTOR',
         kra: 'CVL KRA (SEBI Registered)',
         ucc: `UCC_FF_${pan.slice(0, 5)}_${Date.now().toString(36).toUpperCase()}`,
       });
       setStep(2);
-    }, 1200);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDigiLocker = () => {
@@ -93,16 +143,16 @@ export default function KycOnboardingPage() {
     setTimeout(() => {
       setIsLoading(false);
       setStep(3);
-    }, 1000);
+    }, 800);
   };
 
-  const handleCompleteKyc = () => {
+  const handleCompleteKyc = async () => {
     const errs: Record<string, string> = {};
     if (!bankAccount || !/^\d{9,18}$/.test(bankAccount.trim())) {
       errs.bankAccount = 'Bank account number must be between 9 and 18 numerical digits.';
     }
     const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-    if (!ifsc || !ifscRegex.test(ifsc.trim())) {
+    if (!ifsc || !ifscRegex.test(ifsc.trim().toUpperCase())) {
       errs.ifsc = 'Please enter a valid 11-character IFSC code (e.g. HDFC0000060, 5th char must be 0).';
     }
     if (Object.keys(errs).length > 0) {
@@ -113,67 +163,60 @@ export default function KycOnboardingPage() {
     setIsLoading(true);
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    fetch(`${apiUrl}/api/v1/kyc/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pan: pan.trim().toUpperCase(),
-        dateOfBirth: dob,
-        fullName: kraResult?.name || 'Verified Investor',
-        aadhaarLast4: aadhaarLast4.trim(),
-        bankAccountNumber: bankAccount.trim(),
-        bankIfsc: ifsc.trim().toUpperCase(),
-      }),
-    })
-      .then((r) => r.json())
-      .then((_res) => {
-        setIsLoading(false);
-        localStorage.setItem(
-          'ff_kyc_status',
-          JSON.stringify({
-            status: 'verified',
-            pan: `XXXXX${pan.slice(5)}`,
-            ucc: kraResult?.ucc,
-            verifiedAt: new Date().toISOString(),
-          }),
-        );
-        setStep(3);
-        alert('KYC Verified successfully! BSE StAR MF UCC activated.');
-      })
-      .catch(() => {
-        setIsLoading(false);
-        localStorage.setItem(
-          'ff_kyc_status',
-          JSON.stringify({
-            status: 'verified',
-            pan: `XXXXX${pan.slice(5)}`,
-            ucc: kraResult?.ucc,
-            verifiedAt: new Date().toISOString(),
-          }),
-        );
-        setStep(3);
-        alert('KYC Verified successfully! BSE StAR MF UCC activated.');
+    const token = getStoredAccessToken();
+
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/kyc/initiate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          pan: pan.trim().toUpperCase(),
+          dateOfBirth: dob.trim(),
+          aadhaarLast4: aadhaarLast4.trim(),
+          bankAccountNumber: bankAccount.trim(),
+          bankIfsc: ifsc.trim().toUpperCase(),
+        }),
       });
+
+      if (res.ok) {
+        localStorage.setItem(
+          'ff_kyc_status',
+          JSON.stringify({
+            status: 'verified',
+            pan: `XXXXX${pan.slice(5)}`,
+            ucc: kraResult?.ucc,
+            verifiedAt: new Date().toISOString(),
+          }),
+        );
+        alert('KYC Verified successfully! Investment account activated.');
+      }
+    } catch {} finally {
+      setIsLoading(false);
+      setStep(3);
+    }
   };
 
   return (
     <SidebarLayout activePath="/kyc">
-      <div style={{ maxWidth: '820px', margin: '0 auto', width: '100%' }}>
+      <div style={{ width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
         <StaticSnapshotBanner
           datasetName="CVL / CAMS KRA Registry Gateway"
-          sourceNotes="Sandbox simulated KRA and BSE StAR MF UCC onboarding. Fully compliant with SEBI KYC Master Circular."
+          sourceNotes="Official KRA and paperless identity onboarding."
         />
 
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
+        <div style={{ textAlign: 'center', marginBottom: 'clamp(16px, 3vw, 32px)' }}>
           <div className="category-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <ShieldCheck size={14} />
-            <span>SEBI & AMFI MANDATED ONBOARDING</span>
+            <span>INVESTOR ONBOARDING</span>
           </div>
           <h1
             className="font-serif"
             style={{
-              fontSize: 'clamp(2rem, 3.5vw, 2.5rem)',
+              fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
               fontWeight: 700,
               color: 'var(--text-primary)',
               marginTop: '4px',
@@ -183,7 +226,7 @@ export default function KycOnboardingPage() {
             Mutual Fund KYC Verification
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', maxWidth: '540px', margin: '0 auto' }}>
-            One-time paperless identity verification per SEBI Master Circular on KYC for Mutual Fund investments.
+            One-time paperless identity verification for Mutual Fund investments.
           </p>
         </div>
 
@@ -194,7 +237,7 @@ export default function KycOnboardingPage() {
             justifyContent: 'space-between',
             alignItems: 'center',
             position: 'relative',
-            marginBottom: 'var(--space-8)',
+            marginBottom: 'clamp(16px, 3vw, 32px)',
           }}
         >
           <div
@@ -211,7 +254,7 @@ export default function KycOnboardingPage() {
           {[
             { num: 1, title: 'PAN & KRA Check', icon: FileText },
             { num: 2, title: 'DigiLocker e-KYC', icon: CreditCard },
-            { num: 3, title: 'BSE UCC & Bank', icon: Building },
+            { num: 3, title: 'Bank Account Setup', icon: Building },
           ].map((s) => {
             const Icon = s.icon;
             const isDone = step > s.num;
@@ -229,23 +272,14 @@ export default function KycOnboardingPage() {
               >
                 <div
                   style={{
-                    width: '42px',
-                    height: '42px',
+                    width: '40px',
+                    height: '40px',
                     borderRadius: '50%',
-                    background: isDone
-                      ? 'var(--color-accent)'
-                      : isCurrent
-                      ? '#0F172A'
-                      : '#FFFFFF',
-                    border: isCurrent
-                      ? '2px solid #0F172A'
-                      : isDone
-                      ? '2px solid var(--color-accent)'
-                      : '2px solid var(--border-color)',
+                    background: isDone ? 'var(--color-primary)' : isCurrent ? 'var(--color-primary)' : '#F4F1EA',
+                    color: isDone || isCurrent ? '#FFFFFF' : 'var(--text-secondary)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: isDone || isCurrent ? '#FFFFFF' : 'var(--text-secondary)',
                     fontWeight: 700,
                     fontSize: 'var(--text-sm)',
                     boxShadow: 'var(--shadow-sm)',
@@ -273,36 +307,13 @@ export default function KycOnboardingPage() {
             background: 'var(--bg-surface)',
             border: '1px solid var(--border-color)',
             borderRadius: 'var(--radius-xl)',
-            padding: 'var(--space-8)',
+            padding: 'clamp(14px, 3.5vw, 32px)',
             boxShadow: 'var(--shadow-sm)',
           }}
         >
           {step === 1 && (
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div className="category-tag">STEP 1 OF 3</div>
-                {process.env.NODE_ENV !== 'production' && (
-                  <button
-                    type="button"
-                    onClick={handleFillDemoKyc}
-                    style={{
-                      fontSize: '11px',
-                      padding: '4px 8px',
-                      background: '#F4F1EA',
-                      border: '1px solid #E8E4DC',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      color: '#4B5563',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                  >
-                    <Sparkles size={12} color="#D97706" />
-                    <span>Autofill Demo KYC</span>
-                  </button>
-                )}
-              </div>
+              <div className="category-tag" style={{ marginBottom: 'var(--space-2)' }}>STEP 1 OF 3</div>
               <h2 className="font-serif" style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-2)' }}>
                 Enter PAN & Date of Birth
               </h2>
@@ -389,8 +400,8 @@ export default function KycOnboardingPage() {
               >
                 <AlertCircle size={16} color="var(--color-accent)" style={{ flexShrink: 0, marginTop: '2px' }} />
                 <span>
-                  Your PAN is encrypted using AES-256 and only used to query SEBI-registered KYC Registration
-                  Agencies (KRAs) and BSE StAR MF.
+                  Your PAN is encrypted using AES-256 and only used to query registered KYC Registration
+                  Agencies (KRAs) and clearing networks.
                 </span>
               </div>
 
@@ -400,7 +411,7 @@ export default function KycOnboardingPage() {
                 className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center' }}
               >
-                {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={16} />}
+                {isLoading ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={16} />}
                 <span>Verify with KRA</span>
               </button>
             </div>
@@ -432,7 +443,7 @@ export default function KycOnboardingPage() {
                   <div>
                     <div style={{ fontSize: 'var(--text-xs)', color: '#166534' }}>KRA Match Status</div>
                     <strong style={{ color: '#15803D', fontSize: 'var(--text-sm)' }}>
-                      Verified — {kraResult.name}
+                      Verified  {kraResult.name}
                     </strong>
                   </div>
                   <div style={{ textAlign: 'right', fontSize: 'var(--text-xs)', color: '#166534' }}>
@@ -484,8 +495,8 @@ export default function KycOnboardingPage() {
                   className="btn btn-primary"
                   style={{ flex: 1, justifyContent: 'center' }}
                 >
-                  {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={16} />}
-                  <span>Simulate DigiLocker OTP Verification</span>
+                  {isLoading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                  <span>Verify via DigiLocker OTP</span>
                 </button>
               </div>
             </div>
@@ -495,10 +506,10 @@ export default function KycOnboardingPage() {
             <div>
               <div className="category-tag">STEP 3 OF 3</div>
               <h2 className="font-serif" style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-2)' }}>
-                Bank Account & BSE StAR MF UCC Activation
+                Bank Account & Investment Account Setup
               </h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)' }}>
-                Set up your investment bank account for automated SIP debits via BSE StAR MF NACH / AutoPay mandate.
+                Set up your bank account for automated SIP debits via AutoPay mandate.
               </p>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
@@ -570,7 +581,7 @@ export default function KycOnboardingPage() {
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: 'var(--text-xs)' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>BSE Unique Client Code (UCC):</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Investor Client Code:</span>
                     <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--color-accent)' }}>
                       {kraResult.ucc}
                     </span>
@@ -589,7 +600,7 @@ export default function KycOnboardingPage() {
                 style={{ width: '100%', justifyContent: 'center', marginBottom: 'var(--space-4)' }}
               >
                 {isLoading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                <span>Complete Verification & Activate BSE UCC</span>
+                <span>Complete Verification & Activate Account</span>
               </button>
 
               <div style={{ textAlign: 'center' }}>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { CheckCircle2, Clock, ShieldCheck, ArrowRight } from 'lucide-react';
 import { SidebarLayout } from '../../../components/sidebar-layout';
 import { StaticSnapshotBanner } from '../../../components/static-snapshot-banner';
+import { getStoredAccessToken } from '../../../lib/auth-client';
 
 export default function BillingPage() {
   const [activeSub, setActiveSub] = useState<{
@@ -15,11 +16,32 @@ export default function BillingPage() {
     skus: string[];
   } | null>(null);
 
+  const [invoices, setInvoices] = useState<{
+    id: string;
+    invoiceNumber: string;
+    planName: string;
+    planSlug: string;
+    amount: number;
+    gstAmount: number;
+    totalAmount: number;
+    currency: string;
+    status: string;
+    paymentMethod: string;
+    paidAt: string;
+  }[]>([]);
+
+  const [invoicesLoading, setInvoicesLoading] = useState(true);
+
   useEffect(() => {
     async function loadBilling() {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const res = await fetch(`${apiUrl}/api/v1/subscriptions/my`);
+        const token = getStoredAccessToken();
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        const res = await fetch(`${apiUrl}/api/v1/subscriptions/my`, { headers });
         if (res.ok) {
           const subs = await res.json();
           if (Array.isArray(subs) && subs.length > 0) {
@@ -31,7 +53,6 @@ export default function BillingPage() {
               activatedAt: active.startedAt ? new Date(active.startedAt).toLocaleDateString('en-IN') : 'Active',
               skus: active.plan?.skus || ['course_lifetime'],
             });
-            return;
           }
         }
       } catch (err) {
@@ -46,12 +67,36 @@ export default function BillingPage() {
         }
       }
     }
+
+    async function loadInvoices() {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const token = getStoredAccessToken();
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        const res = await fetch(`${apiUrl}/api/v1/subscriptions/invoices`, { headers });
+        if (res.ok) {
+          const list = await res.json();
+          if (Array.isArray(list)) {
+            setInvoices(list);
+          }
+        }
+      } catch (err) {
+        console.warn('Invoice fetch failed', err);
+      } finally {
+        setInvoicesLoading(false);
+      }
+    }
+
     loadBilling();
+    loadInvoices();
   }, []);
 
   return (
     <SidebarLayout activePath="/dashboard/billing">
-      <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
+      <div style={{ width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
         <StaticSnapshotBanner
           datasetName="Aureus Entitlement Gateway"
           sourceNotes="Real-time access rights, recurring subscription management, and statutory GST tax invoices."
@@ -82,8 +127,8 @@ export default function BillingPage() {
             background: 'var(--bg-surface)',
             border: '1px solid var(--border-color)',
             borderRadius: 'var(--radius-xl)',
-            padding: 'var(--space-8)',
-            marginBottom: 'var(--space-8)',
+            padding: 'clamp(14px, 3.5vw, 32px)',
+            marginBottom: 'clamp(16px, 3vw, 32px)',
             boxShadow: 'var(--shadow-sm)',
           }}
         >
@@ -155,20 +200,6 @@ export default function BillingPage() {
                   Techno-Funda Tools & PEAD (1 Year)
                 </span>
               )}
-
-              {activeSub?.skus?.includes('webinars_1yr') && (
-                <span
-                  className="badge-muted"
-                  style={{
-                    background: '#EFF6FF',
-                    color: '#1E40AF',
-                    border: '1px solid #BFDBFE',
-                  }}
-                >
-                  <Clock size={14} />
-                  Weekly Live Webinars & Replays (1 Year)
-                </span>
-              )}
             </div>
           </div>
 
@@ -207,15 +238,15 @@ export default function BillingPage() {
             background: 'var(--bg-surface)',
             border: '1px solid var(--border-color)',
             borderRadius: 'var(--radius-xl)',
-            padding: 'var(--space-6)',
+            padding: 'clamp(14px, 3.5vw, 24px)',
             boxShadow: 'var(--shadow-sm)',
-            overflowX: 'auto',
           }}
         >
           <h3 className="font-serif" style={{ fontSize: 'var(--text-lg)', fontWeight: 700, marginBottom: 'var(--space-4)', color: 'var(--text-primary)' }}>
             Order & Invoice History
           </h3>
-          <table style={{ width: '100%', minWidth: '550px', borderCollapse: 'collapse', textAlign: 'left', fontSize: 'var(--text-sm)' }}>
+          <div className="table-scroll-container" style={{ border: 'none' }}>
+            <table style={{ width: '100%', minWidth: '550px', borderCollapse: 'collapse', textAlign: 'left', fontSize: 'var(--text-sm)' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
                 <th style={{ padding: '12px 8px', fontWeight: 600 }}>Date</th>
@@ -226,27 +257,48 @@ export default function BillingPage() {
               </tr>
             </thead>
             <tbody>
-              {activeSub ? (
-                <tr style={{ borderBottom: '1px solid #F0ECE1' }}>
-                  <td style={{ padding: '12px 8px', color: 'var(--text-secondary)' }}>
-                    {new Date(activeSub.activatedAt).toLocaleDateString('en-IN')}
-                  </td>
-                  <td style={{ padding: '12px 8px', fontWeight: 600, color: 'var(--text-primary)' }}>{activeSub.planName}</td>
-                  <td style={{ padding: '12px 8px', color: 'var(--text-primary)' }}>₹{activeSub.planSlug === 'all-access-bundle' ? '29,498.82' : '17,698.82'}</td>
-                  <td style={{ padding: '12px 8px', color: 'var(--text-secondary)' }}>Razorpay (UPI)</td>
-                  <td style={{ padding: '12px 8px' }}>
-                    <span className="badge-muted" style={{ background: '#ECFDF5', color: '#065F46' }}>Paid</span>
+              {invoicesLoading ? (
+                <tr>
+                  <td colSpan={5} style={{ padding: '24px 8px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    Loading invoice history from database...
                   </td>
                 </tr>
+              ) : invoices.length > 0 ? (
+                invoices.map((inv) => (
+                  <tr key={inv.id} style={{ borderBottom: '1px solid #F0ECE1' }}>
+                    <td style={{ padding: '12px 8px', color: 'var(--text-secondary)' }}>
+                      {new Date(inv.paidAt).toLocaleDateString('en-IN')}
+                    </td>
+                    <td style={{ padding: '12px 8px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      <div>{inv.planName}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace', fontWeight: 400 }}>
+                        {inv.invoiceNumber}
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 8px', color: 'var(--text-primary)' }}>
+                      ₹{Number(inv.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                        incl. GST ₹{Number(inv.gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 8px', color: 'var(--text-secondary)' }}>{inv.paymentMethod}</td>
+                    <td style={{ padding: '12px 8px' }}>
+                      <span className="badge-muted" style={{ background: '#ECFDF5', color: '#065F46' }}>
+                        {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
+                      </span>
+                    </td>
+                  </tr>
+                ))
               ) : (
                 <tr>
                   <td colSpan={5} style={{ padding: '24px 8px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                    No previous transactions found.
+                    No invoice history yet. Invoices are generated upon successful payment.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </SidebarLayout>

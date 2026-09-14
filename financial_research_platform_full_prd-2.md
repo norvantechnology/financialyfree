@@ -38,41 +38,41 @@ Direct inspection of `financiallyfree.in` and `financiallyfree.in/site/education
 shows the live product is **not** a Bloomberg-style stock terminal. It is
 a two-sided wealth business:
 
-1. **"Done with you" — goal-based mutual fund investing.** A
+1. **"Done with you"  goal-based mutual fund investing.** A
    distribution funnel (`/site/chart-version.html`) that maps a user's
-   money goals — Emergency Fund, Retirement, Child Education, Wealth
-   Creation — to a monthly SIP amount, then routes the user into an
+   money goals  Emergency Fund, Retirement, Child Education, Wealth
+   Creation  to a monthly SIP amount, then routes the user into an
    AMFI-registered Mutual Fund Distribution relationship. The site
    explicitly discloses: **AMFI-registered Mutual Fund Distributor,
    ARN‑350272, operated by FutureZenith Insights LLP**, with a standard
    "mutual fund investments are subject to market risk, read all
    scheme-related documents" disclaimer.
-2. **"Do it yourself" — the Zero to Hero investment course** (paid,
+2. **"Do it yourself"  the Zero to Hero investment course** (paid,
    listed at ₹75,000 with a discounted price of ₹14,999 at verification
    time), which bundles three things sold as one program:
-   - **Course Library** — 24+ hours of lifetime-access video content
+   - **Course Library**  24+ hours of lifetime-access video content
      teaching "Techno-Funda" investing (a blend of technical + fundamental
      analysis), taught in Hinglish, from a named instructor
      (Shubham Sethi).
-   - **Techno-Funda Tools** — a *premium, 1‑year-access* dashboard suite,
+   - **Techno-Funda Tools**  a *premium, 1‑year-access* dashboard suite,
      not a permanent free product surface. Publicly named tools are:
      **Market Mood** (a bull/bear sentiment gauge), **Master Tracker**
-     ("centralized data for winning companies" — i.e. a curated
+     ("centralized data for winning companies"  i.e. a curated
      watchlist/quality-screen, not a full universal screener), **PEAD
      Tool** (Post-Earnings-Announcement-Drift analytics), and **Vahan
      Dashboard** (vehicle-registration/production alternative data,
      named after the Government of India's VAHAN registration database).
-   - **Weekly Live Business Case Studies** — 1-year access to live Zoom
+   - **Weekly Live Business Case Studies**  1-year access to live Zoom
      sessions where real companies/quarterly results are analysed
-     together with students (e.g. "Q2 FY24 — Result analysis").
+     together with students (e.g. "Q2 FY24  Result analysis").
 3. **Compliance posture actually disclosed on-site:** the course is
-   explicitly marketed as *educational, not investment advice* — "We do
-   not provide buy/sell recommendations or guarantee returns" — which is
+   explicitly marketed as *educational, not investment advice*  "We do
+   not provide buy/sell recommendations or guarantee returns"  which is
    the standard, required disclaimer distinguishing an AMFI distributor
    / education business from a SEBI-registered Investment Adviser (IA)
    or Research Analyst (RA), who alone may give personalised buy/sell
    recommendations for a fee. **Big Orders, Demergers, Buybacks, and a
-   generic FIRE Tracker are not advertised on the current live site** —
+   generic FIRE Tracker are not advertised on the current live site** 
    they were present in the original draft as an assumption about what
    an "equivalent" platform *could* contain, not as a confirmed feature
    of FinanciallyFree.in. This document keeps them as **optional,
@@ -86,12 +86,12 @@ a two-sided wealth business:
 Two build tracks are defined, and a team should pick one explicitly
 rather than silently blending them:
 
-- **Track A — Faithful equivalent (recommended first target).**
+- **Track A  Faithful equivalent (recommended first target).**
   Goal-based SIP funnel → mutual-fund distribution execution → paid
   course/LMS → Techno-Funda Tools (Market Mood, Master Tracker, PEAD,
   Vahan Dashboard) → weekly live webinars. Regulatory posture: AMFI
   Mutual Fund Distributor (ARN), not an Investment Adviser.
-- **Track B — Extended research terminal (superset, optional).**
+- **Track B  Extended research terminal (superset, optional).**
   Everything in Track A, plus the full stock-research/screener/
   special-situations terminal described in the rest of this document
   (screener, Big Orders, Demergers, Buybacks, company financials,
@@ -128,7 +128,7 @@ Build a platform that lets an Indian saver:
 6. Attend scheduled live webinars analysing real companies/results, with
    replay access.
 7. Get WhatsApp/email nudges for SIP due dates, webinar reminders, and
-   course progress — never framed as personalised buy/sell advice.
+   course progress  never framed as personalised buy/sell advice.
 
 ## 1.1 Track B vision (extended research-terminal superset, optional)
 
@@ -1376,7 +1376,7 @@ for listed-company disclosures.
 
 For commercial production, evaluate, in this order:
 
-- **NSE Data & Analytics Ltd** (formerly DotEx International) — the
+- **NSE Data & Analytics Ltd** (formerly DotEx International)  the
   official NSE data arm. Publishes a formal, versioned non-confidential
   price list (e.g. `NSE_Pricing_file_-_Domestic_clients_*.pdf` on
   nseindia.com) covering Capital Market, F&O, Currency Derivatives and
@@ -1384,9 +1384,9 @@ For commercial production, evaluate, in this order:
   Level 3 (20-depth) and tick-by-tick granularity, delivered by leased
   line or through an **authorized data vendor**. Any redistribution to
   your own end users requires a **separate written license/agreement**
-  with NSE Data & Analytics — do not assume a vendor subscription alone
+  with NSE Data & Analytics  do not assume a vendor subscription alone
   grants redistribution rights.
-- **Authorized NSE/BSE/MCX data vendors** — e.g. **TrueData** and
+- **Authorized NSE/BSE/MCX data vendors**  e.g. **TrueData** and
   **Global Data Feeds (GDFL)**, both publicly documented as *Authorised
   Data Vendors*. These offer REST/WebSocket market-data APIs (real-time
   L1 tick, 1-second snapshot, historical tick/minute/day/week/month,
@@ -1400,13 +1400,13 @@ For commercial production, evaluate, in this order:
   month for the Connect plan, well-documented REST + WebSocket, largest
   third-party ecosystem), **Angel One SmartAPI**, **Upstox API**,
   **DhanHQ**, **Fyers API**, **Alice Blue ANT API**, and **Shoonya
-  (Finvasia)** — several of these are documented as free of a monthly
+  (Finvasia)**  several of these are documented as free of a monthly
   fee (brokerage-funded), but their terms restrict use to the
   authenticated account holder's own data/trading, not third-party
   redistribution. Do not architect a multi-tenant public product around
   a personal broker API without confirming this in writing with the
   broker.
-- **LSEG (Refinitiv)** — offers NSE India market data as part of its
+- **LSEG (Refinitiv)**  offers NSE India market data as part of its
   global data platform for institutional-grade use cases; evaluate only
   if the product needs enterprise-grade cross-asset/global data
   alongside Indian equities.
@@ -1414,11 +1414,11 @@ For commercial production, evaluate, in this order:
 ## Tier C --- General financial-data APIs (secondary/cross-check only)
 
 Use only as a convenience/secondary source for company profiles, global
-comparables, or cross-checking — never as the source of truth for
+comparables, or cross-checking  never as the source of truth for
 Indian exchange prices or filings: **Financial Modeling Prep, Twelve
 Data, Alpha Vantage, Polygon.io, EOD Historical Data (EODHD), Finnhub**.
 Indian-market coverage and redistribution rights vary a great deal
-across these vendors and change without notice — re-verify current plan
+across these vendors and change without notice  re-verify current plan
 terms and Indian-symbol coverage directly with the vendor before
 depending on any of them. Do not assume a "free tier" or "hobby plan"
 permits commercial redistribution to your own paying users; this is the
@@ -1428,7 +1428,7 @@ single most common licensing mistake in this space.
 
 Evaluate licensed providers for import/export shipment-level data (HS
 codes, exporter/importer, quantity, value, destination, shipment dates)
-— e.g. **Zauba/Seair/Volza**-style customs-data vendors; treat as a
+ e.g. **Zauba/Seair/Volza**-style customs-data vendors; treat as a
 paid-data module and check redistribution terms explicitly.
 
 **Alternative data worth adding as its own tier**, because it is what
@@ -1449,25 +1449,25 @@ headlines/metadata only, not full-article redistribution.
 
 ## Tier F --- Mutual fund data & transaction rails (needed for Track A)
 
-- **AMFI NAV data** — daily NAV files published by AMFI
+- **AMFI NAV data**  daily NAV files published by AMFI
   (`amfiindia.com`) are the standard free public source for mutual fund
   NAVs; treat as Tier A (official/public).
-- **BSE StAR MF** — India's highest-volume mutual-fund order-routing
+- **BSE StAR MF**  India's highest-volume mutual-fund order-routing
   platform for distributors (BSE reports **over 6 crore orders/month
   in FY26**), using a documented **SOAP/XML web-services API**
   (order entry, SIP/STP/SWP/switch, redemption). This is the default
   transaction backbone for an AMFI-registered distributor building its
   own app.
   Do not confuse "BSE StAR MF" with the exchange's regular equity
-  trading — it is a separate mutual-fund order-routing system.
-- **NSE NMF II** — the NSE-run alternative to BSE StAR MF, offering a
+  trading  it is a separate mutual-fund order-routing system.
+- **NSE NMF II**  the NSE-run alternative to BSE StAR MF, offering a
   more modern REST-style API; a smaller share of distributors use it,
   but it is worth evaluating for a greenfield build.
-- **MF Utilities (MFU)** — a CAMS/KFintech/AMC-backed utility offering
+- **MF Utilities (MFU)**  a CAMS/KFintech/AMC-backed utility offering
   the **Common Account Number (CAN)** concept, letting one investor
   transact across AMCs through a single account; useful if the product
   wants to minimize per-AMC folio sprawl for the user.
-- **RTA data** — CAMS and KFintech (KFin Technologies) are the two
+- **RTA data**  CAMS and KFintech (KFin Technologies) are the two
   Registrar & Transfer Agents covering effectively the entire Indian MF
   industry; their statement/CAS (Consolidated Account Statement) feeds
   and reconciliation files are the source of truth for confirmed
@@ -2131,7 +2131,7 @@ section) listing separate paid products for: real-time data (L1/L2/L3
 and tick-by-tick), EOD/historical data, corporate/master data, analytical
 products, and non-display (internal) use. Redistribution to a vendor's
 own downstream clients requires **explicit written consent and a prior
-license/agreement with NSE Data & Analytics** — this is stated directly
+license/agreement with NSE Data & Analytics**  this is stated directly
 in NSE's own pricing documentation, not an inference.
 
 Therefore: **Do not design the production system around the assumption
@@ -2147,19 +2147,19 @@ If Track A (goal-based investing + distribution) is built, these facts
 must drive the compliance design, not just the data design:
 
 - **SEBI (Mutual Funds) Regulations, 2026** replaced the 1996 framework
-  as the governing regulation for the industry — confirm the current
+  as the governing regulation for the industry  confirm the current
   consolidated text and any transition provisions before finalizing
   onboarding/KYC flows, since older documentation referencing the 1996
   regulations by name is now outdated.
 - **ARN registration** (the individual/entity mutual-fund-distributor
   license from AMFI) requires clearing the **NISM Series V-A** exam;
   individual registration cost was **₹3,000 (excluding GST), effective
-  October 2024** — re-verify the current fee on AMFI's site before
+  October 2024**  re-verify the current fee on AMFI's site before
   quoting it to users/partners.
 - A platform operating **under someone else's ARN** (a "National
   Distributor" model) still requires every individual advisor/relationship
   manager interacting with clients to hold and tag **their own ARN** for
-  commission attribution — plan the user/roles data model around this
+  commission attribution  plan the user/roles data model around this
   from day one (an `arn_holder` entity distinct from `platform_account`).
 - **Back-office/analytics software is legally distinct from advisory.**
   A distributor's own dashboards (fund comparison, portfolio X-ray,
@@ -2290,7 +2290,7 @@ where appropriate - Sitemap - robots.txt - Internal linking
 
 ### Mutual-fund distribution ("Done with you")
 
--   Free for the end user — revenue is **AUM-linked trail commission**
+-   Free for the end user  revenue is **AUM-linked trail commission**
     paid by AMCs to the AMFI-registered distributor entity, not a
     user-facing subscription.
 -   Model this as its own ledger: `arn_holder`, `folio`, `aum_snapshot`,
@@ -2300,11 +2300,11 @@ where appropriate - Sitemap - robots.txt - Internal linking
 ### Course + Techno-Funda Tools + live case studies ("Do it yourself")
 
 -   Sold as one bundled paid program (verified list price ₹75,000,
-    discounted price ₹14,999 at time of writing — re-check current
+    discounted price ₹14,999 at time of writing  re-check current
     pricing before quoting) that grants:
     -   Course Library: **lifetime** access.
     -   Techno-Funda Tools (Market Mood, Master Tracker, PEAD Tool,
-        Vahan Dashboard): **1-year term** access — must expire and be
+        Vahan Dashboard): **1-year term** access  must expire and be
         renewable, not perpetual.
     -   Weekly Live Business Case Studies: **1-year term** access to
         scheduled Zoom sessions + replay library.
@@ -2451,13 +2451,13 @@ The product is MVP-ready when:
 
 1.  Landing page with four goal tiles: Emergency Fund, Retirement,
     Child Education, Wealth Creation (matches the live site's chart
-    tool) — plus a fifth "Custom goal" tile.
+    tool)  plus a fifth "Custom goal" tile.
 2.  Per-goal questionnaire: target amount or target outcome (e.g.
     "retire at 55"), time horizon, current savings toward this goal,
     risk comfort (conservative/balanced/growth).
 3.  Output: **recommended monthly SIP amount**, with the formula and
     assumptions (expected return, inflation) shown, not hidden.
-4.  "Every rupee gets a purpose" allocation view — when a user has
+4.  "Every rupee gets a purpose" allocation view  when a user has
     multiple goals, show how a single monthly investable surplus is
     split across goals, editable by drag or by amount.
 5.  Hand-off to KYC + fund selection + mandate setup once the user
@@ -2480,7 +2480,7 @@ can_folio_links
 -   Map goal type + horizon + risk band to a **fund category** (e.g.
     liquid/overnight fund for Emergency Fund; hybrid/equity for
     long-horizon Wealth Creation) using a documented, versioned rule
-    table — never a black-box "AI picks your fund" flow, since that
+    table  never a black-box "AI picks your fund" flow, since that
     risks crossing into unregistered investment advice.
 -   Within a category, present AMC-agnostic comparison (expense ratio,
     trailing returns net of a standard benchmark, fund manager tenure,
@@ -2490,7 +2490,7 @@ can_folio_links
 ## 69.2 Mutual-fund KYC & transaction execution
 
 1.  **KYC**: PAN + Aadhaar-based e-KYC through a **KYC Registration
-    Agency (KRA)** — e.g. CVL KRA, CAMS KRA, KFin KRA, NDML — is
+    Agency (KRA)**  e.g. CVL KRA, CAMS KRA, KFin KRA, NDML  is
     mandatory before any folio can be opened; integrate with one KRA
     as primary and support KYC-status lookup across all registered
     KRAs (an investor may already be KYC-verified via a different KRA).
@@ -2498,7 +2498,7 @@ can_folio_links
     highest transaction volume industry-wide) with **NSE NMF II** as a
     secondary/failover rail if dual-connectivity is justified by scale.
 3.  **Transaction types to support end-to-end**: lump sum, SIP
-    registration/pause/cancel, STP, SWP, switch, redemption — mirroring
+    registration/pause/cancel, STP, SWP, switch, redemption  mirroring
     the transaction types BSE StAR MF documents natively.
 4.  **Settlement & reconciliation**: nightly reconciliation job against
     RTA (CAMS/KFintech) statement files; never treat an order-placement
@@ -2520,7 +2520,7 @@ data dependency:
     net flows.
 -   Output: a single composite gauge (e.g. 0–100, Extreme Fear → Extreme
     Greed framing) plus the component breakdown, with methodology shown.
--   This is a **derived, house-built index** — do not present it as an
+-   This is a **derived, house-built index**  do not present it as an
     official index, and version the formula so historical gauge values
     stay reproducible after formula changes.
 
@@ -2548,7 +2548,7 @@ data dependency:
 ### Vahan Dashboard (vehicle-registration alternative data)
 
 -   Source: Government of India's public VAHAN dashboard
-    (parivahan.gov.in) — vehicle registrations by category (2W/3W/PV/
+    (parivahan.gov.in)  vehicle registrations by category (2W/3W/PV/
     CV/tractor), state, RTO, and manufacturer.
 -   Build a scheduled ETL against the public dashboard (respecting its
     terms of use/rate limits) rather than assuming an open API exists;
@@ -2569,7 +2569,7 @@ data dependency:
     expiring) for "Techno-Funda Tools" and "Live Case Studies", enforced
     server-side via an `entitlements` table keyed by SKU and expiry.
 -   Language: build for Hinglish/bilingual content from the start
-    (subtitle tracks, bilingual UI strings) — this is a stated feature
+    (subtitle tracks, bilingual UI strings)  this is a stated feature
     of the real product, not an afterthought.
 
 ## 69.5 Live webinar module
@@ -2578,38 +2578,38 @@ data dependency:
     API (Section 70.3), with calendar invites, reminder notifications,
     attendance tracking, and automatic replay publishing to entitled
     users after the session ends.
--   Session metadata: topic (e.g. "Q2 FY26 — Result analysis"),
+-   Session metadata: topic (e.g. "Q2 FY26  Result analysis"),
     instructor, linked company/filing references discussed, so replay
     content is searchable later.
 
 ------------------------------------------------------------------------
 
-# 70. Re-verified third-party infrastructure (payments, messaging, video) — September 2026
+# 70. Re-verified third-party infrastructure (payments, messaging, video)  September 2026
 
 ## 70.1 Payments & subscription billing (India)
 
 Do not build custom PCI-scope card handling; use a licensed Indian
 payment aggregator. As of mid-2026, the three commonly evaluated are:
 
--   **Razorpay** — broadest India-specific feature set: UPI AutoPay for
+-   **Razorpay**  broadest India-specific feature set: UPI AutoPay for
     recurring mandates, hosted subscription/dunning management,
     domestic card rate commonly cited around 2% (confirm current rate),
     and the largest ecosystem/documentation base. Reasonable default for
     a domestic-first product with both the one-time course purchase and
     the recurring Techno-Funda Tools renewal.
--   **Cashfree** — typically the lowest quoted domestic fees and strong
+-   **Cashfree**  typically the lowest quoted domestic fees and strong
     payout/vendor-disbursement tooling (relevant if the platform ever
     pays out commissions to sub-distributors); subscription tooling has
     become competitive with Razorpay.
--   **PayU** — a reasonable third option, notably for EMI/BNPL checkout
+-   **PayU**  a reasonable third option, notably for EMI/BNPL checkout
     options; developer experience and docs are generally reported as
     behind Razorpay/Cashfree.
 -   Whichever is chosen, treat published fee percentages as indicative
-    only — actual negotiated rates depend on volume and change; get a
+    only  actual negotiated rates depend on volume and change; get a
     current quote before finalizing unit economics. A common resilience
     pattern is running one gateway as primary and a second as failover.
 -   Mutual-fund transaction money movement (SIP debits) is a **separate
-    rail from course/subscription billing** — it flows through the
+    rail from course/subscription billing**  it flows through the
     AMC/RTA/exchange settlement system (via BSE StAR MF/NMF II and
     NACH/UPI Autopay mandates registered with the AMC), not through a
     generic payment gateway. Do not conflate the two payment flows in
@@ -2618,17 +2618,17 @@ payment aggregator. As of mid-2026, the three commonly evaluated are:
 ## 70.2 Messaging & notifications
 
 -   **WhatsApp Business Platform (Meta) via a Business Solution
-    Provider (BSP)** — e.g. Gupshup, Interakt, AiSensy, or Twilio's
-    WhatsApp API — for SIP-due reminders, webinar reminders, and course-
+    Provider (BSP)**  e.g. Gupshup, Interakt, AiSensy, or Twilio's
+    WhatsApp API  for SIP-due reminders, webinar reminders, and course-
     progress nudges. Requires pre-approved message templates for
     anything outside a live customer-service session window, and
     explicit opt-in; do not use WhatsApp for anything resembling
     unsolicited investment tips (this both breaches WhatsApp commerce
     policy and risks regulatory characterization as unlicensed advice).
--   **Email** — a transactional email provider (e.g. Amazon SES,
+-   **Email**  a transactional email provider (e.g. Amazon SES,
     Postmark, SendGrid) for statements, KYC status, and receipts.
--   **Push** — standard FCM/APNs for the mobile app once one exists.
--   **SMS** — via a DLT-registered (TRAI Distributed Ledger Technology)
+-   **Push**  standard FCM/APNs for the mobile app once one exists.
+-   **SMS**  via a DLT-registered (TRAI Distributed Ledger Technology)
     sender ID, mandatory for any commercial SMS to Indian numbers since
     2019's TRAI regulations; budget onboarding time for DLT template
     registration.
@@ -2636,8 +2636,8 @@ payment aggregator. As of mid-2026, the three commonly evaluated are:
 ## 70.3 Video hosting & conferencing
 
 -   **Course video hosting**: a platform offering DRM/token-based
-    playback protection and adaptive bitrate streaming — e.g. Cloudflare
-    Stream, Mux, or Vimeo's paid tiers — rather than self-hosting raw
+    playback protection and adaptive bitrate streaming  e.g. Cloudflare
+    Stream, Mux, or Vimeo's paid tiers  rather than self-hosting raw
     files, to protect the ₹14,999+ course from casual redistribution.
 -   **Live webinars**: **Zoom's Meeting/Webinar SDK/API** or an
     equivalent (e.g. Google Meet via Calendar API integration) for the
@@ -2657,7 +2657,7 @@ residents. Current, verified implementation status:
 -   Only **Stage 1** was legally in force as of mid-2026: establishment
     of the Data Protection Board of India (DPBI) and related rule-making
     machinery. The Board's Chairperson/Member posts were still being
-    filled (MeitY invited applications in May 2026) — do **not**
+    filled (MeitY invited applications in May 2026)  do **not**
     describe the DPBI as a fully staffed adjudicatory body yet.
 -   Full compliance (consent-manager registration, breach-notification
     machinery, data-principal rights operationalisation) is on a
@@ -2665,9 +2665,9 @@ residents. Current, verified implementation status:
     deadline commonly cited as 13 May 2027**. Treat every specific
     obligation as a future date, not a live requirement, unless
     re-confirmed against MeitY's latest notification at build time.
--   Penalties are steep once enforced — up to **₹250 crore** for
+-   Penalties are steep once enforced  up to **₹250 crore** for
     failing to implement reasonable security safeguards leading to a
-    breach — so design consent capture, data minimisation, breach
+    breach  so design consent capture, data minimisation, breach
     logging, and children's-data safeguards (verifiable parental
     consent) into the schema now rather than retrofitting later, even
     though the enforcement clock hasn't fully started.
@@ -2675,7 +2675,7 @@ residents. Current, verified implementation status:
     holdings), it separately sits inside **SEBI's existing cyber-
     security and data-localisation circulars for regulated
     intermediaries**, which are independent of, and already in force
-    ahead of, DPDP — confirm current SEBI circulars for the specific
+    ahead of, DPDP  confirm current SEBI circulars for the specific
     intermediary category (MFD vs. IA vs. RA) the entity is registered
     as.
 
@@ -2686,7 +2686,7 @@ residents. Current, verified implementation status:
 ## 72.1 Principles specific to this product's real user base
 
 -   The verified product targets **retail Indian savers/investors in
-    Hinglish**, not institutional analysts — this should visibly shape
+    Hinglish**, not institutional analysts  this should visibly shape
     UI copy, tooltips, and onboarding tone (plain language, rupee-unit
     formatting in lakh/crore by default, not just absolute INR or
     Western thousands-separators).
@@ -2700,7 +2700,7 @@ residents. Current, verified implementation status:
     picks) look identical in weight/prominence to neutral, sourced data
     (official financials).** Use a consistent visual language (e.g. a
     distinct accent color and an "our view" badge) so users can tell
-    editorial/derived content apart from reported facts at a glance —
+    editorial/derived content apart from reported facts at a glance 
     this is both good UX and a compliance safeguard against the
     advice-vs-education line in Section 58.1.
 -   **Progressive disclosure for a first-time saver**: the goal
@@ -2717,7 +2717,7 @@ residents. Current, verified implementation status:
     products.
 -   Support **dark mode** and **Hindi/English toggle** at minimum, given
     the stated Hinglish-first audience.
--   Meet WCAG 2.2 AA (Section 61) — particularly color-independent
+-   Meet WCAG 2.2 AA (Section 61)  particularly color-independent
     signalling for gain/loss (many Indian users are on low-end Android
     devices with poor color reproduction outdoors).
 -   Design mobile-first: the verified funnel and course are consumed
@@ -2736,20 +2736,20 @@ Track A (mass-market funnel + course) and Track B (research terminal)
 have very different load shapes:
 
 -   **Track A read path** (marketing site, goal funnel, course
-    playback): bursty, spiky around promotions/webinars — put this
+    playback): bursty, spiky around promotions/webinars  put this
     behind a CDN (Cloudflare/CloudFront) with aggressive static-asset
     caching and edge rendering for the funnel's mostly-static screens.
 -   **Track A write path** (KYC submission, SIP mandate creation,
     course purchase): low absolute volume, high correctness requirement
-    — favor strong consistency (PostgreSQL transactions) over
+     favor strong consistency (PostgreSQL transactions) over
     throughput optimisation here; this path should never be the
     scaling bottleneck.
 -   **Track B read path** (screener queries, company pages): the
-    highest-QPS, most latency-sensitive path if built — this is where
+    highest-QPS, most latency-sensitive path if built  this is where
     materialized views, Redis caching, and read replicas matter most
     (Sections 44/46 already specify this).
 -   **Live-webinar spikes**: hundreds to thousands of concurrent
-    viewers at a fixed weekly time — offload entirely to the video-
+    viewers at a fixed weekly time  offload entirely to the video-
     conferencing/streaming vendor (Section 70.3) rather than
     self-hosting media servers; the app backend only needs to handle
     auth-gated join-link issuance and post-session webhook ingestion.
@@ -2762,13 +2762,13 @@ have very different load shapes:
     services once traffic justifies it.
 -   PostgreSQL: start single-primary with read replicas for the
     Track B research/read-heavy path; only consider sharding once a
-    single primary's write throughput is the demonstrated bottleneck —
+    single primary's write throughput is the demonstrated bottleneck 
     don't pre-shard speculatively.
 -   Redis: separate logical caches for Track A (entitlements, goal
     calculations) and Track B (screener/materialized metrics) so a
     Track B cache-invalidation storm can't degrade Track A checkout.
 -   Queues (BullMQ/Redis, migrating to Kafka only if event volume
-    demands it — Section 30/45): isolate the KYC/transaction-execution
+    demands it  Section 30/45): isolate the KYC/transaction-execution
     queue from the document-ingestion/screener-refresh queue, since the
     former needs strict ordering/at-least-once delivery guarantees and
     the latter is throughput-oriented and can tolerate reordering.
@@ -2780,7 +2780,7 @@ have very different load shapes:
 ## 73.3 Cost and reliability guardrails
 
 -   Track every third-party API call's cost per unit against actual
-    usage (Section 57) — the biggest avoidable cost in this specific
+    usage (Section 57)  the biggest avoidable cost in this specific
     product is over-provisioning real-time market data for a Track A
     audience that mostly needs daily NAVs and goal projections, not
     tick data.
@@ -2790,7 +2790,7 @@ have very different load shapes:
     for Track B).
 -   Chaos-test the KYC/transaction path specifically for **partial
     failure** (e.g. BSE StAR MF acknowledges an order but the
-    reconciliation file arrives inconsistent) — this is the single
+    reconciliation file arrives inconsistent)  this is the single
     highest-consequence failure mode in Track A and needs explicit
     reconciliation/alerting design, not just generic retry logic.
 
@@ -2830,7 +2830,7 @@ criteria that apply:
 
 The best implementation is **not** "scrape FinanciallyFree and copy it."
 It is also not "assume FinanciallyFree is a stock-screener terminal and
-build that instead" — the September 2026 verification shows the real
+build that instead"  the September 2026 verification shows the real
 product is a **goal-based mutual-fund distribution funnel bundled with
 a paid Techno-Funda investing course, premium 1-year tool subscriptions,
 and live webinars**, sitting on top of an **AMFI-registered distributor**
@@ -2857,36 +2857,36 @@ aligned with the correct regulatory model for what it actually is.
 
 ## Primary references checked (re-verified, with access method and date)
 
--   `financiallyfree.in` homepage — fetched directly, September 2026:
+-   `financiallyfree.in` homepage  fetched directly, September 2026:
     confirmed "Done with you" (goal-based SIP investing, AMFI ARN-350272,
     FutureZenith Insights LLP) and "Do it yourself" (Zero to Hero course)
     as the two live product tracks; no Big Orders/Demergers/Buybacks/FIRE
     Tracker/screener surfaces found on the live site.
--   `financiallyfree.in/site/education.html` — fetched directly,
+-   `financiallyfree.in/site/education.html`  fetched directly,
     September 2026: confirmed Course Library, Techno-Funda Tools
     (Market Mood, Master Tracker, PEAD Tool, Vahan Dashboard, 1-year
     access), Weekly Live Business Case Studies (1-year access), pricing
     (₹75,000 list / ₹14,999 shown), and the "educational, not investment
     advice" disclaimer.
 -   NSE Data & Analytics non-confidential domestic pricing document
-    (nseindia.com, dated March 2026) and NSE's paid real-time-data page —
+    (nseindia.com, dated March 2026) and NSE's paid real-time-data page 
     web-searched/fetched, September 2026.
--   TrueData and Global Data Feeds public API/pricing pages — web-
+-   TrueData and Global Data Feeds public API/pricing pages  web-
     searched, September 2026.
 -   Broker API documentation/comparisons for Zerodha Kite Connect, Angel
-    One SmartAPI, Upstox, DhanHQ, Fyers, Alice Blue, Shoonya — web-
+    One SmartAPI, Upstox, DhanHQ, Fyers, Alice Blue, Shoonya  web-
     searched, September 2026.
 -   BSE StAR MF API/web-services documentation, MFD-platform comparison
     articles (BSE StAR MF vs. NSE NMF II vs. MF Utilities transaction
-    volumes, ARN registration fee, SEBI Mutual Funds Regulations 2026) —
+    volumes, ARN registration fee, SEBI Mutual Funds Regulations 2026) 
     web-searched, September 2026.
 -   MeitY/DPDP Act & Rules status trackers and legal-compliance guides
     (Rules notified 13 November 2025; Stage 1 only in force; ₹250 crore
-    maximum penalty; ~13 May 2027 outer compliance deadline) — web-
+    maximum penalty; ~13 May 2027 outer compliance deadline)  web-
     searched, September 2026.
 -   Razorpay/Cashfree/PayU comparison and pricing articles for Indian
-    subscription billing — web-searched, September 2026.
+    subscription billing  web-searched, September 2026.
 
-**Re-verify every figure above before contractual commitment** — API
+**Re-verify every figure above before contractual commitment**  API
 pricing, regulatory deadlines, and even FinanciallyFree.in's own public
 pricing/feature set can change after this document's verification date.

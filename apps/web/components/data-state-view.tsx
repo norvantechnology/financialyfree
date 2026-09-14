@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, Database, RefreshCw, Layers, Clock } from 'lucide-react';
+import { formatRelativeTime } from '../lib/time-utils';
 
 export interface DataStateProps {
   isLoading?: boolean;
@@ -167,6 +168,7 @@ export function DataStaleIndicator({
   lastUpdated?: string;
   onRefresh?: () => void;
 }) {
+  const relTime = formatRelativeTime(lastUpdated);
   return (
     <div
       style={{
@@ -184,7 +186,9 @@ export function DataStaleIndicator({
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <Clock size={12} />
-        <span>Cached / Stale snapshot (as of {lastUpdated || 'earlier today'})</span>
+        <span title={lastUpdated}>
+          Cached snapshot ({relTime ? `updated ${relTime}` : lastUpdated || 'earlier today'})
+        </span>
       </div>
       {onRefresh && (
         <button
@@ -208,12 +212,13 @@ export function DataStaleIndicator({
 }
 
 export function DataSourceMeta({
-  source = 'AMFI / BSE StAR MF Daily Feed',
+  source = 'Daily Portfolio & NAV Feed',
   lastUpdated,
 }: {
   source?: string;
   lastUpdated?: string;
 }) {
+  const relTime = formatRelativeTime(lastUpdated);
   return (
     <div
       style={{
@@ -232,9 +237,9 @@ export function DataSourceMeta({
         <span>Source: {source}</span>
       </div>
       {lastUpdated && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title={lastUpdated}>
           <Clock size={12} />
-          <span>Last sync: {lastUpdated}</span>
+          <span>Last sync: {relTime ? `${relTime}` : lastUpdated}</span>
         </div>
       )}
     </div>

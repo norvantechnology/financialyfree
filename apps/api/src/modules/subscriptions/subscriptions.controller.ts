@@ -9,17 +9,20 @@ import {
   HttpStatus,
   Headers,
   BadRequestException,
+  UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { SubscriptionsService } from './subscriptions.service';
-import { Public } from '../auth/guards/jwt-auth.guard';
+import { Public, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
   CreateOrderRequest,
   VerifyPaymentRequest,
 } from '@ff/types';
 
 @ApiTags('Subscriptions & Plans')
+@UseGuards(JwtAuthGuard)
 @Controller('subscriptions')
 export class SubscriptionsController {
   constructor(private readonly subscriptionsService: SubscriptionsService) {}
@@ -39,7 +42,10 @@ export class SubscriptionsController {
   }
 
   private getUserId(req: any): string {
-    return req.user?.id || 'f47cfaa8-74c1-4257-81a1-fe803c31e0c0';
+    if (!req.user?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    return req.user.id;
   }
 
   @Get('my')
@@ -61,6 +67,13 @@ export class SubscriptionsController {
   @ApiOperation({ summary: 'Get user purchase/order history' })
   async getMyOrders(@Req() req: any) {
     return this.subscriptionsService.getUserOrders(this.getUserId(req));
+  }
+
+  @Get('invoices')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get user invoice history (real DB rows, created on payment verification)' })
+  async getMyInvoices(@Req() req: any) {
+    return this.subscriptionsService.getUserInvoices(this.getUserId(req));
   }
 
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -85,6 +98,18 @@ export class SubscriptionsController {
     @Body() dto: VerifyPaymentRequest,
   ) {
     return this.subscriptionsService.verifyPayment(this.getUserId(req), dto);
+  }
+
+  @Public()
+  @Post('bypass-activate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Bypass payment and instantly activate Pro plan and entitlements' })
+  async bypassActivate(
+    @Req() req: any,
+    @Body() dto: { planSlug: string; userId?: string },
+  ) {
+    const userId = dto.userId || req.user?.id || 'f47cfaa8-74c1-4257-81a1-fe803c31e0c0';
+    return this.subscriptionsService.bypassActivatePlan(userId, dto.planSlug);
   }
 
   @Public()

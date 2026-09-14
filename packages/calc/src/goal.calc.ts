@@ -1,7 +1,7 @@
 /**
  * Goal & SIP Calculation Engine
  * Formula source: Standard Future Value of annuity formula.
- * All calculations must be auditable — every function returns the formula string.
+ * All calculations must be auditable  every function returns the formula string.
  */
 
 export interface SipCalcInput {

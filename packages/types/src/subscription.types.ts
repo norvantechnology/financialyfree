@@ -1,7 +1,7 @@
 import { UUID, ISO8601 } from './common.types';
 
 export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'pending';
-export type SkuType = 'course_lifetime' | 'tools_1yr' | 'webinars_1yr' | 'bundle_diy' | 'track_b_pro';
+export type SkuType = 'course_lifetime' | 'tools_1yr' | 'bundle_diy' | 'track_b_pro';
 export type PaymentOrderStatus = 'created' | 'attempted' | 'paid' | 'failed';
 
 export interface PlanDto {

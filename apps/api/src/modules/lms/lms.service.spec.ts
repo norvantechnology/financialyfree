@@ -9,6 +9,7 @@ describe('LMS & Entitlement Enforcement (Sprint 5)', () => {
   let mockSubmissionRepo: Partial<Repository<any>>;
   let mockCertRepo: Partial<Repository<any>>;
   let mockEntitlementRepo: Partial<Repository<any>>;
+  let mockSystemConfigService: { isAllAccessFreeNow: jest.Mock };
 
   beforeEach(() => {
     mockLessonRepo = {
@@ -29,6 +30,9 @@ describe('LMS & Entitlement Enforcement (Sprint 5)', () => {
     mockEntitlementRepo = {
       find: jest.fn(),
     };
+    mockSystemConfigService = {
+      isAllAccessFreeNow: jest.fn().mockReturnValue(false),
+    };
 
     service = new LmsService(
       {} as any,
@@ -39,6 +43,7 @@ describe('LMS & Entitlement Enforcement (Sprint 5)', () => {
       mockSubmissionRepo as any,
       mockCertRepo as any,
       mockEntitlementRepo as any,
+      mockSystemConfigService as any,
     );
   });
 
@@ -96,6 +101,22 @@ describe('LMS & Entitlement Enforcement (Sprint 5)', () => {
       const lesson = await service.getLessonContent('user-1', 'techno-funda', 'l2');
       expect(lesson.title).toBe('Stage Analysis Deep Dive');
       expect(lesson.videoPlaybackUrl).toBe('https://example.com/premium.mp4');
+    });
+
+    it('allows access to premium lesson when platform is in FREE access mode', async () => {
+      mockSystemConfigService.isAllAccessFreeNow.mockReturnValue(true);
+      mockLessonRepo.findOne = jest.fn().mockResolvedValue({
+        id: 'l3',
+        title: 'Institutional Screener Masterclass',
+        isPreview: false,
+        videoPlaybackUrl: 'https://example.com/free-access.mp4',
+        module: { course: { requiredSku: 'course_lifetime' } },
+      });
+      mockEntitlementRepo.find = jest.fn().mockResolvedValue([]);
+
+      const lesson = await service.getLessonContent('user-guest', 'techno-funda', 'l3');
+      expect(lesson.title).toBe('Institutional Screener Masterclass');
+      expect(lesson.videoPlaybackUrl).toBe('https://example.com/free-access.mp4');
     });
   });
 

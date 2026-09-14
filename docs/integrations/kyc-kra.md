@@ -27,15 +27,15 @@ When `USE_MOCK_KYC=true`:
 ## Flow
 
 1. User submits PAN + date of birth (+ optional Aadhaar last 4 for e-KYC)
-2. Backend calls KRA status lookup — user may already be KYC verified via another distributor
+2. Backend calls KRA status lookup  user may already be KYC verified via another distributor
 3. If not verified, initiate e-KYC flow (OTP + Aadhaar XML)
 4. Store KRA provider name + verification timestamp in `kyc_records` table
 
 ## Important Notes
 
-- A user KYC-verified through one KRA is valid across all AMCs — check all KRAs before asking to re-verify
+- A user KYC-verified through one KRA is valid across all AMCs  check all KRAs before asking to re-verify
 - PAN is stored encrypted in the database (AES-256); only masked version shown in API responses
-- Aadhaar number is NEVER stored — only the last 4 digits if required by KRA API
+- Aadhaar number is NEVER stored  only the last 4 digits if required by KRA API
 
 ## Steps to Go Live Checklist
 

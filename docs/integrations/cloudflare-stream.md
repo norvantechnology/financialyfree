@@ -1,7 +1,7 @@
 # Cloudflare Stream Integration
 
 ## Overview
-Cloudflare Stream is the primary video hosting, transcoding, and content delivery infrastructure for the FinanciallyFree LMS course lessons and webinar replay archive.
+Cloudflare Stream is the primary video hosting, transcoding, and content delivery infrastructure for the FinanciallyFree LMS course lessons.
 
 > **Development Mode Notice**: Per architecture guidelines, development and testing environments use `USE_MOCK_VIDEO=true` which serves public sample video streams (`https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`) with mock signed tokens. Flipped to `false` in staging/production, it interfaces directly with the Cloudflare Stream API.
 

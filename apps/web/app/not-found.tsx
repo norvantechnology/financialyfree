@@ -54,7 +54,7 @@ export default function NotFound() {
             marginBottom: '8px',
           }}
         >
-          404 — Record Not Found
+          404  Record Not Found
         </div>
 
         <h1

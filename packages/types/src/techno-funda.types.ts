@@ -49,6 +49,13 @@ export interface PeadEventDto {
   price60dPost?: number;
   drift20d?: number; // %
   drift60d?: number; // %
+  dailyRet?: number; // %
+  currentPe?: number;
+  forwardPe?: number;
+  currentPrice?: number;
+  price20dAgo?: number;
+  sma50?: number;
+  stage?: string;
   methodology: string;
 }
 

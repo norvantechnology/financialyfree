@@ -8,55 +8,120 @@ import {
   Lock,
   PlayCircle,
   Award,
-  Sparkles,
 } from 'lucide-react';
 import { SidebarLayout } from '../../../components/sidebar-layout';
 import { StaticSnapshotBanner } from '../../../components/static-snapshot-banner';
 
+import { useParams } from 'next/navigation';
+
+interface CourseSyllabus {
+  title: string;
+  description: string;
+  level: string;
+  duration: string;
+  totalLessons: number;
+  modules: Array<{
+    id: string;
+    title: string;
+    description: string;
+    lessons: Array<{
+      id: string;
+      title: string;
+      duration: string;
+      isPreview: boolean;
+    }>;
+  }>;
+}
+
+const FALLBACK_COURSE: CourseSyllabus = {
+  title: 'Techno-Funda DIY Masterclass',
+  description:
+    'A comprehensive institutional framework blending fundamental moats, earnings momentum (PEAD), and technical stage analysis.',
+  level: 'All Levels',
+  duration: '3.5 Hours',
+  totalLessons: 5,
+  modules: [
+    {
+      id: 'm1',
+      title: 'Module 1: Fundamental Moats & Earnings Quality',
+      description: 'Screening for high-ROCE compounders and promoter integrity.',
+      lessons: [
+        { id: '1', title: '1.1 Introduction to Techno-Funda Architecture', duration: '15 min', isPreview: true },
+        { id: '2', title: '1.2 Decoding the Three Financial Statements for Alpha', duration: '25 min', isPreview: false },
+      ],
+    },
+    {
+      id: 'm2',
+      title: 'Module 2: Technical Timing, Stage Analysis & VCP',
+      description: 'Precision entries using 50/200 EMA and volume contractions.',
+      lessons: [
+        { id: '3', title: '2.1 Stan Weinstein Stage Analysis in Indian Equities', duration: '30 min', isPreview: false },
+        { id: '4', title: '2.2 Volume Contraction Patterns (VCP) & Pivot Breakouts', duration: '35 min', isPreview: false },
+      ],
+    },
+    {
+      id: 'm3',
+      title: 'Module 3: Portfolio Sizing & Certification Exam',
+      description: 'Position sizing, stop-loss discipline, and masterclass examination.',
+      lessons: [
+        { id: '5', title: '3.1 Position Sizing & Downside Capital Preservation', duration: '20 min', isPreview: false },
+      ],
+    },
+  ],
+};
+
 export default function CourseDetailPage() {
-  const course = {
-    title: 'Techno-Funda DIY Masterclass',
-    description:
-      'A comprehensive institutional framework blending fundamental moats, earnings momentum (PEAD), and technical stage analysis.',
-    level: 'All Levels',
-    duration: '3.5 Hours',
-    totalLessons: 5,
-    modules: [
-      {
-        id: 'm1',
-        title: 'Module 1: Fundamental Moats & Earnings Quality',
-        description: 'Screening for high-ROCE compounders and promoter integrity.',
-        lessons: [
-          { id: '1', title: '1.1 Introduction to Techno-Funda Architecture', duration: '15 min', isPreview: true },
-          { id: '2', title: '1.2 Decoding the Three Financial Statements for Alpha', duration: '25 min', isPreview: false },
-        ],
-      },
-      {
-        id: 'm2',
-        title: 'Module 2: Technical Timing, Stage Analysis & VCP',
-        description: 'Precision entries using 50/200 EMA and volume contractions.',
-        lessons: [
-          { id: '3', title: '2.1 Stan Weinstein Stage Analysis in Indian Equities', duration: '30 min', isPreview: false },
-          { id: '4', title: '2.2 Volume Contraction Patterns (VCP) & Pivot Breakouts', duration: '35 min', isPreview: false },
-        ],
-      },
-      {
-        id: 'm3',
-        title: 'Module 3: Portfolio Sizing & Certification Exam',
-        description: 'Position sizing, stop-loss discipline, and masterclass examination.',
-        lessons: [
-          { id: '5', title: '3.1 Position Sizing & Downside Capital Preservation', duration: '20 min', isPreview: false },
-        ],
-      },
-    ],
-  };
+  const params = useParams();
+  const slug = (params?.slug as string) || 'techno-funda-masterclass';
+  const [course, setCourse] = React.useState<CourseSyllabus>(FALLBACK_COURSE);
+  const [_loading, setLoading] = React.useState(true);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  React.useEffect(() => {
+    async function loadSyllabus() {
+      try {
+        const res = await fetch(`${apiUrl}/api/v1/courses/${slug}`);
+        if (res.ok) {
+          const data = await res.json();
+          const totalLessons = (data.modules || []).reduce(
+            (acc: number, m: any) => acc + (m.lessons?.length || 0),
+            0,
+          );
+          setCourse({
+            title: data.title || FALLBACK_COURSE.title,
+            description: data.description || FALLBACK_COURSE.description,
+            level: data.level || 'All Levels',
+            duration: `${((data.totalDuration || 180) / 60).toFixed(1)} Hours`,
+            totalLessons: totalLessons || data.lessonCount || 5,
+            modules: (data.modules || []).map((m: any, mIdx: number) => ({
+              id: m.id || `m${mIdx + 1}`,
+              title: m.title,
+              description: m.description || '',
+              lessons: (m.lessons || []).map((l: any, lIdx: number) => ({
+                id: l.id || String(l.order || lIdx + 1),
+                title: l.title,
+                duration: `${l.duration} min`,
+                isPreview: Boolean(l.isPreview),
+              })),
+            })),
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to load course syllabus, using fallback', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSyllabus();
+  }, [slug, apiUrl]);
 
   return (
     <SidebarLayout activePath="/courses">
       <div style={{ maxWidth: '1040px', margin: '0 auto', width: '100%' }}>
         <StaticSnapshotBanner
           datasetName="Aureus Syllabus Architecture"
-          sourceNotes="Structured curriculum aligned with SEBI guidelines for retail education and systematic equity execution."
+          sourceNotes="Structured curriculum designed for retail investor education and systematic wealth building."
         />
 
         {/* Course Hero Banner */}
@@ -71,7 +136,7 @@ export default function CourseDetailPage() {
           }}
         >
           <div className="category-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <Sparkles size={13} />
+            <Award size={13} />
             <span>FLAGSHIP CURRICULUM</span>
           </div>
           <h1
@@ -124,7 +189,7 @@ export default function CourseDetailPage() {
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
             <Link
-              href="/courses/techno-funda-masterclass/lesson/1"
+              href={`/courses/${slug}/lesson/1`}
               className="btn btn-primary"
               style={{
                 textDecoration: 'none',
@@ -232,7 +297,7 @@ export default function CourseDetailPage() {
                       <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>{lesson.duration}</span>
                       {lesson.isPreview ? (
                         <Link
-                          href={`/courses/techno-funda-masterclass/lesson/${lesson.id}`}
+                          href={`/courses/${slug}/lesson/${lesson.id}`}
                           className="badge-muted"
                           style={{
                             color: 'var(--color-accent)',

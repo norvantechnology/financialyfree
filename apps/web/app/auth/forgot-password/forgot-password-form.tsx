@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Mail, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
 import { forgotPasswordSchema, type ForgotPasswordInput } from '@ff/validators';
+import { getApiBaseUrl } from '../../../lib/auth-client';
 
 export function ForgotPasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
@@ -14,7 +15,8 @@ export function ForgotPasswordForm() {
   const onSubmit = async (data: ForgotPasswordInput) => {
     setIsLoading(true);
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/forgot-password`, {
+      const apiBase = getApiBaseUrl();
+      await fetch(`${apiBase}/api/v1/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -27,12 +29,12 @@ export function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <div style={{ textAlign: 'center', padding: 'var(--space-6) 0' }}>
-        <CheckCircle2 size={42} color="#16A34A" style={{ margin: '0 auto var(--space-3)' }} />
-        <h3 className="font-serif" style={{ fontSize: '18px', fontWeight: 700, marginBottom: '6px', color: '#111827' }}>
+      <div style={{ textAlign: 'center', padding: '24px 8px' }}>
+        <CheckCircle2 size={44} color="#0F766E" style={{ margin: '0 auto 14px' }} />
+        <h3 className="auth-header-title" style={{ fontSize: '18px', marginBottom: '6px' }}>
           Check your email
         </h3>
-        <p style={{ color: '#4B5563', fontSize: '13px', lineHeight: 1.5 }}>
+        <p style={{ color: '#64748B', fontSize: '13px', lineHeight: 1.5 }}>
           If an account exists for that address, recovery instructions have been sent.
         </p>
       </div>
@@ -40,49 +42,34 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-      <div>
-        <label htmlFor="fp-email" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-          Email address
+    <form onSubmit={handleSubmit(onSubmit)} noValidate style={{ display: 'flex', flexDirection: 'column' }}>
+      <div className="auth-form-group">
+        <label htmlFor="fp-email" className="auth-form-label">
+          <span>Email address</span>
         </label>
-        <div style={{ position: 'relative' }}>
-          <Mail size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }} />
+        <div className="auth-input-wrapper">
+          <div className="auth-input-icon">
+            <Mail size={15} />
+          </div>
           <input
             id="fp-email"
             type="email"
-            placeholder="you@example.com"
-            style={{
-              width: '100%',
-              padding: '10px 12px 10px 38px',
-              borderRadius: 'var(--radius-md)',
-              background: '#FFFFFF',
-              border: `1px solid ${errors.email ? '#EF4444' : '#D1D5DB'}`,
-              color: '#111827',
-              fontSize: '13px',
-              outline: 'none',
-            }}
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck="false"
+            placeholder="name@example.com"
             autoComplete="email"
+            className={`auth-input ${errors.email ? 'has-error' : ''}`}
             {...register('email')}
           />
         </div>
-        {errors.email && <span style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>{errors.email.message}</span>}
+        {errors.email && <span className="auth-error-msg">{errors.email.message}</span>}
       </div>
 
       <button
         type="submit"
         disabled={isLoading}
-        className="btn btn-primary"
-        style={{
-          width: '100%',
-          minHeight: '44px',
-          marginTop: '6px',
-          borderRadius: 'var(--radius-md)',
-          background: '#0F172A',
-          color: '#FFFFFF',
-          fontSize: '13px',
-          fontWeight: 600,
-          gap: '8px',
-        }}
+        className="auth-submit-btn"
       >
         {isLoading ? (
           <>
@@ -92,7 +79,7 @@ export function ForgotPasswordForm() {
         ) : (
           <>
             <span>Send Reset Link</span>
-            <ArrowRight size={14} />
+            <ArrowRight size={15} />
           </>
         )}
       </button>

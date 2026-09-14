@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, Loader2, CheckCircle2, ShieldAlert, Check } from 'lucide-react';
 import { registerSchema, type RegisterInput } from '@ff/validators';
+import { getApiBaseUrl, dispatchAuthChange } from '../../../lib/auth-client';
 
 export function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -19,35 +20,71 @@ export function RegisterForm() {
     formState: { errors },
   } = useForm<RegisterInput>({ resolver: zodResolver(registerSchema) });
 
-  const password = watch('password', '');
+  const password = watch('password', '') || '';
+
+  // Requirement checks matching schema
+  const hasMinLength = password.length >= 8;
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
 
   const passwordStrength = (() => {
     let score = 0;
-    if (password.length >= 8) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
+    if (hasMinLength) score++;
+    if (hasUppercase) score++;
+    if (hasNumber) score++;
+    if (hasSpecial) score++;
     return score;
   })();
 
-  const strengthColors = ['#DC2626', '#D97706', '#D97706', '#16A34A', '#0F766E'];
-  const strengthLabels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+  const strengthColors = ['#E2E8F0', '#DC2626', '#D97706', '#D97706', '#0F766E'];
+  const strengthLabels = ['Enter password', 'Weak', 'Fair', 'Good', 'Strong'];
 
   const onSubmit = async (data: RegisterInput) => {
     setIsLoading(true);
     setApiError(null);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/register`, {
+      const apiBase = getApiBaseUrl();
+
+      // Clean and sanitize payload
+      const cleanedPhone = data.phone?.trim()
+        ? data.phone.trim().replace(/\D/g, '').slice(-10)
+        : undefined;
+
+      const payload = {
+        ...data,
+        phone: cleanedPhone && cleanedPhone.length === 10 ? cleanedPhone : undefined,
+      };
+
+      const res = await fetch(`${apiBase}/api/v1/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
-      const json = (await res.json()) as { tokens?: { accessToken: string }; message?: string };
+      const json = (await res.json()) as {
+        tokens?: { accessToken: string; refreshToken?: string };
+        user?: any;
+        message?: string | string[];
+      };
       if (!res.ok) {
-        setApiError(json.message ?? 'Registration failed. Please try again.');
+        const errorMsg = Array.isArray(json.message)
+          ? json.message.join(', ')
+          : (json.message || 'Registration failed. Please try again.');
+        setApiError(errorMsg);
         return;
       }
-      localStorage.setItem('accessToken', json.tokens?.accessToken ?? '');
+      if (json.tokens?.accessToken) {
+        localStorage.setItem('accessToken', json.tokens.accessToken);
+        document.cookie = `accessToken=${json.tokens.accessToken}; path=/; max-age=604800; SameSite=Lax`;
+      }
+      if (json.tokens?.refreshToken) {
+        localStorage.setItem('refreshToken', json.tokens.refreshToken);
+        document.cookie = `refreshToken=${json.tokens.refreshToken}; path=/; max-age=2592000; SameSite=Lax`;
+      }
+      if (json.user) {
+        localStorage.setItem('user', JSON.stringify(json.user));
+      }
+      dispatchAuthChange();
       setSuccess(true);
       setTimeout(() => {
         window.location.href = '/dashboard/goals';
@@ -61,219 +98,231 @@ export function RegisterForm() {
 
   if (success) {
     return (
-      <div style={{ textAlign: 'center', padding: 'var(--space-8) 0' }}>
-        <CheckCircle2 size={48} color="#16A34A" style={{ margin: '0 auto var(--space-4)' }} />
-        <h3 className="font-serif" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px', color: '#111827' }}>
+      <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+        <CheckCircle2 size={48} color="#0F766E" style={{ margin: '0 auto 16px' }} />
+        <h3 className="auth-header-title" style={{ fontSize: '20px', marginBottom: '8px' }}>
           Account Created Successfully!
         </h3>
-        <p style={{ color: '#4B5563', fontSize: '13px' }}>Taking you to your workspace…</p>
+        <p style={{ color: '#64748B', fontSize: '13.5px' }}>Taking you to your workspace…</p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+    <form onSubmit={handleSubmit(onSubmit)} noValidate style={{ display: 'flex', flexDirection: 'column' }}>
       {apiError && (
         <div
           style={{
             padding: '10px 12px',
             background: '#FEE2E2',
             border: '1px solid #FECACA',
-            borderRadius: 'var(--radius-md)',
+            borderRadius: '10px',
             color: '#991B1B',
             fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '14px',
           }}
         >
-          {apiError}
+          <ShieldAlert size={16} style={{ flexShrink: 0 }} />
+          <span>{apiError}</span>
         </div>
       )}
 
-      {/* Name row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-3)' }}>
-        <div>
-          <label htmlFor="reg-fname" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-            First name
+      {/* Responsive Name Row (2-col on Laptop, Stacked on Mobile) */}
+      <div className="auth-grid-2col">
+        {/* First Name */}
+        <div className="auth-form-group">
+          <label htmlFor="reg-fname" className="auth-form-label">
+            <span>First name</span>
           </label>
-          <div style={{ position: 'relative' }}>
-            <User size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }} />
+          <div className="auth-input-wrapper">
+            <div className="auth-input-icon">
+              <User size={15} />
+            </div>
             <input
               id="reg-fname"
-              placeholder="Arjun"
-              style={{
-                width: '100%',
-                padding: '9px 12px 9px 34px',
-                borderRadius: 'var(--radius-md)',
-                background: '#FFFFFF',
-                border: `1px solid ${errors.firstName ? '#EF4444' : '#D1D5DB'}`,
-                color: '#111827',
-                fontSize: '13px',
-                outline: 'none',
-              }}
+              placeholder="e.g. Arjun"
+              autoComplete="given-name"
+              className={`auth-input ${errors.firstName ? 'has-error' : ''}`}
               {...register('firstName')}
             />
           </div>
-          {errors.firstName && <span style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>{errors.firstName.message}</span>}
+          {errors.firstName && <span className="auth-error-msg">{errors.firstName.message}</span>}
         </div>
 
-        <div>
-          <label htmlFor="reg-lname" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-            Last name
+        {/* Last Name */}
+        <div className="auth-form-group">
+          <label htmlFor="reg-lname" className="auth-form-label">
+            <span>Last name</span>
           </label>
-          <input
-            id="reg-lname"
-            placeholder="Shah"
-            style={{
-              width: '100%',
-              padding: '9px 12px',
-              borderRadius: 'var(--radius-md)',
-              background: '#FFFFFF',
-              border: `1px solid ${errors.lastName ? '#EF4444' : '#D1D5DB'}`,
-              color: '#111827',
-              fontSize: '13px',
-              outline: 'none',
-            }}
-            {...register('lastName')}
-          />
-          {errors.lastName && <span style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>{errors.lastName.message}</span>}
+          <div className="auth-input-wrapper">
+            <div className="auth-input-icon">
+              <User size={15} />
+            </div>
+            <input
+              id="reg-lname"
+              placeholder="e.g. Shah"
+              autoComplete="family-name"
+              className={`auth-input ${errors.lastName ? 'has-error' : ''}`}
+              {...register('lastName')}
+            />
+          </div>
+          {errors.lastName && <span className="auth-error-msg">{errors.lastName.message}</span>}
         </div>
       </div>
 
       {/* Email */}
-      <div>
-        <label htmlFor="reg-email" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-          Work or personal email
+      <div className="auth-form-group">
+        <label htmlFor="reg-email" className="auth-form-label">
+          <span>Work or personal email</span>
         </label>
-        <div style={{ position: 'relative' }}>
-          <Mail size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }} />
+        <div className="auth-input-wrapper">
+          <div className="auth-input-icon">
+            <Mail size={15} />
+          </div>
           <input
             id="reg-email"
             type="email"
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck="false"
             placeholder="arjun@example.com"
-            style={{
-              width: '100%',
-              padding: '9px 12px 9px 34px',
-              borderRadius: 'var(--radius-md)',
-              background: '#FFFFFF',
-              border: `1px solid ${errors.email ? '#EF4444' : '#D1D5DB'}`,
-              color: '#111827',
-              fontSize: '13px',
-              outline: 'none',
-            }}
             autoComplete="email"
+            className={`auth-input ${errors.email ? 'has-error' : ''}`}
             {...register('email')}
           />
         </div>
-        {errors.email && <span style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>{errors.email.message}</span>}
+        {errors.email && <span className="auth-error-msg">{errors.email.message}</span>}
       </div>
 
-      {/* Phone */}
-      <div>
-        <label htmlFor="reg-phone" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-          Mobile phone (optional)
+      {/* Phone (Optional) */}
+      <div className="auth-form-group">
+        <label htmlFor="reg-phone" className="auth-form-label">
+          <span>Mobile phone <span style={{ fontWeight: 400, color: '#64748B' }}>(optional)</span></span>
         </label>
-        <div style={{ position: 'relative' }}>
-          <Phone size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }} />
+        <div className="auth-input-wrapper">
+          <div className="auth-input-icon">
+            <Phone size={15} />
+          </div>
           <input
             id="reg-phone"
             type="tel"
-            placeholder="+91 98765 43210"
-            style={{
-              width: '100%',
-              padding: '9px 12px 9px 34px',
-              borderRadius: 'var(--radius-md)',
-              background: '#FFFFFF',
-              border: `1px solid ${errors.phone ? '#EF4444' : '#D1D5DB'}`,
-              color: '#111827',
-              fontSize: '13px',
-              outline: 'none',
-            }}
-            {...register('phone')}
+            inputMode="tel"
+            placeholder="10-digit mobile number"
+            autoComplete="tel"
+            className={`auth-input ${errors.phone ? 'has-error' : ''}`}
+            {...register('phone', {
+              setValueAs: (val) => {
+                if (!val || typeof val !== 'string' || !val.trim()) return undefined;
+                const digits = val.replace(/\D/g, '').slice(-10);
+                return digits.length === 10 ? digits : val.trim();
+              },
+            })}
           />
         </div>
-        {errors.phone && <span style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>{errors.phone.message}</span>}
+        {errors.phone && <span className="auth-error-msg">{errors.phone.message}</span>}
       </div>
 
       {/* Password */}
-      <div>
-        <label htmlFor="reg-password" style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
-          Password
+      <div className="auth-form-group">
+        <label htmlFor="reg-password" className="auth-form-label">
+          <span>Password</span>
         </label>
-        <div style={{ position: 'relative' }}>
-          <Lock size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }} />
+        <div className="auth-input-wrapper">
+          <div className="auth-input-icon">
+            <Lock size={15} />
+          </div>
           <input
             id="reg-password"
             type={showPassword ? 'text' : 'password'}
-            placeholder="Min 8 characters"
-            style={{
-              width: '100%',
-              padding: '9px 36px 9px 34px',
-              borderRadius: 'var(--radius-md)',
-              background: '#FFFFFF',
-              border: `1px solid ${errors.password ? '#EF4444' : '#D1D5DB'}`,
-              color: '#111827',
-              fontSize: '13px',
-              outline: 'none',
-            }}
+            placeholder="Minimum 8 characters"
             autoComplete="new-password"
+            className={`auth-input ${errors.password ? 'has-error' : ''}`}
+            style={{ paddingRight: '44px' }}
             {...register('password')}
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            style={{
-              position: 'absolute',
-              right: 12,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              background: 'none',
-              border: 'none',
-              color: '#9CA3AF',
-              cursor: 'pointer',
-              padding: 0,
-            }}
+            className="auth-password-toggle-btn"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
-            {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
-        {errors.password && <span style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>{errors.password.message}</span>}
+        {errors.password && <span className="auth-error-msg">{errors.password.message}</span>}
 
-        {/* Strength meter */}
-        {password && (
+        {/* Real-time Requirement Checklist */}
+        <div className="auth-req-list">
+          <div className={`auth-req-item ${hasMinLength ? 'met' : ''}`}>
+            {hasMinLength ? <Check size={12} color="#0F766E" /> : <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#94A3B8' }} />}
+            <span>8+ characters</span>
+          </div>
+          <div className={`auth-req-item ${hasUppercase ? 'met' : ''}`}>
+            {hasUppercase ? <Check size={12} color="#0F766E" /> : <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#94A3B8' }} />}
+            <span>1 uppercase (A-Z)</span>
+          </div>
+          <div className={`auth-req-item ${hasNumber ? 'met' : ''}`}>
+            {hasNumber ? <Check size={12} color="#0F766E" /> : <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#94A3B8' }} />}
+            <span>1 number (0-9)</span>
+          </div>
+          <div className={`auth-req-item ${hasSpecial ? 'met' : ''}`}>
+            {hasSpecial ? <Check size={12} color="#0F766E" /> : <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#94A3B8' }} />}
+            <span>1 special symbol</span>
+          </div>
+        </div>
+
+        {/* Strength Progress Meter */}
+        {password.length > 0 && (
           <div style={{ marginTop: '8px' }}>
-            <div style={{ display: 'flex', gap: '4px', height: '4px', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', gap: '4px', height: '4px', borderRadius: '999px', overflow: 'hidden' }}>
               {[1, 2, 3, 4].map((level) => (
                 <div
                   key={level}
                   style={{
                     flex: 1,
-                    background: passwordStrength >= level ? strengthColors[passwordStrength] : '#E5E7EB',
-                    transition: 'background 0.2s',
+                    background: passwordStrength >= level ? strengthColors[passwordStrength] : '#E2E8F0',
+                    transition: 'background 0.2s ease',
                   }}
                 />
               ))}
             </div>
-            <span style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px', display: 'block' }}>
-              Strength: {strengthLabels[passwordStrength]}
-            </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+              <span style={{ fontSize: '11px', color: '#64748B' }}>
+                Security: <strong style={{ color: strengthColors[passwordStrength] }}>{strengthLabels[passwordStrength]}</strong>
+              </span>
+            </div>
           </div>
         )}
       </div>
 
+      {/* Terms & Privacy checkbox */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', margin: '6px 0 10px' }}>
+        <input
+          id="reg-terms"
+          type="checkbox"
+          defaultChecked
+          style={{
+            width: '16px',
+            height: '16px',
+            accentColor: '#0F766E',
+            cursor: 'pointer',
+            borderRadius: '4px',
+            marginTop: '2px',
+          }}
+        />
+        <label htmlFor="reg-terms" style={{ fontSize: '12px', color: '#64748B', cursor: 'pointer', lineHeight: 1.45 }}>
+          I agree to the <a href="/terms" style={{ color: '#0F766E', textDecoration: 'none' }}>Terms of Service</a> and <a href="/privacy" style={{ color: '#0F766E', textDecoration: 'none' }}>Privacy Policy</a>
+        </label>
+      </div>
+
+      {/* Submit Button */}
       <button
         type="submit"
         disabled={isLoading}
-        className="btn btn-primary"
-        style={{
-          width: '100%',
-          minHeight: '44px',
-          marginTop: '8px',
-          borderRadius: 'var(--radius-md)',
-          background: '#0F172A',
-          color: '#FFFFFF',
-          fontSize: '13px',
-          fontWeight: 600,
-          gap: '8px',
-        }}
+        className="auth-submit-btn"
       >
         {isLoading ? (
           <>
@@ -282,8 +331,8 @@ export function RegisterForm() {
           </>
         ) : (
           <>
-            <span>Create Account</span>
-            <ArrowRight size={14} />
+            <span>Create Free Account</span>
+            <ArrowRight size={15} />
           </>
         )}
       </button>

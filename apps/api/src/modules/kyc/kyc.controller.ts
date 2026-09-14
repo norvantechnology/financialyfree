@@ -6,20 +6,27 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { KycService } from './kyc.service';
 import { InitiateKycDto } from '@ff/types';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('KYC / KRA Verification')
 @ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard)
 @Controller('kyc')
 export class KycController {
   constructor(private readonly kycService: KycService) {}
 
   private getUserId(req: any): string {
-    return req.user?.id || 'f47cfaa8-74c1-4257-81a1-fe803c31e0c0';
+    if (!req.user?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    return req.user.id;
   }
 
   @Get('status')

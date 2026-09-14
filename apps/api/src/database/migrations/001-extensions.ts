@@ -11,7 +11,7 @@ export class Extensions1725000000001 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm"`);
-    // TimescaleDB (optional — gracefully skips if not pre-installed in postgres image)
+    // TimescaleDB (optional  gracefully skips if not pre-installed in postgres image)
     await queryRunner.query(`
       DO $$ BEGIN
         CREATE EXTENSION IF NOT EXISTS "timescaledb" CASCADE;

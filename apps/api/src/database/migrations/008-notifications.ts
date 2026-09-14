@@ -8,7 +8,7 @@ export class Notifications1725000000008 implements MigrationInterface {
     await queryRunner.query(`
       DO $$ BEGIN
         CREATE TYPE "notification_category_enum" AS ENUM(
-          'sip_reminder', 'webinar_reminder', 'course_progress',
+          'sip_reminder', 'portfolio_update', 'course_progress',
           'kyc_status', 'payment_success', 'payment_failed', 'general'
         );
       EXCEPTION

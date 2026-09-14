@@ -17,12 +17,19 @@ export interface IndexSnapshot {
 
 export interface MarketOverviewData {
   indices: IndexSnapshot[];
-  indiaVix: number;
+  indiaVix: number | null;
   marketBreadth: {
     advances: number;
     declines: number;
     ratio: number;
     breadthPct: number;
+  } | null;
+  technicalMetrics?: {
+    dma50: number;
+    dma200: number;
+    maTrendScore: number;
+    volume20dRatio: number;
+    liquidityScore: number;
   };
   licensingNotice: string;
   retrievedAt: string;
@@ -34,10 +41,21 @@ interface CacheEntry {
   expiresAt: number;
 }
 
+type TataMotorsPriceResult = {
+  currentPrice: number;
+  change: number;
+  changePct: number;
+  symbol: string;
+  ticker: string;
+  source: string;
+  lastUpdated: string;
+};
+
 @Injectable()
 export class MarketIndexService {
   private readonly logger = new Logger(MarketIndexService.name);
   private cache: CacheEntry | null = null;
+  private tataMotorsPriceCache: { data: TataMotorsPriceResult; expiresAt: number } | null = null;
   private readonly CACHE_TTL_MS = 300 * 1000; // 5 minutes TTL
 
   private readonly INDICES = [
@@ -46,6 +64,9 @@ export class MarketIndexService {
     { ticker: '^NSEBANK', symbol: 'NIFTY BANK', name: 'Nifty Bank Index' },
     { ticker: '^INDIAVIX', symbol: 'INDIA VIX', name: 'India Volatility Index' },
   ];
+
+  private readonly LICENSING_NOTICE =
+    'Delayed market quotes (15-min delay) provided solely for educational and research demonstration per PRD Section 58. Commercial client redistribution requires a formal licensing agreement with NSE Data & Analytics Ltd / BSE Ltd or an authorized data vendor (TrueData/GDFL).';
 
   async getMarketOverview(forceRefresh = false): Promise<MarketOverviewData> {
     const now = Date.now();
@@ -59,7 +80,7 @@ export class MarketIndexService {
       );
 
       const snapshots: IndexSnapshot[] = [];
-      let indiaVix = 11.2; // Sensible historical default
+      let indiaVix: number | null = null;
 
       for (const res of results) {
         if (res.status === 'fulfilled' && res.value) {
@@ -71,38 +92,47 @@ export class MarketIndexService {
         }
       }
 
-      // If network failed to return all 3 main indices, supplement with fallback
       if (snapshots.length < 3) {
-        this.logger.warn('Incomplete index quotes fetched; supplementing baseline snapshots.');
-        this.fillFallbackIndices(snapshots);
+        this.logger.warn('Incomplete index quotes fetched; returning available snapshots only.');
       }
 
-      // Calculate approximate market breadth from index momentum
-      const nifty = snapshots.find((s) => s.symbol === 'NIFTY 50');
-      const niftyChangePct = nifty ? nifty.changePct : 0.2;
-      const advances = niftyChangePct >= 0 ? 32 : 18;
-      const declines = 50 - advances;
-      const breadthPct = Math.round((advances / 50) * 100);
+      // Fetch live official breadth from NSE allIndices and technical trend in parallel
+      let [liveBreadth, techMetrics] = await Promise.all([
+        this.fetchNseBreadth(),
+        this.fetchNiftyHistoricalTrend(),
+      ]);
+
+      // Yahoo Nifty-50 constituent advance/decline when NSE breadth unavailable
+      if (!liveBreadth) {
+        liveBreadth = await this.fetchYahooNiftyBreadth();
+      }
+
+      const marketBreadth = liveBreadth
+        ? {
+            advances: liveBreadth.advances,
+            declines: liveBreadth.declines,
+            ratio: Math.round((liveBreadth.advances / Math.max(1, liveBreadth.declines)) * 100) / 100,
+            breadthPct: liveBreadth.breadthPct,
+          }
+        : null;
 
       const overview: MarketOverviewData = {
         indices: snapshots,
         indiaVix,
-        marketBreadth: {
-          advances,
-          declines,
-          ratio: Math.round((advances / Math.max(1, declines)) * 100) / 100,
-          breadthPct,
-        },
-        licensingNotice:
-          'Delayed market quotes (15-min delay) provided solely for educational and research demonstration per PRD Section 58. Commercial client redistribution requires a formal licensing agreement with NSE Data & Analytics Ltd / BSE Ltd or an authorized data vendor (TrueData/GDFL).',
+        marketBreadth,
+        technicalMetrics: techMetrics || undefined,
+        licensingNotice: this.LICENSING_NOTICE,
         retrievedAt: new Date().toISOString(),
         isCached: false,
       };
 
-      this.cache = {
-        data: overview,
-        expiresAt: now + this.CACHE_TTL_MS,
-      };
+      // Only cache complete overview so MMI is not stuck on a breadth miss
+      if (snapshots.length >= 3 && indiaVix != null && marketBreadth && techMetrics) {
+        this.cache = {
+          data: overview,
+          expiresAt: now + this.CACHE_TTL_MS,
+        };
+      }
 
       return overview;
     } catch (err: any) {
@@ -110,11 +140,42 @@ export class MarketIndexService {
       if (this.cache) {
         return { ...this.cache.data, isCached: true };
       }
-      return this.generateFallbackOverview();
+      return {
+        indices: [],
+        indiaVix: null,
+        marketBreadth: null,
+        licensingNotice: this.LICENSING_NOTICE,
+        retrievedAt: new Date().toISOString(),
+        isCached: false,
+      };
     }
   }
 
-  private async fetchQuote(
+  async fetchStockPrice(symbol: string): Promise<number | null> {
+    try {
+      const cleanSymbol = symbol.trim().toUpperCase();
+      const candidates =
+        cleanSymbol === 'TATAMOTORS' || cleanSymbol === 'TATAMOTORS.NS'
+          ? ['TATAMOTORS.NS', 'TMCV.NS']
+          : cleanSymbol.endsWith('.NS') || cleanSymbol.endsWith('.BO')
+            ? [cleanSymbol]
+            : [`${cleanSymbol}.NS`, `${cleanSymbol}.BO`];
+
+      for (const ticker of candidates) {
+        try {
+          const quote = await this.fetchQuote(ticker, cleanSymbol, cleanSymbol);
+          if (quote && quote.current > 0) {
+            return quote.current;
+          }
+        } catch {}
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  async fetchQuote(
     ticker: string,
     symbol: string,
     name: string,
@@ -169,75 +230,240 @@ export class MarketIndexService {
     };
   }
 
-  private fillFallbackIndices(snapshots: IndexSnapshot[]) {
-    const fallbacks: IndexSnapshot[] = [
-      {
-        symbol: 'NIFTY 50',
-        name: 'Nifty 50 Index',
-        ticker: '^NSEI',
-        current: 23897.7,
-        change: 24.3,
-        changePct: 0.1,
-        dayHigh: 23940.5,
-        dayLow: 23825.1,
-        previousClose: 23873.4,
-        lastUpdated: new Date().toISOString(),
-        delayedMinutes: 15,
-        source: 'Reference Close Benchmark',
-      },
-      {
-        symbol: 'SENSEX',
-        name: 'BSE Sensex Index',
-        ticker: '^BSESN',
-        current: 76515.43,
-        change: 362.53,
-        changePct: 0.48,
-        dayHigh: 76700.0,
-        dayLow: 76350.2,
-        previousClose: 76152.9,
-        lastUpdated: new Date().toISOString(),
-        delayedMinutes: 15,
-        source: 'Reference Close Benchmark',
-      },
-      {
-        symbol: 'NIFTY BANK',
-        name: 'Nifty Bank Index',
-        ticker: '^NSEBANK',
-        current: 57369.65,
-        change: -10.95,
-        changePct: -0.02,
-        dayHigh: 57550.0,
-        dayLow: 57200.0,
-        previousClose: 57380.6,
-        lastUpdated: new Date().toISOString(),
-        delayedMinutes: 15,
-        source: 'Reference Close Benchmark',
-      },
+  async getTataMotorsPrice(forceRefresh = false): Promise<TataMotorsPriceResult | null> {
+    const now = Date.now();
+    if (!forceRefresh && this.tataMotorsPriceCache && this.tataMotorsPriceCache.expiresAt > now) {
+      return this.tataMotorsPriceCache.data;
+    }
+
+    const tickers = [
+      { ticker: 'TATAMOTORS.NS', symbol: 'TATAMOTORS' },
+      { ticker: 'TMCV.NS', symbol: 'TATAMOTORS (TMCV)' },
     ];
 
-    for (const fb of fallbacks) {
-      if (!snapshots.some((s) => s.symbol === fb.symbol)) {
-        snapshots.push(fb);
+    for (const t of tickers) {
+      try {
+        const quote = await this.fetchQuote(t.ticker, t.symbol, 'Tata Motors Limited');
+        if (quote && quote.current > 0) {
+          const res = {
+            currentPrice: quote.current,
+            change: quote.change,
+            changePct: quote.changePct,
+            symbol: t.symbol,
+            ticker: t.ticker,
+            source: 'Yahoo Finance Delayed Feed (15-min)',
+            lastUpdated: quote.lastUpdated,
+          };
+          this.tataMotorsPriceCache = { data: res, expiresAt: now + this.CACHE_TTL_MS };
+          return res;
+        }
+      } catch {}
+    }
+
+    this.logger.warn('Tata Motors live quote unavailable; returning null.');
+    return null;
+  }
+
+  private extractNseCookies(headers: Headers): string {
+    const getSetCookie = (headers as any).getSetCookie?.bind(headers);
+    const list: string[] = typeof getSetCookie === 'function' ? getSetCookie() : [];
+    if (list.length > 0) {
+      return list.map((c: string) => c.split(';')[0].trim()).filter(Boolean).join('; ');
+    }
+    const raw = headers.get('set-cookie') || '';
+    return raw
+      .split(/,(?=[^;]+=)/)
+      .map((c) => c.split(';')[0].trim())
+      .filter(Boolean)
+      .join('; ');
+  }
+
+  private async fetchNseBreadth(): Promise<{ advances: number; declines: number; breadthPct: number } | null> {
+    try {
+      const userAgent =
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+
+      const homeResp = await fetch('https://www.nseindia.com', {
+        headers: {
+          'User-Agent': userAgent,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+      let cookies = this.extractNseCookies(homeResp.headers);
+
+      // Warm market-data page — NSE often requires this before JSON APIs succeed
+      try {
+        const warm = await fetch('https://www.nseindia.com/market-data/live-equity-market', {
+          headers: {
+            'User-Agent': userAgent,
+            Accept: 'text/html',
+            Cookie: cookies,
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          signal: AbortSignal.timeout(8000),
+        });
+        const warmCookies = this.extractNseCookies(warm.headers);
+        if (warmCookies) {
+          const map = new Map<string, string>();
+          for (const part of `${cookies}; ${warmCookies}`.split('; ').filter(Boolean)) {
+            const i = part.indexOf('=');
+            if (i > 0) map.set(part.slice(0, i), part.slice(i + 1));
+          }
+          cookies = [...map.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
+        }
+      } catch {}
+
+      const indicesResp = await fetch('https://www.nseindia.com/api/allIndices', {
+        headers: {
+          'User-Agent': userAgent,
+          Accept: 'application/json, text/plain, */*',
+          Referer: 'https://www.nseindia.com/market-data/live-equity-market',
+          Cookie: cookies,
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!indicesResp.ok) return null;
+
+      const data = (await indicesResp.json()) as any;
+      const nifty = data?.data?.find(
+        (idx: any) => idx.index === 'NIFTY 50' || idx.indexSymbol === 'NIFTY 50',
+      );
+
+      if (nifty && typeof nifty.advances === 'number' && typeof nifty.declines === 'number') {
+        const advances = Number(nifty.advances);
+        const declines = Number(nifty.declines);
+        const total = advances + declines || 50;
+        const breadthPct = Math.round((advances / total) * 100);
+        return { advances, declines, breadthPct };
       }
+      return null;
+    } catch (err: any) {
+      this.logger.debug(`NSE live breadth fetch skipped: ${err.message}`);
+      return null;
     }
   }
 
-  private generateFallbackOverview(): MarketOverviewData {
-    const snapshots: IndexSnapshot[] = [];
-    this.fillFallbackIndices(snapshots);
-    return {
-      indices: snapshots,
-      indiaVix: 10.68,
-      marketBreadth: {
-        advances: 32,
-        declines: 18,
-        ratio: 1.78,
-        breadthPct: 64,
-      },
-      licensingNotice:
-        'Delayed market quotes (15-min delay) provided solely for educational and research demonstration per PRD Section 58. Commercial client redistribution requires a formal licensing agreement with NSE Data & Analytics Ltd / BSE Ltd or an authorized data vendor (TrueData/GDFL).',
-      retrievedAt: new Date().toISOString(),
-      isCached: true,
-    };
+  private async fetchYahooNiftyBreadth(): Promise<{ advances: number; declines: number; breadthPct: number } | null> {
+    const symbols = [
+      'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'BHARTIARTL.NS', 'ICICIBANK.NS',
+      'INFY.NS', 'SBIN.NS', 'ITC.NS', 'HINDUNILVR.NS', 'LT.NS',
+      'BAJFINANCE.NS', 'HCLTECH.NS', 'MARUTI.NS', 'SUNPHARMA.NS', 'AXISBANK.NS',
+      'KOTAKBANK.NS', 'NTPC.NS', 'ULTRACEMCO.NS', 'POWERGRID.NS', 'ONGC.NS',
+      'WIPRO.NS', 'TITAN.NS', 'M&M.NS', 'COALINDIA.NS', 'ADANIENT.NS',
+    ];
+    try {
+      let advances = 0;
+      let declines = 0;
+      await Promise.all(
+        symbols.map(async (ticker) => {
+          try {
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
+            const resp = await fetch(url, {
+              headers: {
+                'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
+                Accept: 'application/json',
+              },
+              signal: AbortSignal.timeout(6000),
+            });
+            if (!resp.ok) return;
+            const json = (await resp.json()) as any;
+            const meta = json?.chart?.result?.[0]?.meta;
+            if (!meta?.regularMarketPrice) return;
+            const current = Number(meta.regularMarketPrice);
+            const prev = Number(meta.chartPreviousClose || meta.previousClose || current);
+            if (prev <= 0) return;
+            if (current >= prev) advances += 1;
+            else declines += 1;
+          } catch {}
+        }),
+      );
+      const total = advances + declines;
+      if (total < 10) return null;
+      return {
+        advances,
+        declines,
+        breadthPct: Math.round((advances / total) * 100),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private async fetchNiftyHistoricalTrend(): Promise<{
+    dma50: number;
+    dma200: number;
+    maTrendScore: number;
+    volume20dRatio: number;
+    liquidityScore: number;
+  } | null> {
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI?interval=1d&range=1y`;
+      const resp = await fetch(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!resp.ok) return null;
+      const json = (await resp.json()) as any;
+      const result = json?.chart?.result?.[0];
+      if (!result) return null;
+
+      const closes: number[] = (result.indicators?.quote?.[0]?.close || []).filter(
+        (c: any): c is number => typeof c === 'number' && !isNaN(c) && c > 0,
+      );
+      const volumes: number[] = (result.indicators?.quote?.[0]?.volume || []).filter(
+        (v: any): v is number => typeof v === 'number' && !isNaN(v) && v > 0,
+      );
+
+      if (closes.length < 50) return null;
+
+      const currentPrice =
+        result.meta?.regularMarketPrice || closes[closes.length - 1];
+
+      // 50-DMA
+      const last50 = closes.slice(-50);
+      const dma50 = Math.round((last50.reduce((a, b) => a + b, 0) / 50) * 100) / 100;
+
+      // 200-DMA
+      const last200 = closes.length >= 200 ? closes.slice(-200) : closes;
+      const dma200 = Math.round((last200.reduce((a, b) => a + b, 0) / last200.length) * 100) / 100;
+
+      // Real % above 200-DMA proxy
+      const pctAbove200 = ((currentPrice - dma200) / dma200) * 100;
+      const maTrendScore = Math.min(95, Math.max(10, Math.round(50 + pctAbove200 * 3.5)));
+
+      // 20-day Volume Trend vs 50-day average volume
+      let volume20dRatio = 1.0;
+      let liquidityScore = 50;
+      if (volumes.length >= 50) {
+        const vol20 = volumes.slice(-20);
+        const avgVol20 = vol20.reduce((a, b) => a + b, 0) / 20;
+        const vol50 = volumes.slice(-50);
+        const avgVol50 = vol50.reduce((a, b) => a + b, 0) / 50;
+        if (avgVol50 > 0) {
+          volume20dRatio = Math.round((avgVol20 / avgVol50) * 100) / 100;
+          liquidityScore = Math.min(95, Math.max(15, Math.round(volume20dRatio * 52)));
+        }
+      }
+
+      return {
+        dma50,
+        dma200,
+        maTrendScore,
+        volume20dRatio,
+        liquidityScore,
+      };
+    } catch (err: any) {
+      this.logger.debug(`Historical trend computation skipped: ${err.message}`);
+      return null;
+    }
   }
 }

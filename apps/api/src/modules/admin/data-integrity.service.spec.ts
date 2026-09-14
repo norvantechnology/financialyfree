@@ -59,13 +59,40 @@ describe('DataIntegrityService (/admin/data-integrity Audit Registry)', () => {
         dataSource: 'Live market inputs',
         lastUpdated: new Date().toISOString(),
       }),
-      getPeadSurprises: jest.fn().mockReturnValue({
+      getPeadFeed: jest.fn().mockResolvedValue({
+        events: [
+          { symbol: 'TRENT', name: 'Trent Limited', surprise: 28.67, drift20d: -6.96, actualEps: 18.4, expectedEps: 14.3, stage: 'Consolidating', resultDate: '2026-09-01' },
+          { symbol: 'DIXON', name: 'Dixon Technologies (India) Ltd', surprise: 18.14, drift20d: 0.46, actualEps: 24.1, expectedEps: 20.4, stage: 'Stage 2 Breakout', resultDate: '2026-08-28' },
+        ],
+        dataSource: 'Live Yahoo Finance + SEBI LODR Filings',
+        methodology: 'PEAD drift window',
+        trackedEventsCount: 2,
+        calendarUniverseActive: 35,
+        lastUpdated: new Date().toISOString(),
+      }),
+      getValuationFinancials: jest.fn().mockResolvedValue({
+        source: 'LIVE_FETCH',
+        targetCompany: 'Reliance Industries Limited',
+        financialsCr: { revenue: 900000, ebitda: 100000, pat: 70000, eps: 100 },
+        currentMarketPrice: 1400,
+        refreshedAt: new Date().toISOString(),
+      }),
+      getPeadSurprises: jest.fn().mockResolvedValue({
         events: [
           { symbol: 'TRENT', surprisePct: 28.67, drift20d: 8.32, actualEps: 18.4, expectedEps: 14.3, resultDate: '2026-09-01' },
           { symbol: 'DIXON', surprisePct: 18.14, drift20d: 10.96, actualEps: 24.1, expectedEps: 20.4, resultDate: '2026-08-28' },
         ],
         dataSource: 'NSE / BSE Quarterly Corporate Filings',
         methodology: 'PEAD drift window',
+        lastUpdated: new Date().toISOString(),
+      }),
+      getSectorHeatmap: jest.fn().mockResolvedValue({
+        sectors: [
+          { symbol: 'NIFTY AUTO', name: 'Nifty Auto', current: 24500, quadrant: 'Leading', compositeScore: 4.5, rs1M: 3.2, rs1W: 1.1, rs1D: 0.5 },
+        ],
+        benchmark: { symbol: 'NIFTY 50', return1D: 0.1, return1W: 0.5, return1M: 1.2 },
+        totalSectors: 8,
+        source: 'Live Yahoo Finance 3-Month Daily Candles vs ^NSEI',
         lastUpdated: new Date().toISOString(),
       }),
     };
@@ -90,13 +117,14 @@ describe('DataIntegrityService (/admin/data-integrity Audit Registry)', () => {
   });
 
   describe('Catalog & Seeding', () => {
-    it('defines exactly 11 data dependencies covering all platform domains', () => {
-      expect(DATA_SOURCES_CATALOG.length).toBe(11);
+    it('defines exactly 12 data dependencies covering all platform domains', () => {
+      expect(DATA_SOURCES_CATALOG.length).toBe(12);
       const keys = DATA_SOURCES_CATALOG.map((c) => c.sourceKey);
       expect(keys).toContain('amfi_nav');
       expect(keys).toContain('index_snapshots');
       expect(keys).toContain('india_vix');
       expect(keys).toContain('market_mood_index');
+      expect(keys).toContain('sector_rotation');
       expect(keys).toContain('vahan_etl');
       expect(keys).toContain('pead_source');
       expect(keys).toContain('valuation_financials');
@@ -108,9 +136,9 @@ describe('DataIntegrityService (/admin/data-integrity Audit Registry)', () => {
 
     it('retrieves all sources and self-heals unseeded items', async () => {
       const all = await service.getAllSources();
-      expect(all.length).toBe(11);
-      expect(mockHealthRepo.save).toHaveBeenCalledTimes(11);
-    });
+      expect(all.length).toBe(12);
+      expect(mockHealthRepo.save).toHaveBeenCalledTimes(12);
+    }, 30000);
   });
 
   describe('Force Refresh Handlers', () => {
@@ -148,12 +176,20 @@ describe('DataIntegrityService (/admin/data-integrity Audit Registry)', () => {
       expect(refreshed.rawResponseSnippet).toContain('Uttar Pradesh');
     });
 
-    it('refreshes static seed data with fresh server timestamp and statutory disclosure payload', async () => {
+    it('refreshes valuation financials from live Screener/Yahoo feeds', async () => {
       const refreshed = await service.forceRefresh('valuation_financials');
+      expect(mockTechnoFundaService.getValuationFinancials).toHaveBeenCalled();
       expect(refreshed.sourceKey).toBe('valuation_financials');
-      expect(refreshed.mode).toBe('STATIC_SEED');
-      expect(refreshed.rawResponseSnippet).toContain('Tata Motors Limited');
-      expect(refreshed.rawResponseSnippet).toContain('104839');
+      expect(refreshed.mode).toBe('LIVE_FETCH');
+      expect(refreshed.rawResponseSnippet).toContain('Reliance Industries Limited');
+    });
+
+    it('forces dynamic recalculation of sector_rotation via @ff/calc vs NIFTY 50 benchmark', async () => {
+      const refreshed = await service.forceRefresh('sector_rotation');
+      expect(mockTechnoFundaService.getSectorHeatmap).toHaveBeenCalled();
+      expect(refreshed.sourceKey).toBe('sector_rotation');
+      expect(refreshed.mode).toBe('COMPUTED_FROM_LIVE');
+      expect(refreshed.rawResponseSnippet).toContain('NIFTY AUTO');
     });
 
     it('throws NotFoundException on invalid source key', async () => {
@@ -162,13 +198,13 @@ describe('DataIntegrityService (/admin/data-integrity Audit Registry)', () => {
       );
     });
 
-    it('executes forceRefreshAll across all 11 sources', async () => {
+    it('executes forceRefreshAll across all catalog sources without STATIC_SEED modes', async () => {
       const all = await service.forceRefreshAll();
-      expect(all.length).toBe(11);
+      expect(all.length).toBe(DATA_SOURCES_CATALOG.length);
       const modes = new Set(all.map((s) => s.mode));
       expect(modes.has('LIVE_FETCH')).toBe(true);
       expect(modes.has('COMPUTED_FROM_LIVE')).toBe(true);
-      expect(modes.has('STATIC_SEED')).toBe(true);
-    });
+      expect(modes.has('STATIC_SEED')).toBe(false);
+    }, 30000);
   });
 });

@@ -67,7 +67,7 @@ export default function GlobalError({
             marginBottom: '8px',
           }}
         >
-          500 — Application Runtime Error
+          500  Application Runtime Error
         </div>
 
         <h1

@@ -36,10 +36,10 @@ When `USE_MOCK_MF_EXECUTION=true` (default):
 
 1. Apply for BSE StAR MF membership at bsestarmf.in (requires AMFI ARN)
 2. Complete API access registration in member portal
-3. Get test (UAT) credentials first — use UAT_BASE_URL for testing
+3. Get test (UAT) credentials first  use UAT_BASE_URL for testing
 4. SOAP client library: the adapter in `apps/api/src/adapters/mf-execution/` wraps the SOAP calls
 5. Transaction types supported: lumpsum, SIP register/pause/cancel, STP, SWP, switch, redemption
-6. Always reconcile via RTA (CAMS/KFintech) — order acknowledgement ≠ confirmed settlement
+6. Always reconcile via RTA (CAMS/KFintech)  order acknowledgement ≠ confirmed settlement
 
 ## Steps to Go Live Checklist
 

@@ -9,7 +9,6 @@ export * from './goal.types';
 export * from './mf.types';
 export * from './kyc.types';
 export * from './lms.types';
-export * from './webinar.types';
 export * from './techno-funda.types';
 export * from './notification.types';
 export * from './feature-flags';

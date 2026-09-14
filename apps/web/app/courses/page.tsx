@@ -7,45 +7,70 @@ import { useTranslation } from '../../lib/i18n/language-context';
 import { SidebarLayout } from '../../components/sidebar-layout';
 import { StaticSnapshotBanner } from '../../components/static-snapshot-banner';
 
+interface CatalogCourse {
+  slug: string;
+  title: string;
+  description: string;
+  duration: string;
+  lessons: number;
+  level: string;
+  badge: string;
+  gradient: string;
+  modulesCount: number;
+  isEnrolled: boolean;
+  progressPct: number;
+}
+
 export default function CoursesCatalogPage() {
   const { t } = useTranslation();
-  const courses = [
-    {
-      slug: 'techno-funda-masterclass',
-      title: 'Techno-Funda DIY Masterclass',
-      description:
-        'A comprehensive institutional framework blending fundamental moats, earnings momentum (PEAD), and technical stage analysis.',
-      duration: '3.5 Hours',
-      lessons: 5,
-      level: 'All Levels',
-      badge: 'Flagship Curriculum',
-      gradient: 'linear-gradient(135deg, #1E293B, #0F172A)',
-      modulesCount: 3,
-      isEnrolled: true,
-      progressPct: 40,
-    },
-    {
-      slug: 'advanced-pead-screener',
-      title: 'Mastering Post-Earnings Drift (PEAD)',
-      description:
-        'How to identify high-probability quarterly earnings surprises and execute within the 48-hour institutional reaction window.',
-      duration: '1.5 Hours',
-      lessons: 3,
-      level: 'Advanced',
-      badge: 'Pro Technicals',
-      gradient: 'linear-gradient(135deg, #0F766E, #134E4A)',
-      modulesCount: 2,
-      isEnrolled: false,
-      progressPct: 0,
-    },
-  ];
+  const [courses, setCourses] = React.useState<CatalogCourse[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  React.useEffect(() => {
+    async function loadCourses() {
+      try {
+        const res = await fetch(`${apiUrl}/api/v1/courses`);
+        if (res.ok) {
+          const apiCourses = await res.json();
+          if (Array.isArray(apiCourses) && apiCourses.length > 0) {
+            const mapped: CatalogCourse[] = apiCourses.map((c: any) => {
+              const isPead = c.slug?.includes('pead');
+              return {
+                slug: c.slug,
+                title: c.title,
+                description: c.description,
+                duration: `${(c.totalDuration / 60).toFixed(1)} Hours`,
+                lessons: c.lessonCount || 5,
+                level: c.level || 'All Levels',
+                badge: isPead ? 'Pro Technicals' : 'Flagship Curriculum',
+                gradient: isPead
+                  ? 'linear-gradient(135deg, #0F766E, #134E4A)'
+                  : 'linear-gradient(135deg, #1E293B, #0F172A)',
+                modulesCount: isPead ? 2 : 3,
+                isEnrolled: !isPead,
+                progressPct: !isPead ? 40 : 0,
+              };
+            });
+            setCourses(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load courses from API', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadCourses();
+  }, [apiUrl]);
 
   return (
     <SidebarLayout activePath="/courses">
-      <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+      <div style={{ maxWidth: '1600px', margin: '0 auto', width: '100%' }}>
         <StaticSnapshotBanner
           datasetName="Aureus Curriculum LMS"
-          sourceNotes="Self-paced modules, interactive video playback, and graded quizzes per SEBI investor education guidelines."
+          sourceNotes="Self-paced modules, interactive video playback, and graded investor education quizzes."
         />
 
         {/* Page Header */}
@@ -69,14 +94,33 @@ export default function CoursesCatalogPage() {
         </div>
 
         {/* Courses Grid */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
-            gap: 'var(--space-6)',
-          }}
-        >
-          {courses.map((c) => (
+        {loading ? (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
+              gap: 'clamp(14px, 3vw, 24px)',
+              marginBottom: 'clamp(20px, 4vw, 40px)',
+            }}
+          >
+            {[1, 2].map((i) => (
+              <div
+                key={i}
+                className="card animate-pulse"
+                style={{ height: '380px', background: '#F4F1EA', borderRadius: 'var(--radius-xl)' }}
+              />
+            ))}
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
+              gap: 'clamp(14px, 3vw, 24px)',
+              marginBottom: 'clamp(20px, 4vw, 40px)',
+            }}
+          >
+            {courses.map((c) => (
             <div
               key={c.slug}
               style={{
@@ -219,6 +263,7 @@ export default function CoursesCatalogPage() {
             </div>
           ))}
         </div>
+        )}
       </div>
     </SidebarLayout>
   );

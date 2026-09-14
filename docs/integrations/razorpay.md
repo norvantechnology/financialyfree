@@ -30,7 +30,7 @@ When `USE_MOCK_PAYMENTS=true`:
 
 ## Integration Points
 
-- `POST /api/v1/payments/orders` — creates a Razorpay order, returns `orderId` to frontend
+- `POST /api/v1/payments/orders`  creates a Razorpay order, returns `orderId` to frontend
 - Frontend loads Razorpay checkout SDK with `NEXT_PUBLIC_RAZORPAY_KEY_ID`
 - On payment success, Razorpay calls our webhook `POST /api/v1/payments/webhook`
 - Webhook verifies HMAC signature, grants entitlements, sends receipt email
@@ -41,8 +41,8 @@ When `USE_MOCK_PAYMENTS=true`:
 |---|---|---|
 | `course_lifetime` | Course Library | Lifetime |
 | `tools_1yr` | Techno-Funda Tools | 1 year (must expire) |
-| `webinars_1yr` | Live Case Studies | 1 year |
-| `bundle_diy` | Zero to Hero bundle (all 3) | Mixed |
+| `bundle_diy` | DIY Masterclass + Tools bundle | Mixed |
+| `bundle_all` | All-Access Flagship bundle | Mixed |
 
 ## Steps to Go Live Checklist
 

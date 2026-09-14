@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * Migration 002: Users, sessions, and refresh tokens (Sprint 1 — Auth)
+ * Migration 002: Users, sessions, and refresh tokens (Sprint 1  Auth)
  */
 export class UsersAuth1725000000002 implements MigrationInterface {
   name = 'UsersAuth1725000000002';

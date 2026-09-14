@@ -1,0 +1,59 @@
+# FinanciallyFree — Render Blueprint (Backend API only)
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Deploy: Render Dashboard → New → Blueprint → connect
+# https://github.com/norvantechnology/financialyfree
+#
+# After deploy, set FRONTEND_URL to your Vercel/frontend origin so CORS works.
+
+services:
+  - type: web
+    name: financiallyfree-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: .
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @ff/types build && pnpm --filter @ff/calc build && pnpm --filter @ff/validators build && pnpm --filter @ff/api build
+    startCommand: pnpm --filter @ff/api start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: API_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: USE_MOCK_MF_EXECUTION
+        value: "true"
+      - key: USE_MOCK_KYC
+        value: "true"
+      - key: USE_MOCK_PAYMENTS
+        value: "true"
+      - key: USE_MOCK_MESSAGING
+        value: "true"
+      - key: USE_MOCK_VIDEO
+        value: "true"
+      - key: USE_MOCK_MARKET_DATA
+        value: "false"
+      - key: FEATURE_TRACK_B_ENABLED
+        value: "true"
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false

@@ -6,15 +6,11 @@ import {
   ShieldCheck,
   MessageSquare,
   Mail,
-  Bell,
   CheckCircle2,
   Save,
-  Send,
-  AlertCircle,
   ArrowLeft,
 } from 'lucide-react';
 import { SidebarLayout } from '../../../../components/sidebar-layout';
-import { StaticSnapshotBanner } from '../../../../components/static-snapshot-banner';
 
 export default function NotificationSettingsPage() {
   const [preferences, setPreferences] = useState({
@@ -25,9 +21,52 @@ export default function NotificationSettingsPage() {
   });
 
   const [isSaving, setIsSaving] = useState(false);
-  const [triggering, setTriggering] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [lastSavedTime, setLastSavedTime] = useState<string>('Today at 05:30 PM (Simulated)');
+  const [lastSavedTime, setLastSavedTime] = useState<string>('Consent Active');
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  const getHeaders = () => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
+  React.useEffect(() => {
+    async function loadConsent() {
+      try {
+        const res = await fetch(`${apiUrl}/api/v1/notifications/consent`, {
+          headers: getHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setPreferences({
+            whatsappTransactional: Boolean(data.whatsappTransactional),
+            whatsappMarketing: Boolean(data.whatsappMarketing),
+            emailAlerts: Boolean(data.emailAlerts),
+            emailMarketing: Boolean(data.emailMarketing),
+          });
+          if (data.updatedAt) {
+            setLastSavedTime(
+              new Date(data.updatedAt).toLocaleString('en-IN', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              }),
+            );
+          } else {
+            setLastSavedTime('Default Consent Active');
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load DPDP consent', err);
+        setLastSavedTime('Local fallback');
+      }
+    }
+    loadConsent();
+  }, [apiUrl]);
 
   const handleToggle = (key: keyof typeof preferences) => {
     setPreferences((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -36,29 +75,37 @@ export default function NotificationSettingsPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setLastSavedTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
-      setToastMessage('DPDP consent preferences updated and logged successfully.');
+      const res = await fetch(`${apiUrl}/api/v1/notifications/consent`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(preferences),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const saved = await res.json();
+      setPreferences({
+        whatsappTransactional: Boolean(saved.whatsappTransactional),
+        whatsappMarketing: Boolean(saved.whatsappMarketing),
+        emailAlerts: Boolean(saved.emailAlerts),
+        emailMarketing: Boolean(saved.emailMarketing),
+      });
+      setLastSavedTime(
+        new Date(saved.updatedAt || Date.now()).toLocaleString('en-IN', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+      );
+      setToastMessage('DPDP consent preferences saved successfully.');
+    } catch (err: any) {
+      setToastMessage(`Failed to save preferences: ${err.message}`);
     } finally {
       setIsSaving(false);
       setTimeout(() => setToastMessage(null), 4000);
     }
   };
 
-  const handleSimulateAlert = async (type: string, label: string) => {
-    setTriggering(type);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      setToastMessage(`Simulated alert "${label}" dispatched to in-app notification center, WhatsApp mock, and Email.`);
-    } finally {
-      setTriggering(null);
-      setTimeout(() => setToastMessage(null), 5000);
-    }
-  };
-
   return (
     <SidebarLayout activePath="/dashboard/settings/notifications">
-      <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+      <div style={{ width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
         {/* Toast Notification */}
         {toastMessage && (
           <div
@@ -69,9 +116,8 @@ export default function NotificationSettingsPage() {
               zIndex: 100,
               padding: 'var(--space-4) var(--space-6)',
               borderRadius: 'var(--radius-lg)',
-              background: '#065F46',
+              background: toastMessage.includes('Failed') ? '#B91C1C' : '#065F46',
               color: '#FFFFFF',
-              border: '1px solid #34D399',
               boxShadow: 'var(--shadow-lg)',
               display: 'flex',
               alignItems: 'center',
@@ -83,11 +129,6 @@ export default function NotificationSettingsPage() {
             <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{toastMessage}</span>
           </div>
         )}
-
-        <StaticSnapshotBanner
-          datasetName="Aureus Notification Hub"
-          sourceNotes="Regulatory investor communication registry compliant with the Digital Personal Data Protection (DPDP) Act 2023."
-        />
 
         {/* Back navigation */}
         <Link
@@ -111,7 +152,7 @@ export default function NotificationSettingsPage() {
         <div style={{ marginBottom: 'var(--space-8)' }}>
           <div className="category-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <ShieldCheck size={14} />
-            <span>INDIA DPDP ACT 2023 CONSENT CENTER</span>
+            <span>PRIVACY &amp; NOTIFICATIONS</span>
           </div>
           <h1
             className="font-serif"
@@ -124,10 +165,10 @@ export default function NotificationSettingsPage() {
               marginBottom: '8px',
             }}
           >
-            Notification Preferences
+            Communication Preferences
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', lineHeight: 1.6, margin: 0, maxWidth: '720px' }}>
-            Under India’s Digital Personal Data Protection (DPDP) Act 2023, you have absolute control over how FinanciallyFree communicates with you. We never dispatch unauthorized messaging without your explicit opt-in.
+            You have complete control over how FinanciallyFree communicates with you. We respect your attention and only send alerts that you choose to receive.
           </p>
         </div>
 
@@ -164,10 +205,10 @@ export default function NotificationSettingsPage() {
             </div>
             <div>
               <h2 className="font-serif" style={{ fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-primary)' }}>
-                WhatsApp Messaging (Gupshup / Meta Cloud)
+                WhatsApp Messaging
               </h2>
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                Verified WhatsApp Business notifications sent to your registered phone number.
+                Verified WhatsApp notifications sent to your registered phone number.
               </div>
             </div>
           </div>
@@ -185,10 +226,10 @@ export default function NotificationSettingsPage() {
           >
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Transactional Alerts (SIP Reminders & BSE StAR Status)
+                Transactional Alerts (SIP Reminders &amp; Mandate Status)
               </div>
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: 1.4 }}>
-                Alerts 3 days before scheduled SIP debit, OTPs, and BSE StAR mandate confirmations.
+                Alerts 3 days before scheduled SIP debit, OTPs, and mandate confirmations.
               </div>
             </div>
             <label className="toggle-switch">
@@ -214,10 +255,10 @@ export default function NotificationSettingsPage() {
           >
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Marketing & Live Webinar Announcements
+                Product & Market Announcements
               </div>
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: 1.4 }}>
-                Invites to new weekend live masterclasses, market outlook reports, and special workshops.
+                Invites to market outlook reports, research updates, and special workshops.
               </div>
             </div>
             <label className="toggle-switch">
@@ -265,7 +306,7 @@ export default function NotificationSettingsPage() {
             </div>
             <div>
               <h2 className="font-serif" style={{ fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Email Notifications (Amazon SES)
+                Email Notifications
               </h2>
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
                 Transactional receipts and research digests delivered to your registered inbox.
@@ -353,61 +394,8 @@ export default function NotificationSettingsPage() {
             className="btn btn-primary"
           >
             <Save size={16} />
-            <span>{isSaving ? 'Updating Consent...' : 'Save DPDP Preferences'}</span>
+            <span>{isSaving ? 'Saving...' : 'Save Preferences'}</span>
           </button>
-        </div>
-
-        {/* Section 3: Live Test & Simulation Sandbox */}
-        <div
-          style={{
-            background: 'var(--bg-surface)',
-            borderRadius: 'var(--radius-xl)',
-            border: '1px dashed var(--border-color)',
-            padding: 'clamp(var(--space-5), 3vw, var(--space-6))',
-          }}
-        >
-          <div className="category-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <AlertCircle size={14} />
-            <span>INTEGRATION SANDBOX & EVENT SIMULATION</span>
-          </div>
-          <h3 className="font-serif" style={{ fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', marginBottom: 'var(--space-1)' }}>
-            Test Notification Channels & Adapters
-          </h3>
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--space-6)' }}>
-            Simulate real backend events to verify in-app feed updates and mock WhatsApp / SES log outputs:
-          </p>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-3)' }}>
-            <button
-              disabled={triggering !== null}
-              onClick={() => handleSimulateAlert('sip_reminder', 'SIP Installment Reminder')}
-              className="btn btn-outline"
-              style={{ justifyContent: 'center' }}
-            >
-              <Send size={14} color="var(--color-accent)" />
-              <span>{triggering === 'sip_reminder' ? 'Sending...' : 'Trigger SIP Debit Alert'}</span>
-            </button>
-
-            <button
-              disabled={triggering !== null}
-              onClick={() => handleSimulateAlert('webinar_reminder', 'Live Masterclass Alert')}
-              className="btn btn-outline"
-              style={{ justifyContent: 'center' }}
-            >
-              <Bell size={14} color="#D97706" />
-              <span>{triggering === 'webinar_reminder' ? 'Sending...' : 'Trigger Live Webinar Alert'}</span>
-            </button>
-
-            <button
-              disabled={triggering !== null}
-              onClick={() => handleSimulateAlert('kyc_status', 'KRA KYC Verification')}
-              className="btn btn-outline"
-              style={{ justifyContent: 'center' }}
-            >
-              <CheckCircle2 size={14} color="#059669" />
-              <span>{triggering === 'kyc_status' ? 'Sending...' : 'Trigger KYC Approval Alert'}</span>
-            </button>
-          </div>
         </div>
       </div>
     </SidebarLayout>

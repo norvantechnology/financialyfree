@@ -10,10 +10,12 @@ import {
   ChevronRight,
   ArrowLeft,
   X,
-  FileCheck,
+  Printer,
+  Clock,
 } from 'lucide-react';
 import { SidebarLayout } from '../../../../../components/sidebar-layout';
 import { StaticSnapshotBanner } from '../../../../../components/static-snapshot-banner';
+import { useBodyScrollLock } from '../../../../../lib/use-body-scroll-lock';
 
 interface Lesson {
   id: string;
@@ -104,23 +106,108 @@ const QUIZ_QUESTIONS = [
 
 export default function LessonPlayerPage() {
   const params = useParams();
+  const slug = (params?.slug as string) || 'techno-funda-masterclass';
   const lessonId = (params?.lessonId as string) || '1';
-  const currentLesson = LESSONS[lessonId] || LESSONS['1'];
+  const [liveLesson, setLiveLesson] = useState<Lesson>(LESSONS[lessonId] || LESSONS['1']);
+  const currentLesson = liveLesson;
 
   const [activeTab, setActiveTab] = useState<'video' | 'quiz'>('video');
-  const [completedLessons, setCompletedLessons] = useState<string[]>(['1']);
+  const [completedLessons, setCompletedLessons] = useState<string[]>([]);
 
   // Quiz state
+  const [quizId, setQuizId] = useState<string | null>(null);
+  const [quizQuestions, setQuizQuestions] = useState(QUIZ_QUESTIONS);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
   const [quizScore, setQuizScore] = useState<number | null>(null);
+  const [_isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
   const [certId, setCertId] = useState('');
+  const [_certUserName, setCertUserName] = useState('Verified Investor');
+  const [_certIssueDate, setCertIssueDate] = useState('');
 
-  const toggleLessonComplete = (id: string) => {
-    if (completedLessons.includes(id)) {
-      setCompletedLessons(completedLessons.filter((item) => item !== id));
-    } else {
-      setCompletedLessons([...completedLessons, id]);
+  useBodyScrollLock(showCertificate);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+  const getHeaders = () => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
+  React.useEffect(() => {
+    async function loadLessonContent() {
+      try {
+        const res = await fetch(`${apiUrl}/api/v1/courses/${slug}/lessons/${lessonId}`, {
+          headers: getHeaders(),
+        });
+        if (res.ok) {
+          const lData = await res.json();
+          if (lData && lData.title) {
+            setLiveLesson({
+              id: lData.id || lessonId,
+              title: lData.title,
+              duration: lData.duration ? `${lData.duration} min` : (LESSONS[lessonId]?.duration || '20 min'),
+              videoUrl: lData.videoUrl || (LESSONS[lessonId]?.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'),
+              notes: lData.notes || lData.description || (LESSONS[lessonId]?.notes || 'Systematic institutional framework analysis.'),
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch dynamic lesson from API', err);
+      }
+    }
+    loadLessonContent();
+  }, [slug, lessonId, apiUrl]);
+
+  React.useEffect(() => {
+    async function loadQuizAndCert() {
+      try {
+        const res = await fetch(`${apiUrl}/api/v1/courses/${slug}/quiz`, {
+          headers: getHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.id) setQuizId(data.id);
+          if (Array.isArray(data.questions) && data.questions.length > 0) {
+            setQuizQuestions(data.questions);
+          }
+        }
+        // Check if certificate already exists
+        const certRes = await fetch(`${apiUrl}/api/v1/courses/${slug}/certificate`, {
+          headers: getHeaders(),
+        });
+        if (certRes.ok) {
+          const cData = await certRes.json();
+          if (cData && cData.certificateNumber) {
+            setCertId(cData.certificateNumber);
+            setCertUserName(cData.userName || 'Verified Investor');
+            setCertIssueDate(new Date(cData.issuedAt).toLocaleDateString('en-IN', { dateStyle: 'long' }));
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch quiz from API, using default', err);
+      }
+    }
+    loadQuizAndCert();
+  }, [slug, apiUrl]);
+
+  const toggleLessonComplete = async (id: string) => {
+    const nextCompleted = completedLessons.includes(id)
+      ? completedLessons.filter((item) => item !== id)
+      : [...completedLessons, id];
+    setCompletedLessons(nextCompleted);
+
+    try {
+      await fetch(`${apiUrl}/api/v1/courses/${slug}/lessons/${id}/complete`, {
+        method: 'POST',
+        headers: getHeaders(),
+      });
+    } catch (err) {
+      console.warn('Failed to record lesson completion in DB', err);
     }
   };
 
@@ -128,19 +215,60 @@ export default function LessonPlayerPage() {
     setSelectedAnswers({ ...selectedAnswers, [qId]: optIdx });
   };
 
-  const handleSubmitQuiz = () => {
-    let score = 0;
-    QUIZ_QUESTIONS.forEach((q) => {
-      if (selectedAnswers[q.id] === q.correct) {
-        score++;
+  const handleSubmitQuiz = async () => {
+    setIsSubmittingQuiz(true);
+    try {
+      if (quizId) {
+        const res = await fetch(`${apiUrl}/api/v1/courses/${slug}/quiz/${quizId}/submit`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ answers: selectedAnswers }),
+        });
+        if (res.ok) {
+          const result = await res.json();
+          setQuizScore(result.scorePct);
+          if (result.passed) {
+            // Retrieve official certificate record from PostgreSQL
+            const certRes = await fetch(`${apiUrl}/api/v1/courses/${slug}/certificate`, {
+              headers: getHeaders(),
+            });
+            if (certRes.ok) {
+              const cData = await certRes.json();
+              if (cData && cData.certificateNumber) {
+                setCertId(cData.certificateNumber);
+                setCertUserName(cData.userName || 'Verified Investor');
+                setCertIssueDate(new Date(cData.issuedAt).toLocaleDateString('en-IN', { dateStyle: 'long' }));
+              }
+            } else {
+              setCertId(`CERT_FF_${Date.now().toString(36).toUpperCase()}`);
+              setCertIssueDate(new Date().toLocaleDateString('en-IN', { dateStyle: 'long' }));
+            }
+            setShowCertificate(true);
+          }
+          return;
+        }
       }
-    });
-    const pct = Math.round((score / QUIZ_QUESTIONS.length) * 100);
-    setQuizScore(pct);
-    if (pct >= 70) {
-      const generatedCertId = `CERT_FF_${Date.now().toString(36).toUpperCase()}_${Math.floor(Math.random() * 900 + 100)}`;
-      setCertId(generatedCertId);
-      setShowCertificate(true);
+
+      // Fallback in case endpoint is unreachable
+      let score = 0;
+      quizQuestions.forEach((q: any) => {
+        const correct = q.correct ?? q.correctOptionIndex ?? 1;
+        if (selectedAnswers[q.id] === correct) {
+          score++;
+        }
+      });
+      const pct = Math.round((score / quizQuestions.length) * 100);
+      setQuizScore(pct);
+      if (pct >= 70) {
+        const generatedCertId = `CERT_FF_${Date.now().toString(36).toUpperCase()}_${Math.floor(Math.random() * 900 + 100)}`;
+        setCertId(generatedCertId);
+        setCertIssueDate(new Date().toLocaleDateString('en-IN', { dateStyle: 'long' }));
+        setShowCertificate(true);
+      }
+    } catch (err) {
+      console.warn('Failed to submit quiz', err);
+    } finally {
+      setIsSubmittingQuiz(false);
     }
   };
 
@@ -367,7 +495,7 @@ export default function LessonPlayerPage() {
                     }}
                   >
                     <strong style={{ fontSize: 'var(--text-sm)', color: quizScore >= 70 ? '#065F46' : '#991B1B' }}>
-                      Your Score: {quizScore}% — {quizScore >= 70 ? 'PASSED! Verifiable Certificate Generated.' : 'Needs Review (<70%). Try again.'}
+                      Your Score: {quizScore}%  {quizScore >= 70 ? 'PASSED! Verifiable Certificate Generated.' : 'Needs Review (<70%). Try again.'}
                     </strong>
                   </div>
                 )}
@@ -449,30 +577,43 @@ export default function LessonPlayerPage() {
         {/* Certificate Modal */}
         {showCertificate && (
           <div
+            className="modal-backdrop-fixed"
             style={{
               position: 'fixed',
               inset: 0,
               background: 'rgba(15, 23, 42, 0.7)',
               backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
               zIndex: 100,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               padding: 'var(--space-4)',
+              overflowY: 'auto',
+              overscrollBehavior: 'contain',
+              WebkitOverflowScrolling: 'touch',
             }}
+            onClick={() => setShowCertificate(false)}
           >
             <div
+              className="modal-dialog-contained card"
               style={{
                 background: '#FFFFFF',
                 border: '1px solid var(--border-color)',
                 borderRadius: 'var(--radius-xl)',
                 maxWidth: '560px',
                 width: '100%',
+                maxHeight: 'calc(100dvh - 32px)',
+                overflowY: 'auto',
+                overscrollBehavior: 'contain',
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-y',
                 padding: 'var(--space-8)',
                 textAlign: 'center',
                 boxShadow: 'var(--shadow-lg)',
                 position: 'relative',
               }}
+              onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={() => setShowCertificate(false)}
@@ -520,17 +661,37 @@ export default function LessonPlayerPage() {
                 <div style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>Partner ARN-350272 • FutureZenith Insights LLP</div>
               </div>
 
-              <button
-                onClick={() => {
-                  alert(`Downloaded verifiable digital credential: ${certId}`);
-                  setShowCertificate(false);
-                }}
-                className="btn btn-primary"
-                style={{ width: '100%', justifyContent: 'center' }}
-              >
-                <FileCheck size={16} />
-                <span>Download Verifiable PDF Certificate</span>
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') window.print();
+                  }}
+                  className="btn btn-primary"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                >
+                  <Printer size={16} />
+                  <span>Print / Save Verifiable Credential</span>
+                </button>
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    background: '#F1F5F9',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '11px',
+                    color: '#475569',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    fontWeight: 600,
+                  }}
+                >
+                  <Clock size={13} />
+                  <span>Official Certificate Download Coming Soon</span>
+                </div>
+              </div>
             </div>
           </div>
         )}

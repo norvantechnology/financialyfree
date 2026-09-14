@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Bell, Check, ShieldCheck, Clock } from 'lucide-react';
+import { getStoredAccessToken, getApiBaseUrl } from '../lib/auth-client';
 
 interface NotificationItem {
   id: string;
@@ -13,48 +14,94 @@ interface NotificationItem {
   createdAt: string;
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n1',
-    title: 'SIP Due in 3 Days',
-    message: 'Your monthly SIP of ₹10,000 for "Retirement 2045" is scheduled on the 10th.',
-    type: 'sip_reminder',
-    isRead: false,
-    createdAt: '10 min ago',
-  },
-  {
-    id: 'n2',
-    title: 'Live Masterclass Starting Soon',
-    message: 'Weekly Techno-Funda Alpha Breakdown begins in 15 minutes. Join live with Sandeep Kumar.',
-    type: 'webinar_reminder',
-    isRead: false,
-    createdAt: '1 hour ago',
-  },
-  {
-    id: 'n3',
-    title: 'KYC Verified (BSE StAR MF)',
-    message: 'Your CVL KRA verification is approved! UCC UCC_89124 has been activated.',
-    type: 'kyc_status',
-    isRead: true,
-    createdAt: '1 day ago',
-  },
-];
+function formatNotificationTime(isoStr: string): string {
+  try {
+    const diffMs = Date.now() - new Date(isoStr).getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return 'Just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    const diffDays = Math.floor(diffHr / 24);
+    return `${diffDays}d ago`;
+  } catch {
+    return 'Recently';
+  }
+}
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [serverUnreadCount, setServerUnreadCount] = useState<number>(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const apiUrl = getApiBaseUrl();
 
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  const getHeaders = () => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = getStoredAccessToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
   };
 
-  const markOneRead = (id: string) => {
+  const loadNotifications = React.useCallback(async () => {
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/notifications/my`, {
+        headers: getHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const items = (data.notifications || []).map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          type: n.type,
+          isRead: Boolean(n.isRead),
+          createdAt: formatNotificationTime(n.createdAt),
+        }));
+        setNotifications(items);
+        setServerUnreadCount(typeof data.unreadCount === 'number' ? data.unreadCount : items.filter((i: any) => !i.isRead).length);
+      }
+    } catch (err) {
+      console.warn('Failed to load notifications from API', err);
+    }
+  }, [apiUrl]);
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 15000);
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
+
+  const unreadCount = serverUnreadCount;
+
+  const markAllRead = async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setServerUnreadCount(0);
+    try {
+      await fetch(`${apiUrl}/api/v1/notifications/read-all`, {
+        method: 'POST',
+        headers: getHeaders(),
+      });
+    } catch (err) {
+      console.warn('Failed to mark all read', err);
+    }
+  };
+
+  const markOneRead = async (id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
     );
+    setServerUnreadCount((prev) => Math.max(0, prev - 1));
+    try {
+      await fetch(`${apiUrl}/api/v1/notifications/${id}/read`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+      });
+    } catch (err) {
+      console.warn(`Failed to mark notification ${id} read`, err);
+    }
   };
 
   // Close dropdown on outside click
@@ -176,7 +223,15 @@ export function NotificationBell() {
           </div>
 
           {/* List */}
-          <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+          <div
+            style={{
+              maxHeight: '360px',
+              overflowY: 'auto',
+              overscrollBehavior: 'contain',
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-y',
+            }}
+          >
             {notifications.length === 0 ? (
               <div
                 style={{

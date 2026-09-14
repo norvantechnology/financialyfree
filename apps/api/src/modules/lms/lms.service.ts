@@ -16,6 +16,7 @@ import {
   QuizSubmissionEntity,
   CertificateEntity,
 } from '../../database/entities/lms.entity';
+import { SystemConfigService } from '../system-config/system-config.service';
 import { EntitlementEntity } from '../../database/entities/subscription.entity';
 import {
   CourseDto,
@@ -49,6 +50,7 @@ export class LmsService implements OnModuleInit {
     private readonly certRepo: Repository<CertificateEntity>,
     @InjectRepository(EntitlementEntity)
     private readonly entitlementRepo: Repository<EntitlementEntity>,
+    private readonly systemConfigService: SystemConfigService,
   ) {}
 
   async onModuleInit() {
@@ -218,11 +220,53 @@ export class LmsService implements OnModuleInit {
             question: 'What is the maximum portfolio risk recommended on a single position?',
             options: ['1% to 2% of total portfolio equity', '15% of portfolio equity', '50% of portfolio equity', 'No stop loss needed'],
             correctOptionIndex: 0,
-            explanation: 'Professional risk management dictates risking no more than 1–2% of total capital per trade.',
+            explanation: 'Professional risk management dictates risking no more than 1% to 2% of total capital per trade.',
           },
         ],
       }),
     );
+
+    // Also ensure advanced-pead-screener course is present in DB
+    const peadCourseExists = await this.courseRepo.findOne({ where: { slug: 'advanced-pead-screener' } });
+    if (!peadCourseExists) {
+      const peadCourse = await this.courseRepo.save(
+        this.courseRepo.create({
+          slug: 'advanced-pead-screener',
+          title: 'Mastering Post-Earnings Drift (PEAD)',
+          description:
+            'How to identify high-probability quarterly earnings surprises and execute within the 48-hour institutional reaction window.',
+          thumbnailUrl: '/thumbnails/pead.jpg',
+          totalDuration: 90,
+          lessonCount: 3,
+          level: 'Advanced',
+          requiredSku: 'tools_1yr',
+          isPublished: true,
+          order: 2,
+        }),
+      );
+      const peadMod = await this.moduleRepo.save(
+        this.moduleRepo.create({
+          courseId: peadCourse.id,
+          title: 'Module 1: Standardized Unexpected Earnings (SUE)',
+          description: 'Screening quarterly filings for consensus beats > 10%.',
+          order: 1,
+        }),
+      );
+      await this.lessonRepo.save([
+        this.lessonRepo.create({
+          moduleId: peadMod.id,
+          courseId: peadCourse.id,
+          title: '1.1 The Bernard & Thomas Institutional Drift Window',
+          type: 'video',
+          duration: 30,
+          order: 1,
+          isPreview: true,
+          videoId: 'mock_vid_pead_01',
+          videoPlaybackUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          textContent: 'Understanding why institutional capital takes 20 to 60 days to fully reprice an earnings surprise.',
+        }),
+      ]);
+    }
 
     this.logger.log('✅ Seeded Techno-Funda DIY Masterclass with 3 modules and certification quiz');
   }
@@ -275,8 +319,8 @@ export class LmsService implements OnModuleInit {
     });
     if (!lesson) throw new NotFoundException('Lesson not found');
 
-    // Free previews are open to all authenticated users
-    if (!lesson.isPreview) {
+    // Free previews or Free Access Mode are open to all authenticated users
+    if (!lesson.isPreview && !this.systemConfigService.isAllAccessFreeNow()) {
       // Check user entitlements
       const entitlements = await this.entitlementRepo.find({ where: { userId } });
       const requiredSku = (lesson.module?.course?.requiredSku || 'course_lifetime') as SkuType;

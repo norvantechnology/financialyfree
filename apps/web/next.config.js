@@ -14,6 +14,14 @@ const nextConfig = {
     NEXT_PUBLIC_RAZORPAY_KEY_ID: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? '',
     NEXT_PUBLIC_FEATURE_TRACK_B_ENABLED: process.env.NEXT_PUBLIC_FEATURE_TRACK_B_ENABLED ?? 'false',
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: `${process.env.INTERNAL_API_URL || 'http://localhost:3001'}/api/v1/:path*`,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

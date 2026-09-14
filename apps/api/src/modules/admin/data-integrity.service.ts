@@ -6,6 +6,7 @@ import { AmfiNavService } from '../mf-execution/amfi-nav.service';
 import { MarketIndexService } from '../techno-funda/market-index.service';
 import { TechnoFundaService } from '../techno-funda/techno-funda.service';
 import { VahanEtlService } from '../techno-funda/vahan-etl.service';
+import { truncatePermittedExcerpt } from '@ff/calc';
 
 export interface DataSourceDefinition {
   sourceKey: string;
@@ -48,38 +49,44 @@ export const DATA_SOURCES_CATALOG: DataSourceDefinition[] = [
   {
     sourceKey: 'pead_source',
     sourceName: 'PEAD Quarterly Earnings Surprise Filings',
-    mode: 'STATIC_SEED',
-    upstreamRef: 'NSE & BSE Corporate Filings (SEBI LODR Reg 30/33 Disclosures)',
+    mode: 'COMPUTED_FROM_LIVE',
+    upstreamRef: 'Live Yahoo Finance Daily Prices (20D Drift & 50 SMA) + SEBI LODR Reg 33 Filings',
   },
   {
     sourceKey: 'valuation_financials',
-    sourceName: 'Valuation Lab Listed Financials (Tata Motors)',
-    mode: 'STATIC_SEED',
-    upstreamRef: 'BSE Scrip Code 500570 / Annual Financial Statements FY25',
+    sourceName: 'Valuation Lab Listed Financials (Screener.in + Yahoo)',
+    mode: 'LIVE_FETCH',
+    upstreamRef: 'Screener.in annual P&L scrape + Yahoo Finance Delayed Quote for any NSE symbol',
   },
   {
     sourceKey: 'buybacks',
-    sourceName: 'Tender Offer Buybacks & Arbitrage Register',
-    mode: 'STATIC_SEED',
-    upstreamRef: 'BSE Corporate Actions / SEBI (Buy-back of Securities) Regulations 2018',
+    sourceName: 'Tender Offer & Corporate Actions Register',
+    mode: 'LIVE_FETCH',
+    upstreamRef: 'https://www.nseindia.com/api/corporates-corporateActions?index=equities',
   },
   {
     sourceKey: 'results_calendar',
-    sourceName: 'Corporate Earnings Results Calendar',
-    mode: 'STATIC_SEED',
-    upstreamRef: 'BSE Corporate Results Calendar & Board Meeting Notices',
+    sourceName: 'Corporate Earnings & Board Results Calendar',
+    mode: 'LIVE_FETCH',
+    upstreamRef: 'https://www.nseindia.com/api/event-calendar',
   },
   {
     sourceKey: 'shareholding',
     sourceName: 'SEBI Reg 31 Institutional Shareholding Patterns',
-    mode: 'STATIC_SEED',
-    upstreamRef: 'BSE / NSE SEBI (LODR) Regulation 31 Quarterly Filings',
+    mode: 'LIVE_FETCH',
+    upstreamRef: 'https://www.nseindia.com/api/corporate-share-holdings-master?index=equities',
   },
   {
     sourceKey: 'news',
     sourceName: 'Exchange Corporate Announcements & News Feed',
     mode: 'LIVE_FETCH',
     upstreamRef: 'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms (Live Indian Equities Announcements)',
+  },
+  {
+    sourceKey: 'sector_rotation',
+    sourceName: 'RRG Sector Rotation & Multi-Timeframe Relative Strength Matrix',
+    mode: 'COMPUTED_FROM_LIVE',
+    upstreamRef: 'Live Yahoo Finance 3-Month Daily Candles (8 Sectoral Indices vs NIFTY 50 Benchmark) via @ff/calc',
   },
 ];
 
@@ -144,6 +151,42 @@ export class DataIntegrityService implements OnModuleInit {
       results.push(refreshed);
     }
     return results;
+  }
+
+  private async fetchNseApi(endpoint: string): Promise<any> {
+    const userAgent =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0';
+
+    const init = await fetch('https://www.nseindia.com', {
+      headers: {
+        'User-Agent': userAgent,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    const setCookies = init.headers.get('set-cookie') || '';
+    const cookies = setCookies
+      .split(',')
+      .map((c) => c.split(';')[0].trim())
+      .join('; ');
+
+    const res = await fetch(`https://www.nseindia.com${endpoint}`, {
+      headers: {
+        'User-Agent': userAgent,
+        Referer: 'https://www.nseindia.com/',
+        Accept: 'application/json, text/plain, */*',
+        Cookie: cookies,
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!res.ok) {
+      throw new Error(`NSE API ${endpoint} returned HTTP ${res.status}`);
+    }
+
+    return res.json();
   }
 
   private async executeFetchAndRecord(sourceKey: string): Promise<DataSourceHealthEntity> {
@@ -250,7 +293,7 @@ export class DataIntegrityService implements OnModuleInit {
                 category: c.category,
                 label: c.label,
                 registrations: c.registrations,
-                yoyChangePct: `${c.yoyChange}%`,
+                yoyChangePct: c.yoyChange !== null ? `${c.yoyChange}%` : 'INSUFFICIENT_HISTORICAL_DATA (Trend building)',
               })),
               retrievedAt: vahan.retrievedAt,
             },
@@ -261,19 +304,23 @@ export class DataIntegrityService implements OnModuleInit {
         }
 
         case 'pead_source': {
-          const pead = this.technoFundaService.getPeadSurprises();
+          const pead = await this.technoFundaService.getPeadFeed();
           rawSnippet = JSON.stringify(
             {
               dataSource: pead.dataSource,
               methodology: pead.methodology,
-              trackedEventsCount: pead.events.length,
-              events: pead.events.map((e) => ({
+              trackedEventsCount: pead.trackedEventsCount || pead.events?.length || 0,
+              calendarUniverseActive: pead.calendarUniverseActive,
+              events: pead.events.map((e: any) => ({
                 symbol: e.symbol,
-                company: e.companyName,
-                surprisePct: `+${e.surprisePct}%`,
+                company: e.name || e.companyName,
+                surprisePct: `+${e.surprise ?? e.surprisePct}%`,
                 actualEps: e.actualEps,
                 expectedEps: e.expectedEps,
-                drift20d: `+${e.drift20d}%`,
+                drift20d: `${e.drift20d > 0 ? '+' : ''}${e.drift20d}%`,
+                stage: e.stage,
+                currentPrice: e.currentPrice,
+                price20dAgo: e.price20dAgo,
                 resultDate: e.resultDate,
               })),
               lastUpdated: pead.lastUpdated,
@@ -285,57 +332,45 @@ export class DataIntegrityService implements OnModuleInit {
         }
 
         case 'valuation_financials': {
-          rawSnippet = JSON.stringify(
-            {
-              targetCompany: 'Tata Motors Limited (BSE: 500570, NSE: TATAMOTORS)',
-              fiscalPeriod: 'FY25 Audited Consolidated Statement',
-              financialsCr: {
-                revenue: 104839,
-                ebitda: 18754,
-                netDebt: 84200,
-                sharesOutstanding: 6766,
-              },
-              valuationModelAssumptions: {
-                projectedGrowthRatePct: 12.0,
-                waccPct: 10.5,
-                terminalGrowthPct: 4.5,
-                derivedIntrinsicFairPriceInr: 874,
-              },
-              sourceFiling: 'Annual Report FY25 & BSE Filings',
-              refreshedAt: new Date().toISOString(),
-            },
-            null,
-            2,
-          );
+          const valuation = await this.technoFundaService.getValuationFinancials('RELIANCE');
+          if (!valuation || valuation.source === 'UNAVAILABLE') {
+            throw new Error('Live valuation financials unavailable from Screener.in / Yahoo Finance');
+          }
+          rawSnippet = JSON.stringify(valuation, null, 2);
           break;
         }
 
         case 'buybacks': {
+          let corpActions: any[] = [];
+          try {
+            corpActions = await this.fetchNseApi('/api/corporates-corporateActions?index=equities');
+          } catch (err: any) {
+            this.logger.warn(`Live NSE corporate actions fetch failed: ${err.message}`);
+          }
+
+          const buybacks = this.technoFundaService.filterBuybacks(corpActions);
+          const formattedCorpActions = corpActions.map((a) => ({
+            symbol: a.symbol,
+            company: a.comp,
+            actionSubject: a.subject,
+            exDate: a.exDate || '',
+            recordDate: a.recDate || '',
+            faceVal: a.faceVal || '',
+            series: a.series || 'EQ',
+          }));
+
           rawSnippet = JSON.stringify(
             {
-              registerName: 'Tender Offer Buyback & Arbitrage Register',
-              governingRegulation: 'SEBI (Buy-back of Securities) Regulations, 2018',
-              records: [
-                {
-                  company: 'Infosys Limited',
-                  offerPriceInr: 2100,
-                  marketPriceInr: 1938.45,
-                  arbitrageSpreadPct: '8.33%',
-                  status: 'Upcoming',
-                  recordDate: '2026-08-22',
-                  mode: 'Tender offer',
-                },
-                {
-                  company: 'Tata Consultancy Services',
-                  offerPriceInr: 4900,
-                  marketPriceInr: 4186.20,
-                  arbitrageSpreadPct: '17.04%',
-                  status: 'Closed',
-                  recordDate: '2026-07-18',
-                  mode: 'Tender offer',
-                },
-              ],
-              refreshedAt: new Date().toISOString(),
+              registerName: 'NSE Official Corporate Actions & Tender Offer Register',
+              governingRegulation: 'SEBI (Listing Obligations & Disclosure Requirements) Reg 42',
+              sourceUrl: 'https://www.nseindia.com/api/corporates-corporateActions?index=equities',
+              totalLiveActionsListed: corpActions.length,
+              genuineBuybacksCount: buybacks.length,
+              buybacks,
+              activeCapitalReorganizations: formattedCorpActions.slice(0, 20),
+              allCorporateActions: formattedCorpActions,
+              retrievedAt: new Date().toISOString(),
+              emptyStateNotice: buybacks.length === 0 ? 'No active buybacks currently disclosed by NSE' : undefined,
             },
             null,
             2,
@@ -344,17 +379,58 @@ export class DataIntegrityService implements OnModuleInit {
         }
 
         case 'results_calendar': {
+          let calendarItems: any[] = [];
+          let resultsItems: any[] = [];
+          try {
+            calendarItems = await this.fetchNseApi('/api/event-calendar');
+          } catch (err: any) {
+            this.logger.warn(`Live NSE event calendar fetch failed: ${err.message}`);
+          }
+
+          try {
+            resultsItems = await this.fetchNseApi('/api/corporates-financial-results?index=equities&period=Quarterly');
+          } catch (err: any) {
+            this.logger.warn(`Live NSE quarterly financial results fetch failed: ${err.message}`);
+          }
+
+          const upcomingMeetings = (calendarItems || []).slice(0, 50).map((m: any) => ({
+            symbol: m.symbol,
+            company: m.company,
+            meetingDate: m.date,
+            purpose: m.purpose,
+            details: m.bm_desc,
+          }));
+
+          const recentResults = (resultsItems || []).slice(0, 50).map((r: any) => {
+            const sym = r.symbol || '';
+            const hasXbrl = !!(r.xbrl && r.xbrl !== '-' && !r.xbrl.endsWith('/-'));
+            return {
+              symbol: sym,
+              company: r.companyName || r.company || sym,
+              quarter: r.relatingTo || r.period || 'Quarterly',
+              financialYear: r.financialYear || null,
+              filingDate: r.filingDate || r.broadCastDate || null,
+              audited: r.audited || null,
+              consolidated: r.consolidated || null,
+              revenue: null,
+              pat: null,
+              eps: null,
+              xbrlUrl: hasXbrl ? r.xbrl : null,
+              hasXbrl,
+            };
+          });
+
           rawSnippet = JSON.stringify(
             {
-              calendarName: 'BSE Corporate Results & Board Meetings Calendar',
-              entriesCount: 5,
-              entries: [
-                { company: 'Reliance Industries', quarter: 'Q4 FY25', date: '2026-08-12', metric: 'PAT 17.3% YoY' },
-                { company: 'Reliance Industries', quarter: 'Q3 FY25', date: '2026-05-12', metric: 'PAT 15.7% YoY' },
-                { company: 'Tata Consultancy Services', quarter: 'Q4 FY25', date: '2026-06-13', metric: 'PAT 11.3% YoY' },
-                { company: 'Tata Consultancy Services', quarter: 'Q3 FY25', date: '2026-05-13', metric: 'PAT 9.7% YoY' },
-              ],
-              refreshedAt: new Date().toISOString(),
+              calendarName: 'NSE Official Public Corporate Results & Board Meetings Calendar',
+              sourceUrl: 'https://www.nseindia.com/api/event-calendar',
+              totalEventsListed: calendarItems.length || upcomingMeetings.length,
+              upcomingMeetings,
+              totalResultsDisclosed: resultsItems.length || recentResults.length,
+              recentResults,
+              granularityNotice:
+                'NSE statutory corporate financial results disclosures (SEBI LODR Reg 33). Structured Revenue, PAT, and EPS figures are extracted only from live exchange payloads; official exchange XBRL XML links provide primary audited statutory documents.',
+              retrievedAt: new Date().toISOString(),
             },
             null,
             2,
@@ -363,17 +439,60 @@ export class DataIntegrityService implements OnModuleInit {
         }
 
         case 'shareholding': {
+          let shareholdingFilings: any[] = [];
+          try {
+            shareholdingFilings = await this.fetchNseApi('/api/corporate-share-holdings-master?index=equities');
+          } catch (err: any) {
+            this.logger.warn(`Live NSE shareholding fetch failed: ${err.message}`);
+          }
+
+          const formatCleanPct = (v: any) => {
+            if (v === undefined || v === null || v === '') return '';
+            const num = parseFloat(String(v).replace(/%/g, '').trim());
+            return isNaN(num) ? '' : `${num}%`;
+          };
+
+          const formattedBroadcasts = shareholdingFilings.slice(0, 50).map((s) => {
+            const dematNotes = s.promoterDematNotes || '';
+            const patternNotes = s.shareholdingPatternNotes || '';
+            const combinedNotes = `${dematNotes} ${patternNotes}`.trim();
+            const hasPledgeMention = /pledg|encumb/i.test(combinedNotes);
+
+            return {
+              symbol: s.symbol || s.isin,
+              company: s.name,
+              isin: s.isin,
+              quarterEnded: s.date || 'Latest Qtr',
+              promoterHolding: formatCleanPct(s.pr_and_prgrp),
+              publicHolding: formatCleanPct(s.public_val),
+              employeeTrusts: formatCleanPct(s.employeeTrusts || '0'),
+              dematNotes: dematNotes || null,
+              hasPledgeMention,
+              xbrlUrl: s.xbrl || null,
+              broadcastTimestamp: s.broadcastDate || 'Statutory Filing',
+            };
+          });
+
           rawSnippet = JSON.stringify(
             {
-              disclosureName: 'SEBI (LODR) Regulation 31 Shareholding Pattern Filings',
-              filingPeriod: 'Quarter ended June 2026',
-              patterns: [
-                { company: 'Tata Motors Limited', promoterHolding: '46.4%', institutionalFii: '21.1%', encumberedPledge: '0.6%' },
-                { company: 'HDFC Bank Limited', promoterHolding: '0.0%', institutionalFii: '52.7%', encumberedPledge: '0.0%' },
-                { company: 'Reliance Industries', promoterHolding: '50.3%', institutionalFii: '21.9%', encumberedPledge: '0.0%' },
-                { company: 'Infosys Limited', promoterHolding: '14.7%', institutionalFii: '34.2%', encumberedPledge: '0.0%' },
-              ],
-              refreshedAt: new Date().toISOString(),
+              disclosureName: 'NSE Official SEBI (LODR) Reg 31 Shareholding Patterns Feed',
+              sourceUrl: 'https://www.nseindia.com/api/corporate-share-holdings-master?index=equities',
+              totalCompaniesReported: shareholdingFilings.length,
+              previewCount: formattedBroadcasts.length,
+              granularityNotice:
+                'NSE SEBI Reg 31 public master broadcast provides statutory Promoter, Public, and Employee Trusts equity aggregates. Granular FII/DII/Mutual Funds sub-breakdowns and quantitative Pledge % are contained inside statutory XBRL XML documents and require XBRL ingestion or licensed exchange vendor feeds per PRD Section 21.',
+              categoriesAvailable: {
+                promoter: true,
+                public: true,
+                employeeTrusts: true,
+                fii: false,
+                dii: false,
+                mutualFunds: false,
+                pledgeNumeric: false,
+                pledgeDisclosuresInNotes: true,
+              },
+              recentBroadcasts: formattedBroadcasts,
+              retrievedAt: new Date().toISOString(),
             },
             null,
             2,
@@ -400,7 +519,7 @@ export class DataIntegrityService implements OnModuleInit {
           const items: Array<{ title: string; link: string; pubDate: string; description: string }> = [];
           const itemMatches = xml.match(/<item>([\s\S]*?)<\/item>/g) || [];
 
-          for (const itemXml of itemMatches.slice(0, 6)) {
+          for (const itemXml of itemMatches.slice(0, 50)) {
             const titleMatch = itemXml.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/);
             const linkMatch = itemXml.match(/<link>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/link>/);
             const pubDateMatch = itemXml.match(/<pubDate>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/pubDate>/);
@@ -410,11 +529,9 @@ export class DataIntegrityService implements OnModuleInit {
               const cleanTitle = titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim();
               const cleanLink = (linkMatch ? linkMatch[1] : '').replace(/<!\[CDATA\[|\]\]>/g, '').trim();
               const cleanPubDate = (pubDateMatch ? pubDateMatch[1] : '').replace(/<!\[CDATA\[|\]\]>/g, '').trim();
-              const cleanDesc = (descMatch ? descMatch[1] : '')
-                .replace(/<!\[CDATA\[|\]\]>/g, '')
-                .replace(/<[^>]+>/g, '')
-                .trim()
-                .slice(0, 160);
+              const rawDesc = descMatch ? descMatch[1] : '';
+              // Enforce short permitted excerpt (~28 words) per PRD Section 22 copyright compliance
+              const cleanDesc = truncatePermittedExcerpt(rawDesc, 28);
 
               items.push({
                 title: cleanTitle,
@@ -429,8 +546,42 @@ export class DataIntegrityService implements OnModuleInit {
             {
               deskName: 'Live Economic Times & Exchange Announcements Feed',
               feedSourceUrl: feedUrl,
+              totalArticlesParsed: items.length,
               itemsCount: items.length,
               latestHeadlines: items,
+              complianceNotice:
+                'Permitted short excerpt metadata (~28 words) with attribution to original publisher per PRD Section 22 and copyright fair practice guidelines.',
+              retrievedAt: new Date().toISOString(),
+            },
+            null,
+            2,
+          );
+          break;
+        }
+
+        case 'sector_rotation': {
+          const rotationResult = await this.technoFundaService.getSectorHeatmap(true);
+          rawSnippet = JSON.stringify(
+            {
+              catalogName: 'RRG Sector Rotation & Multi-Timeframe Relative Strength Matrix',
+              benchmark: rotationResult.benchmark,
+              totalSectorsTracked: rotationResult.totalSectors,
+              source: rotationResult.source,
+              isLive: rotationResult.isLive,
+              quadrantSummary: rotationResult.quadrantSummary,
+              sectorsSummary: rotationResult.sectors.map((s: any) => ({
+                symbol: s.symbol,
+                name: s.name,
+                rank: s.rank,
+                quadrant: s.quadrant,
+                return1D: s.return1D,
+                return1W: s.return1W,
+                return1M: s.return1M,
+                rs1D: s.rs1D,
+                rs1W: s.rs1W,
+                rs1M: s.rs1M,
+                compositeScore: s.compositeScore,
+              })),
               retrievedAt: new Date().toISOString(),
             },
             null,

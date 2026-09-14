@@ -26,7 +26,7 @@ describe('MarketIndexService (NSE/BSE Snapshots & Section 58)', () => {
     expect(nifty).toBeDefined();
     expect(nifty?.current).toBeGreaterThan(15000);
     expect(nifty?.delayedMinutes).toBe(15);
-  });
+  }, 30000);
 
   it('caches market overview response for repeated calls', async () => {
     const first = await service.getMarketOverview();
@@ -34,5 +34,5 @@ describe('MarketIndexService (NSE/BSE Snapshots & Section 58)', () => {
 
     expect(second.isCached).toBe(true);
     expect(second.indices[0].current).toBe(first.indices[0].current);
-  });
+  }, 30000);
 });

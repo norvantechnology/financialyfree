@@ -7,19 +7,25 @@ import {
   Plus,
   Sliders,
   ArrowRight,
-  Sparkles,
   GraduationCap,
-  Home,
   Briefcase,
+  ShieldCheck,
+  Layers,
   X,
   RotateCcw,
 } from 'lucide-react';
 import { SidebarLayout } from '../../../components/sidebar-layout';
-import { StaticSnapshotBanner } from '../../../components/static-snapshot-banner';
+import { calculateSIPRequired } from '@ff/calc';
+import {
+  GOAL_CATEGORIES,
+  CanonicalGoalType,
+  getGoalCategoryFallback,
+} from '../../../lib/goal-categories';
+import { useBodyScrollLock } from '../../../lib/use-body-scroll-lock';
 
 interface ActiveGoal {
   id: string;
-  type: 'retirement' | 'child_education' | 'home_purchase' | 'wealth_creation' | 'emergency_fund';
+  type: CanonicalGoalType;
   name: string;
   targetCorpus: number;
   horizonYears: number;
@@ -29,45 +35,6 @@ interface ActiveGoal {
   monthlySip: number;
   projectedCorpus: number;
 }
-
-const INITIAL_GOALS: ActiveGoal[] = [
-  {
-    id: 'g-retire',
-    type: 'retirement',
-    name: 'Early Retirement (FIRE 45)',
-    targetCorpus: 25000000, // ₹2.5 Cr
-    horizonYears: 12,
-    currentSavings: 1500000, // ₹15 L
-    riskBand: 'growth',
-    expectedReturn: 14.0,
-    monthlySip: 54000,
-    projectedCorpus: 25800000,
-  },
-  {
-    id: 'g-child',
-    type: 'child_education',
-    name: "Higher Education Fund (Sample)",
-    targetCorpus: 5000000, // ₹50 L
-    horizonYears: 8,
-    currentSavings: 400000,
-    riskBand: 'balanced',
-    expectedReturn: 12.0,
-    monthlySip: 24500,
-    projectedCorpus: 5120000,
-  },
-  {
-    id: 'g-home',
-    type: 'home_purchase',
-    name: '3BHK Villa Down Payment',
-    targetCorpus: 3000000, // ₹30 L
-    horizonYears: 4,
-    currentSavings: 800000,
-    riskBand: 'conservative',
-    expectedReturn: 8.5,
-    monthlySip: 36000,
-    projectedCorpus: 3080000,
-  },
-];
 
 function formatINR(val: number): string {
   if (val >= 10000000) {
@@ -79,64 +46,120 @@ function formatINR(val: number): string {
   return `₹${val.toLocaleString('en-IN')}`;
 }
 
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  let token = localStorage.getItem('accessToken');
+  if (!token && typeof document !== 'undefined') {
+    const match = document.cookie.match(/(?:^|;\s*)accessToken=([^;]+)/);
+    if (match) token = match[1];
+  }
+  return token;
+}
+
 export default function GoalsDashboardPage() {
-  const [goals, setGoals] = useState<ActiveGoal[]>(INITIAL_GOALS);
+  const [goals, setGoals] = useState<ActiveGoal[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [monthlySurplus, setMonthlySurplus] = useState<number>(100000);
   const [stepUpRate, setStepUpRate] = useState<number>(10);
 
-  // New Goal Wizard Form State
-  const [wizardType, setWizardType] = useState<ActiveGoal['type']>('retirement');
-  const [wizardName, setWizardName] = useState('My New Wealth Goal');
-  const [wizardCorpus, setWizardCorpus] = useState<number>(5000000);
-  const [wizardHorizon, setWizardHorizon] = useState<number>(10);
-  const [wizardSavings, setWizardSavings] = useState<number>(200000);
-  const [wizardRisk, setWizardRisk] = useState<'conservative' | 'balanced' | 'growth'>('balanced');
+  useBodyScrollLock(isWizardOpen);
 
+  // New Goal Wizard Form State (defaults to retirement category)
+  const defaultCategory = GOAL_CATEGORIES[1]; // Retirement (FIRE)
+  const [wizardType, setWizardType] = useState<CanonicalGoalType>(defaultCategory.id);
+  const [wizardName, setWizardName] = useState(defaultCategory.label);
+  const [wizardCorpus, setWizardCorpus] = useState<number>(defaultCategory.defaultCorpus);
+  const [wizardHorizon, setWizardHorizon] = useState<number>(defaultCategory.defaultHorizonYears);
+  const [wizardSavings, setWizardSavings] = useState<number>(defaultCategory.defaultSavings);
+  const [wizardRisk, setWizardRisk] = useState<'conservative' | 'balanced' | 'growth'>(
+    defaultCategory.defaultRiskBand,
+  );
   const [wizardErrors, setWizardErrors] = useState<Record<string, string>>({});
 
   const getReturnRate = (r: 'conservative' | 'balanced' | 'growth') =>
     r === 'conservative' ? 8.5 : r === 'growth' ? 14.0 : 12.0;
 
-  useEffect(() => {
-    async function loadGoals() {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const res = await fetch(`${apiUrl}/api/v1/goals`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            const mapped: ActiveGoal[] = data.map((g: any) => ({
-              id: g.id,
-              type: g.type,
-              name: g.name,
-              targetCorpus: Number(g.targetAmount || 0),
-              horizonYears: Number(g.horizonYears || 5),
-              currentSavings: Number(g.currentSavings || 0),
-              riskBand: g.riskBand || 'balanced',
-              expectedReturn: Number(g.expectedReturnPct || 12),
-              monthlySip: Number(g.monthlySipRequired || 0),
-              projectedCorpus: Number(g.projectedCorpus || g.targetAmount || 0),
-            }));
-            setGoals(mapped);
-          }
-        }
-      } catch (e) {
-        console.warn('Goals fetch fallback to initial state', e);
+  const loadGoals = async () => {
+    setIsLoading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const token = getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
+      const res = await fetch(`${apiUrl}/api/v1/goals`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const mapped: ActiveGoal[] = data.map((g: any) => {
+            const riskBand: 'conservative' | 'balanced' | 'growth' = g.riskBand || 'balanced';
+            const expectedReturn = Number(g.expectedReturnPct || getReturnRate(riskBand));
+            const targetCorpus = Number(g.targetAmount || 0);
+            const horizonYears = Number(g.horizonYears || 5);
+            const currentSavings = Number(g.currentSavings || 0);
+
+            // Compute pure SIP requirement via @ff/calc
+            const calcRes = calculateSIPRequired({
+              targetCorpus,
+              horizonYears,
+              expectedReturnPct: expectedReturn,
+              currentSavings,
+            });
+
+            return {
+              id: g.id,
+              type: (g.type === 'home_purchase' ? 'wealth_creation' : g.type) as CanonicalGoalType,
+              name: g.name,
+              targetCorpus,
+              horizonYears,
+              currentSavings,
+              riskBand,
+              expectedReturn,
+              monthlySip: Number(g.monthlySipRequired) || calcRes.monthlySip,
+              projectedCorpus: Number(g.projectedCorpus) || calcRes.projectedCorpus,
+            };
+          });
+          setGoals(mapped);
+        } else {
+          setGoals([]);
+        }
+      } else {
+        // If unauthenticated or no data, do NOT inject fake goals
+        setGoals([]);
+      }
+    } catch (e) {
+      console.warn('Goals fetch error:', e);
+      setGoals([]);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadGoals();
   }, []);
 
-  // Simple pure calculation for wizard live preview
+  // Pure calculation using @ff/calc for wizard live preview
   const calcWizardSIP = () => {
-    const r = getReturnRate(wizardRisk) / 100 / 12;
-    const n = wizardHorizon * 12;
-    const fvSavings = wizardSavings * Math.pow(1 + r, n);
-    const remaining = Math.max(0, wizardCorpus - fvSavings);
-    if (remaining <= 0) return 0;
-    const sip = (remaining * r) / (Math.pow(1 + r, n) - 1);
-    return Math.ceil(sip);
+    const res = calculateSIPRequired({
+      targetCorpus: wizardCorpus,
+      horizonYears: wizardHorizon,
+      expectedReturnPct: getReturnRate(wizardRisk),
+      currentSavings: wizardSavings,
+    });
+    return res.monthlySip;
+  };
+
+  const handleSelectCategory = (cat: typeof GOAL_CATEGORIES[number]) => {
+    setWizardType(cat.id);
+    setWizardName(cat.label);
+    setWizardCorpus(cat.defaultCorpus);
+    setWizardHorizon(cat.defaultHorizonYears);
+    setWizardSavings(cat.defaultSavings);
+    setWizardRisk(cat.defaultRiskBand);
+    setWizardErrors({});
   };
 
   const handleAddGoal = async () => {
@@ -158,29 +181,43 @@ export default function GoalsDashboardPage() {
       return;
     }
     setWizardErrors({});
-    const sip = calcWizardSIP();
+
+    const returnRate = getReturnRate(wizardRisk);
+    const sipRes = calculateSIPRequired({
+      targetCorpus: wizardCorpus,
+      horizonYears: wizardHorizon,
+      expectedReturnPct: returnRate,
+      currentSavings: wizardSavings,
+    });
+
+    const tempId = `g-${Date.now()}`;
     const tempGoal: ActiveGoal = {
-      id: `g-${Date.now()}`,
+      id: tempId,
       type: wizardType,
       name: wizardName.trim(),
       targetCorpus: wizardCorpus,
       horizonYears: wizardHorizon,
       currentSavings: wizardSavings,
       riskBand: wizardRisk,
-      expectedReturn: getReturnRate(wizardRisk),
-      monthlySip: sip,
-      projectedCorpus: Math.round(wizardCorpus * 1.02),
+      expectedReturn: returnRate,
+      monthlySip: sipRes.monthlySip,
+      projectedCorpus: sipRes.projectedCorpus,
     };
-    setGoals([tempGoal, ...goals]);
+    setGoals((prev) => [tempGoal, ...prev]);
     setIsWizardOpen(false);
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const token = getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const res = await fetch(`${apiUrl}/api/v1/goals`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
-          type: wizardType === 'home_purchase' ? 'wealth_creation' : wizardType,
+          type: wizardType,
           name: wizardName.trim(),
           targetAmount: wizardCorpus,
           horizonYears: wizardHorizon,
@@ -191,7 +228,15 @@ export default function GoalsDashboardPage() {
       if (res.ok) {
         const saved = await res.json();
         setGoals((prev) =>
-          prev.map((g) => (g.id === tempGoal.id ? { ...g, id: saved.id, monthlySip: Number(saved.monthlySipRequired || g.monthlySip) } : g)),
+          prev.map((g) =>
+            g.id === tempId
+              ? {
+                  ...g,
+                  id: saved.id,
+                  monthlySip: Number(saved.monthlySipRequired) || g.monthlySip,
+                }
+              : g,
+          ),
         );
       }
     } catch {
@@ -200,36 +245,49 @@ export default function GoalsDashboardPage() {
   };
 
   const handleDeleteGoal = async (id: string) => {
-    setGoals(goals.filter((g) => g.id !== id));
+    setGoals((prev) => prev.filter((g) => g.id !== id));
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      await fetch(`${apiUrl}/api/v1/goals/${id}`, { method: 'DELETE' });
+      const token = getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      await fetch(`${apiUrl}/api/v1/goals/${id}`, { method: 'DELETE', headers });
     } catch {
       // Silent error handling
     }
   };
 
-  const handleResetDefaults = () => {
-    setGoals(INITIAL_GOALS);
+  const handleReset = () => {
     setMonthlySurplus(100000);
     setStepUpRate(10);
+    loadGoals();
   };
 
-  // Metrics
+  // Real live-computed metrics from DB goals
   const totalTarget = goals.reduce((s, g) => s + g.targetCorpus, 0);
   const totalSavings = goals.reduce((s, g) => s + g.currentSavings, 0);
   const totalRequiredSip = goals.reduce((s, g) => s + g.monthlySip, 0);
   const surplusGap = monthlySurplus - totalRequiredSip;
 
+  const renderGoalCategoryIcon = (type: CanonicalGoalType) => {
+    switch (type) {
+      case 'emergency_fund':
+        return <ShieldCheck size={14} color="#0F766E" />;
+      case 'retirement':
+        return <Briefcase size={14} color="#0F172A" />;
+      case 'child_education':
+        return <GraduationCap size={14} color="#0F766E" />;
+      case 'wealth_creation':
+      default:
+        return <Layers size={14} color="#D97706" />;
+    }
+  };
+
   return (
     <SidebarLayout>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        {/* Static Snapshot Banner */}
-        <StaticSnapshotBanner
-          datasetNote="Aureus demo dataset - last modeled 02 Sep 2026"
-          sourceNote="Not live market data or investment advice."
-        />
-
+      <div style={{ width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
         {/* Top Header */}
         <div
           style={{
@@ -237,36 +295,33 @@ export default function GoalsDashboardPage() {
             flexWrap: 'wrap',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
-            gap: 'var(--space-4)',
-            marginBottom: 'var(--space-8)',
+            gap: '12px',
+            marginBottom: 'var(--space-6)',
           }}
         >
           <div>
-            <div className="category-tag">
-              <Target size={13} />
-              <span>DECISION SUPPORT / WEALTH ARCHITECTURE</span>
-            </div>
             <h1
               className="font-serif"
               style={{
-                fontSize: 'clamp(2rem, 3.5vw, 2.75rem)',
+                fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
                 fontWeight: 700,
                 color: 'var(--text-primary)',
-                marginBottom: '6px',
+                marginBottom: '4px',
                 letterSpacing: '-0.02em',
               }}
             >
               Goal Architecture & FIRE Planner
             </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', maxWidth: '640px' }}>
-              Make the assumptions visible. A financial plan is only as useful as the inputs behind it.
+            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', maxWidth: '640px', margin: 0 }}>
+              Plan your financial horizons, optimize surplus allocation, and track progress toward your target corpus.
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="btn-group-responsive" style={{ flexShrink: 0 }}>
             <button
-              onClick={handleResetDefaults}
-              className="btn btn-outline"
+              onClick={handleReset}
+              className="btn btn-outline btn-mobile-full"
+              title="Reset sliders and reload your saved goals"
               style={{
                 minHeight: '38px',
                 padding: '8px 16px',
@@ -281,8 +336,11 @@ export default function GoalsDashboardPage() {
             </button>
 
             <button
-              onClick={() => setIsWizardOpen(true)}
-              className="btn btn-primary"
+              onClick={() => {
+                handleSelectCategory(GOAL_CATEGORIES[1]);
+                setIsWizardOpen(true);
+              }}
+              className="btn btn-primary btn-mobile-full"
               style={{
                 minHeight: '38px',
                 padding: '8px 20px',
@@ -298,52 +356,52 @@ export default function GoalsDashboardPage() {
           </div>
         </div>
 
-        {/* KPI Overview Cards (Clean White with 1px border) */}
+        {/* 4-Stat Summary Metric Row */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
-            gap: 'var(--space-4)',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
+            gap: 'var(--space-3)',
             marginBottom: 'var(--space-8)',
           }}
         >
-          <div className="card">
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Active Goals</span>
-            <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: '4px', color: 'var(--text-primary)' }}>
+          <div className="kpi-card-compact">
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Active Goals</span>
+            <div style={{ fontSize: 'clamp(1.4rem, 2.5vw, 1.85rem)', fontWeight: 800, margin: '2px 0', color: 'var(--text-primary)' }}>
               {goals.length}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--color-accent)', marginTop: '4px', fontWeight: 600 }}>
-              Multi-goal allocation active
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+              {goals.length === 0 ? 'None active' : `${goals.length} in progress`}
             </div>
           </div>
 
-          <div className="card">
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Total Target Corpus</span>
-            <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: '4px', color: 'var(--text-primary)' }}>
+          <div className="kpi-card-compact">
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total Target</span>
+            <div style={{ fontSize: 'clamp(1.4rem, 2.5vw, 1.85rem)', fontWeight: 800, margin: '2px 0', color: 'var(--text-primary)' }}>
               {formatINR(totalTarget)}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              Across all time horizons
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+              Target corpus
             </div>
           </div>
 
-          <div className="card">
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Total Required SIP</span>
-            <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: '4px', color: 'var(--text-primary)' }}>
-              ₹{totalRequiredSip.toLocaleString('en-IN')}/mo
+          <div className="kpi-card-compact">
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Required SIP</span>
+            <div style={{ fontSize: 'clamp(1.2rem, 2vw, 1.6rem)', fontWeight: 800, margin: '2px 0', color: 'var(--text-primary)' }}>
+              ₹{totalRequiredSip.toLocaleString('en-IN')}<span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-secondary)' }}>/mo</span>
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              Formula verified & auditable
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+              Monthly investment
             </div>
           </div>
 
-          <div className="card">
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Current Savings Deployed</span>
-            <div style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, marginTop: '4px', color: 'var(--color-success)' }}>
+          <div className="kpi-card-compact">
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Savings Deployed</span>
+            <div style={{ fontSize: 'clamp(1.4rem, 2.5vw, 1.85rem)', fontWeight: 800, margin: '2px 0', color: 'var(--color-success)' }}>
               {formatINR(totalSavings)}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              Compounding toward goals
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+              Compounding
             </div>
           </div>
         </div>
@@ -352,8 +410,8 @@ export default function GoalsDashboardPage() {
         <div
           className="card"
           style={{
-            padding: 'var(--space-8)',
-            marginBottom: 'var(--space-10)',
+            padding: 'clamp(14px, 3vw, 24px)',
+            marginBottom: 'var(--space-8)',
           }}
         >
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
@@ -392,11 +450,11 @@ export default function GoalsDashboardPage() {
               <input
                 type="range"
                 min={10000}
-                max={300000}
+                max={500000}
                 step={5000}
                 value={monthlySurplus}
                 onChange={(e) => setMonthlySurplus(Number(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--color-primary)' }}
+                style={{ width: '100%', accentColor: 'var(--color-primary)', cursor: 'pointer', height: '24px' }}
               />
             </div>
 
@@ -411,238 +469,250 @@ export default function GoalsDashboardPage() {
                 step={5}
                 value={stepUpRate}
                 onChange={(e) => setStepUpRate(Number(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--color-primary)' }}
+                style={{ width: '100%', accentColor: 'var(--color-primary)', cursor: 'pointer', height: '24px' }}
               />
             </div>
           </div>
 
-          {/* Allocation Progress Bar */}
-          <div>
-            <div style={{ display: 'flex', height: '12px', borderRadius: 'var(--radius-full)', overflow: 'hidden', marginBottom: 'var(--space-4)', background: '#E5E7EB' }}>
-              {goals.map((g, idx) => {
-                const colors = ['#0F172A', '#0F766E', '#D97706', '#2563EB', '#7C3AED'];
-                const pct = totalRequiredSip > 0 ? (g.monthlySip / totalRequiredSip) * 100 : 100 / goals.length;
-                return (
-                  <div
-                    key={g.id}
-                    style={{
-                      width: `${pct}%`,
-                      background: colors[idx % colors.length],
-                      transition: 'width 0.3s ease',
-                    }}
-                    title={`${g.name}: ${pct.toFixed(1)}%`}
-                  />
-                );
-              })}
+          {/* Allocation Progress Bar & Legend */}
+          {goals.length === 0 ? (
+            <div
+              style={{
+                padding: '16px',
+                background: 'var(--bg-surface-raised, #F4F1EA)',
+                borderRadius: 'var(--radius-md)',
+                textAlign: 'center',
+                fontSize: 'var(--text-xs)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              No active goals created yet. Once you add goals below, your investable surplus will automatically distribute across them here.
             </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', height: '12px', borderRadius: 'var(--radius-full)', overflow: 'hidden', marginBottom: 'var(--space-4)', background: '#E5E7EB' }}>
+                {goals.map((g, idx) => {
+                  const colors = ['#0F172A', '#0F766E', '#D97706', '#2563EB', '#7C3AED'];
+                  const pct = totalRequiredSip > 0 ? (g.monthlySip / totalRequiredSip) * 100 : 100 / goals.length;
+                  return (
+                    <div
+                      key={g.id}
+                      style={{
+                        width: `${pct}%`,
+                        background: colors[idx % colors.length],
+                        transition: 'width 0.3s ease',
+                      }}
+                      title={`${g.name}: ${pct.toFixed(1)}%`}
+                    />
+                  );
+                })}
+              </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', fontSize: 'var(--text-xs)' }}>
-              {goals.map((g, idx) => {
-                const colors = ['#0F172A', '#0F766E', '#D97706', '#2563EB', '#7C3AED'];
-                const pct = totalRequiredSip > 0 ? ((g.monthlySip / totalRequiredSip) * 100).toFixed(0) : '0';
-                const allocated = totalRequiredSip > 0 ? Math.round((g.monthlySip / totalRequiredSip) * monthlySurplus) : 0;
-                return (
-                  <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: colors[idx % colors.length] }} />
-                    <span style={{ color: 'var(--text-secondary)' }}>{g.name}:</span>
-                    <strong style={{ color: 'var(--text-primary)' }}>₹{allocated.toLocaleString('en-IN')} ({pct}%)</strong>
-                  </div>
-                );
-              })}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)', fontSize: 'var(--text-xs)' }}>
+                {goals.map((g, idx) => {
+                  const colors = ['#0F172A', '#0F766E', '#D97706', '#2563EB', '#7C3AED'];
+                  const pct = totalRequiredSip > 0 ? ((g.monthlySip / totalRequiredSip) * 100).toFixed(0) : '0';
+                  const allocated = totalRequiredSip > 0 ? Math.round((g.monthlySip / totalRequiredSip) * monthlySurplus) : 0;
+                  return (
+                    <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: colors[idx % colors.length] }} />
+                      <span style={{ color: 'var(--text-secondary)' }}>{g.name}:</span>
+                      <strong style={{ color: 'var(--text-primary)' }}>₹{allocated.toLocaleString('en-IN')} ({pct}%)</strong>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Active Goals Grid */}
+        {/* Active Goals Section Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h3
-              className="font-serif"
-              style={{ fontSize: 'var(--text-xl)', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}
-            >
-              Your Active Goals & Glide Paths
-            </h3>
-            {goals === INITIAL_GOALS && (
-              <span className="badge-muted" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', fontSize: '10px' }}>
-                Sample Demo Data
-              </span>
-            )}
-          </div>
-          {goals.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setGoals([])}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#6B7280',
-                fontSize: '11px',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
-              Clear to Empty State
-            </button>
-          )}
-          {goals.length === 0 && (
-            <button
-              type="button"
-              onClick={() => setGoals(INITIAL_GOALS)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#0F766E',
-                fontSize: '11px',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-            >
-              ↺ Load Sample Goals
-            </button>
+          <h3
+            className="font-serif"
+            style={{ fontSize: 'var(--text-xl)', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}
+          >
+            Your Active Goals & Glide Paths
+          </h3>
+          {!isLoading && (
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              {goals.length} {goals.length === 1 ? 'Goal' : 'Goals'} Configured
+            </span>
           )}
         </div>
 
-        {goals.length === 0 ? (
+        {/* Real Goals List or Genuine Empty State */}
+        {isLoading ? (
+          <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)', marginBottom: 'var(--space-12)' }}>
+            <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>Loading your saved goals...</p>
+          </div>
+        ) : goals.length === 0 ? (
           <div
             className="card"
             style={{
-              padding: '40px 20px',
+              padding: '48px 24px',
               textAlign: 'center',
               marginBottom: 'var(--space-12)',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-xl)',
             }}
           >
-            <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#F4F1EA', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-              <Target size={22} color="#6B7280" />
+            <div
+              style={{
+                width: '52px',
+                height: '52px',
+                borderRadius: '50%',
+                background: 'var(--bg-surface-raised, #F4F1EA)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px',
+              }}
+            >
+              <Target size={24} color="var(--color-primary)" />
             </div>
-            <h4 className="font-serif" style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '6px' }}>
-              No Custom Goals Created Yet
+            <h4
+              className="font-serif"
+              style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}
+            >
+              You haven't created a goal yet  start here
             </h4>
-            <p style={{ fontSize: '13px', color: '#6B7280', maxWidth: '420px', margin: '0 auto 16px' }}>
-              Calculate your financial independence number, children’s higher education, or emergency reserve with our transparent mathematical models.
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+              Define your financial independence targets, children’s higher education, or emergency reserve with our transparent mathematical models.
             </p>
             <button
-              onClick={() => setIsWizardOpen(true)}
+              onClick={() => {
+                handleSelectCategory(GOAL_CATEGORIES[0]);
+                setIsWizardOpen(true);
+              }}
               className="btn btn-primary"
-              style={{ padding: '8px 18px', fontSize: '12px' }}
+              style={{ padding: '10px 22px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
             >
-              <Plus size={14} />
-              <span>Create Your First Goal</span>
+              <Plus size={16} />
+              <span>Plan Your First Goal</span>
             </button>
           </div>
         ) : (
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
               gap: 'var(--space-6)',
               marginBottom: 'var(--space-12)',
             }}
           >
             {goals.map((goal) => {
-            return (
-              <div
-                key={goal.id}
-                className="card"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-4)' }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                        {goal.type === 'retirement' && <Briefcase size={14} color="var(--color-primary)" />}
-                        {goal.type === 'child_education' && <GraduationCap size={14} color="var(--color-accent)" />}
-                        {goal.type === 'home_purchase' && <Home size={14} color="var(--color-warning)" />}
-                        <span className="badge-muted">
-                          {goal.horizonYears} Years Horizon
-                        </span>
+              const categoryConfig = getGoalCategoryFallback(goal.type);
+              return (
+                <div
+                  key={goal.id}
+                  className="card"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-4)' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                          {renderGoalCategoryIcon(goal.type)}
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            {categoryConfig.label}
+                          </span>
+                          <span style={{ color: '#D1D5DB' }}>•</span>
+                          <span className="badge-muted">
+                            {goal.horizonYears} Y Horizon
+                          </span>
+                        </div>
+                        <h4 style={{ fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-primary)' }}>{goal.name}</h4>
                       </div>
-                      <h4 style={{ fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-primary)' }}>{goal.name}</h4>
+
+                      <button
+                        onClick={() => handleDeleteGoal(goal.id)}
+                        title="Remove Goal"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: '4px',
+                        }}
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
 
-                    <button
-                      onClick={() => handleDeleteGoal(goal.id)}
-                      title="Remove Goal"
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 130px), 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+                      <div style={{ background: 'var(--bg-surface-raised, #F4F1EA)', padding: '10px 12px', borderRadius: 'var(--radius-md)' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Target Corpus</span>
+                        <div style={{ fontWeight: 700, fontSize: 'var(--text-base)', color: 'var(--text-primary)' }}>
+                          {formatINR(goal.targetCorpus)}
+                        </div>
+                      </div>
+                      <div style={{ background: 'var(--bg-surface-raised, #F4F1EA)', padding: '10px 12px', borderRadius: 'var(--radius-md)' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Current Savings</span>
+                        <div style={{ fontWeight: 700, fontSize: 'var(--text-base)', color: 'var(--color-success)' }}>
+                          {formatINR(goal.currentSavings)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                      <span>Risk: <strong style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>{goal.riskBand}</strong> ({goal.expectedReturn}% p.a.)</span>
+                      <span>Glide Path: <strong style={{ color: 'var(--color-accent)' }}>Active</strong></span>
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--space-3)' }}>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Recommended Monthly SIP</span>
+                      <span style={{ fontSize: 'var(--text-xl)', fontWeight: 800, color: 'var(--color-primary)' }}>
+                        ₹{goal.monthlySip.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    <Link
+                      href="/dashboard/invest"
+                      className="btn btn-outline"
                       style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        padding: '4px',
+                        width: '100%',
+                        minHeight: '38px',
+                        padding: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        gap: '6px',
                       }}
                     >
-                      <X size={16} />
-                    </button>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 130px), 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-                    <div style={{ background: 'var(--bg-surface-raised, #F4F1EA)', padding: '10px 12px', borderRadius: 'var(--radius-md)' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Target Corpus</span>
-                      <div style={{ fontWeight: 700, fontSize: 'var(--text-base)', color: 'var(--text-primary)' }}>
-                        {formatINR(goal.targetCorpus)}
-                      </div>
-                    </div>
-                    <div style={{ background: 'var(--bg-surface-raised, #F4F1EA)', padding: '10px 12px', borderRadius: 'var(--radius-md)' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Current Savings</span>
-                      <div style={{ fontWeight: 700, fontSize: 'var(--text-base)', color: 'var(--color-success)' }}>
-                        {formatINR(goal.currentSavings)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                    <span>Risk Profile: <strong style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>{goal.riskBand}</strong> ({goal.expectedReturn}% p.a.)</span>
-                    <span>Glide Path: <strong style={{ color: 'var(--color-accent)' }}>Active</strong></span>
+                      <span>Link Mutual Funds</span>
+                      <ArrowRight size={14} />
+                    </Link>
                   </div>
                 </div>
-
-                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 'var(--space-4)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--space-3)' }}>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Recommended Monthly SIP</span>
-                    <span style={{ fontSize: 'var(--text-xl)', fontWeight: 800, color: 'var(--color-primary)' }}>
-                      ₹{goal.monthlySip.toLocaleString('en-IN')}
-                    </span>
-                  </div>
-
-                  <Link
-                    href="/dashboard/invest"
-                    className="btn btn-outline"
-                    style={{
-                      width: '100%',
-                      minHeight: '38px',
-                      padding: '8px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      gap: '6px',
-                    }}
-                  >
-                    <span>Link Mutual Funds</span>
-                    <ArrowRight size={14} />
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
 
         {/* Goal Questionnaire Wizard Modal */}
         {isWizardOpen && (
           <div
+            className="modal-backdrop-fixed"
             style={{
               position: 'fixed',
               inset: 0,
               background: 'rgba(15, 23, 42, 0.65)',
               backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
               zIndex: 500,
               display: 'flex',
               alignItems: 'flex-start',
               justifyContent: 'center',
-              padding: '16px',
+              padding: '12px',
               overflowY: 'auto',
+              overscrollBehavior: 'contain',
               WebkitOverflowScrolling: 'touch',
             }}
           >
@@ -651,55 +721,49 @@ export default function GoalsDashboardPage() {
               style={{
                 background: '#FFFFFF',
                 border: '1px solid var(--border-color)',
-                padding: 'var(--space-6)',
+                padding: 'clamp(14px, 4vw, 24px)',
                 boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
                 margin: 'auto',
-                maxHeight: 'calc(100dvh - 32px)',
+                width: '100%',
+                maxWidth: '540px',
+                maxHeight: 'calc(100dvh - 24px)',
                 overflowY: 'auto',
+                overscrollBehavior: 'contain',
+                touchAction: 'pan-y',
                 WebkitOverflowScrolling: 'touch',
+                boxSizing: 'border-box',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Sparkles size={18} color="#D97706" />
-                  <h3 className="font-serif" style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  <Target size={18} color="#0F766E" />
+                  <h3 className="font-serif" style={{ fontSize: 'clamp(17px, 3.5vw, 20px)', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                     Plan a New Financial Goal
                   </h3>
                 </div>
                 <button
                   onClick={() => setIsWizardOpen(false)}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }}
+                  aria-label="Close goal modal"
                 >
                   <X size={20} />
                 </button>
               </div>
 
-              {/* Goal Type Selection */}
+              {/* Goal Type Selection - Responsive 2x2 Grid with Word-Wrapping Pins */}
               <div style={{ marginBottom: 'var(--space-4)' }}>
                 <label style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>
                   Select Goal Objective
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
-                  {[
-                    { id: 'retirement', label: 'Retirement (FIRE)' },
-                    { id: 'child_education', label: 'Higher Education' },
-                    { id: 'home_purchase', label: 'Dream Home' },
-                    { id: 'wealth_creation', label: 'Wealth Alpha' },
-                  ].map((t) => (
+                <div className="goal-wizard-categories">
+                  {GOAL_CATEGORIES.map((cat) => (
                     <button
-                      key={t.id}
+                      key={cat.id}
                       type="button"
-                      onClick={() => {
-                        setWizardType(t.id as any);
-                        setWizardName(t.label);
-                      }}
-                      className={`pill-btn ${wizardType === t.id ? 'pill-btn-active' : ''}`}
-                      style={{
-                        padding: '10px 8px',
-                        fontSize: '12px',
-                      }}
+                      onClick={() => handleSelectCategory(cat)}
+                      className={`goal-wizard-pill ${wizardType === cat.id ? 'goal-wizard-pill-active' : ''}`}
                     >
-                      {t.label}
+                      {cat.label}
                     </button>
                   ))}
                 </div>
@@ -719,6 +783,7 @@ export default function GoalsDashboardPage() {
                   }}
                   style={{
                     width: '100%',
+                    boxSizing: 'border-box',
                     padding: '10px 12px',
                     borderRadius: 'var(--radius-md)',
                     background: '#FFFFFF',
@@ -750,6 +815,7 @@ export default function GoalsDashboardPage() {
                     }}
                     style={{
                       width: '100%',
+                      boxSizing: 'border-box',
                       padding: '10px 12px',
                       borderRadius: 'var(--radius-md)',
                       background: '#FFFFFF',
@@ -778,7 +844,7 @@ export default function GoalsDashboardPage() {
                       setWizardHorizon(Number(e.target.value));
                       if (wizardErrors.horizon) setWizardErrors((prev) => ({ ...prev, horizon: '' }));
                     }}
-                    style={{ width: '100%', accentColor: '#0F172A', marginTop: '8px' }}
+                    style={{ width: '100%', accentColor: '#0F172A', marginTop: '8px', cursor: 'pointer', height: '24px' }}
                   />
                   {wizardErrors.horizon && (
                     <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px' }}>
@@ -803,6 +869,7 @@ export default function GoalsDashboardPage() {
                     }}
                     style={{
                       width: '100%',
+                      boxSizing: 'border-box',
                       padding: '10px 12px',
                       borderRadius: 'var(--radius-md)',
                       background: '#FFFFFF',
@@ -827,6 +894,7 @@ export default function GoalsDashboardPage() {
                     onChange={(e) => setWizardRisk(e.target.value as any)}
                     style={{
                       width: '100%',
+                      boxSizing: 'border-box',
                       padding: '10px 12px',
                       borderRadius: 'var(--radius-md)',
                       background: '#FFFFFF',
@@ -842,29 +910,31 @@ export default function GoalsDashboardPage() {
                 </div>
               </div>
 
-              {/* Live SIP Calculation Summary Banner */}
+              {/* SIP Calculation Summary Banner via @ff/calc */}
               <div
                 style={{
                   background: '#FEF9E7',
                   border: '1px solid #FDE68A',
                   borderRadius: 'var(--radius-md)',
-                  padding: 'var(--space-4)',
+                  padding: 'clamp(10px, 3vw, 16px)',
                   marginBottom: 'var(--space-6)',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '8px',
                 }}
               >
                 <div>
-                  <span style={{ fontSize: 'var(--text-xs)', color: '#78350F' }}>Computed Monthly SIP</span>
+                  <span style={{ fontSize: 'var(--text-xs)', color: '#78350F' }}>Recommended Monthly SIP</span>
                   <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: '#92400E' }}>
                     ₹{calcWizardSIP().toLocaleString('en-IN')}/mo
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', fontSize: '11px', color: '#92400E', opacity: 0.85 }}>
-                  <span>Formula: FV of Annuity</span>
+                  <span>Target Timeline</span>
                   <br />
-                  <span>Deterministic Model</span>
+                  <span>{wizardHorizon} Years Planning Horizon</span>
                 </div>
               </div>
 
@@ -876,6 +946,7 @@ export default function GoalsDashboardPage() {
                   padding: '12px',
                   borderRadius: 'var(--radius-full)',
                   fontSize: 'var(--text-sm)',
+                  fontWeight: 600,
                 }}
               >
                 Save Goal & Launch Glide Path

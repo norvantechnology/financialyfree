@@ -20,7 +20,6 @@ export enum NotificationChannelType {
 
 export enum NotificationCategory {
   SIP_REMINDER = 'sip_reminder',
-  WEBINAR_REMINDER = 'webinar_reminder',
   COURSE_PROGRESS = 'course_progress',
   KYC_STATUS = 'kyc_status',
   PAYMENT_SUCCESS = 'payment_success',

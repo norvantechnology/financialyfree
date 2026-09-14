@@ -9,19 +9,36 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { ConsentPreferencesDto, SimulateNotificationDto } from '@ff/types';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Notifications & DPDP Consent')
 @Controller('notifications')
 @ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard)
 export class NotificationsController {
   constructor(private readonly notifService: NotificationsService) {}
 
   private getUserId(req: any): string {
-    return req.user?.id || 'f47cfaa8-74c1-4257-81a1-fe803c31e0c0';
+    if (req.user?.id) return req.user.id;
+    if (req.user?.userId) return req.user.userId;
+    const authHeader = req.headers?.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const payloadBase64 = token.split('.')[1];
+        if (payloadBase64) {
+          const decoded: any = JSON.parse(Buffer.from(payloadBase64, 'base64url').toString('utf8'));
+          if (decoded?.sub) return decoded.sub;
+        }
+      } catch {}
+    }
+    throw new UnauthorizedException('Authentication required');
   }
 
   @Get('my')
@@ -61,7 +78,7 @@ export class NotificationsController {
 
   @Post('simulate-alert')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Trigger simulated SIP, Webinar, or KYC alert' })
+  @ApiOperation({ summary: 'Trigger simulated SIP, Course, or KYC alert' })
   async simulateAlert(
     @Req() req: any,
     @Body() dto: SimulateNotificationDto,

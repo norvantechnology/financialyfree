@@ -34,7 +34,7 @@ export class BseStarMfMockProvider implements IBseStarMfProvider {
     const orderNo = `ORD_BSE_${Date.now().toString(36).toUpperCase()}`;
 
     this.logger.log(
-      `[Mock BSE StAR MF] SIP Registered — RegNo: ${regNo}, Scheme: ${params.schemeCode}, Amount: ₹${params.amount}, Day: ${params.sipDay}`,
+      `[Mock BSE StAR MF] SIP Registered  RegNo: ${regNo}, Scheme: ${params.schemeCode}, Amount: ₹${params.amount}, Day: ${params.sipDay}`,
     );
 
     const nextDueDate = new Date();

@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Shield, Sparkles, TrendingUp, BookOpen, Video, Target } from 'lucide-react';
+import { Shield, BarChart3, TrendingUp, BookOpen, Target } from 'lucide-react';
 
 export function Footer() {
   const pathname = usePathname();
@@ -67,32 +67,26 @@ export function Footer() {
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <li>
               <Link href="/dashboard/goals" style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <Target size={14} color="var(--color-primary-400)" />
+                <Target size={14} color="var(--color-accent-light)" />
                 <span>Goal SIP Engine</span>
               </Link>
             </li>
             <li>
               <Link href="/dashboard/invest" style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <TrendingUp size={14} color="var(--color-success-400)" />
+                <TrendingUp size={14} color="var(--color-accent-light)" />
                 <span>Curated Mutual Funds</span>
               </Link>
             </li>
             <li>
               <Link href="/techno-funda" style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <Sparkles size={14} color="var(--color-accent-light)" />
+                <BarChart3 size={14} color="var(--color-accent-light)" />
                 <span>Techno-Funda Research</span>
               </Link>
             </li>
             <li>
               <Link href="/courses" style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <BookOpen size={14} color="var(--color-warning-400)" />
+                <BookOpen size={14} color="var(--color-accent-light)" />
                 <span>DIY Masterclass (LMS)</span>
-              </Link>
-            </li>
-            <li>
-              <Link href="/webinars" style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <Video size={14} color="var(--color-editorial)" />
-                <span>Weekly Live Webinars</span>
               </Link>
             </li>
           </ul>
@@ -153,22 +147,22 @@ export function Footer() {
       <div
         style={{
           maxWidth: '1280px',
-          margin: 'var(--space-8) auto 0',
-          paddingTop: 'var(--space-6)',
+          margin: 'var(--space-6) auto 0',
+          paddingTop: 'var(--space-4)',
           borderTop: '1px solid rgba(255, 255, 255, 0.06)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 'var(--space-3)',
-          fontSize: '11px',
+          gap: 'var(--space-2)',
+          fontSize: '10px',
           color: 'var(--text-muted)',
-          lineHeight: 1.5,
+          lineHeight: 1.4,
         }}
       >
-        <p>
-          <strong>Statutory Disclosure:</strong> Mutual Fund investments are subject to market risks, read all scheme related documents carefully. Past performance is not indicative of future returns. FinanciallyFree (FutureZenith Insights LLP) is an AMFI-registered Mutual Fund Distributor (ARN-350272) and acts as an order routing intermediary. We do not offer discretionary portfolio management services or guaranteed return schemes.
+        <p style={{ margin: 0 }}>
+          <strong>Statutory Disclosure:</strong> MF investments are subject to market risks. Read all scheme related documents carefully. FinanciallyFree (AMFI ARN-350272) operates as an order routing intermediary. No guaranteed return products.
         </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-4)' }}>
-          <span>© {new Date().getFullYear()} FinanciallyFree. All rights reserved. Made with ❤️ for Indian investors.</span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <span>© {new Date().getFullYear()} FinanciallyFree. All rights reserved.</span>
           <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
             <Link href="/pricing" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Terms</Link>
             <Link href="/dashboard/settings/notifications" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Privacy Policy</Link>

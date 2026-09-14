@@ -10,7 +10,6 @@ export const translations = {
       goals: 'Goals',
       courses: 'Courses',
       tools: 'Techno-Funda',
-      webinars: 'Webinars',
       pricing: 'Pricing',
       login: 'Log In',
       register: 'Get Started',
@@ -64,7 +63,6 @@ export const translations = {
       goals: 'Goals', // TODO: Hindi translation: लक्ष्य
       courses: 'Courses', // TODO: Hindi translation: कोर्सेज
       tools: 'Techno-Funda', // TODO: Hindi translation: टेक्नो-फंडा टूल्स
-      webinars: 'Webinars', // TODO: Hindi translation: वेबिनार
       pricing: 'Pricing', // TODO: Hindi translation: शुल्क / प्लान
       login: 'Log In', // TODO: Hindi translation: लॉग इन
       register: 'Get Started', // TODO: Hindi translation: शुरू करें

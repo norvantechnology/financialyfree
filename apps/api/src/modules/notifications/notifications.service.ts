@@ -224,11 +224,6 @@ export class NotificationsService {
         message = 'Your scheduled monthly SIP of ₹10,000 for "Retirement 2045" will be debited on 10th. Kindly maintain sufficient bank balance.';
         category = NotificationCategory.SIP_REMINDER;
         break;
-      case 'webinar_reminder':
-        title = 'Live Masterclass Starting Soon!';
-        message = 'Weekly Techno-Funda Alpha Breakdown begins in 15 minutes. Join Sandeep Kumar live in the virtual room.';
-        category = NotificationCategory.WEBINAR_REMINDER;
-        break;
       case 'kyc_status':
         title = 'KRA KYC Verification Approved';
         message = 'Your CAMS/CVL KRA verification is approved! BSE StAR MF Client UCC UCC_89124 has been activated.';

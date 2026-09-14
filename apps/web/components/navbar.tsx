@@ -5,24 +5,23 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslation } from '../lib/i18n/language-context';
 import {
-  Globe,
   TrendingUp,
   Menu,
   X,
   Target,
   BookOpen,
   BarChart3,
-  Video,
-  Sparkles,
+  CreditCard,
   ShieldCheck,
   Layers,
   LogIn,
   UserPlus,
 } from 'lucide-react';
 import { NotificationBell } from './notification-bell';
+import { useBodyScrollLock } from '../lib/use-body-scroll-lock';
 
 export function Navbar() {
-  const { language, setLanguage, t } = useTranslation();
+  const { t } = useTranslation();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -31,28 +30,14 @@ export function Navbar() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  // Prevent background scroll when mobile drawer is open
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [mobileMenuOpen]);
-
-  const toggleLanguage = () => {
-    setLanguage(language === 'en' ? 'hi' : 'en');
-  };
+  // Lock body scroll when mobile drawer is open
+  useBodyScrollLock(mobileMenuOpen);
 
   const navLinks = [
     { href: '/dashboard/goals', label: t.nav.goals, icon: Target },
     { href: '/courses', label: t.nav.courses, icon: BookOpen },
     { href: '/techno-funda', label: t.nav.tools, icon: BarChart3 },
-    { href: '/webinars', label: t.nav.webinars, icon: Video },
-    { href: '/pricing', label: t.nav.pricing, icon: Sparkles },
+    { href: '/pricing', label: t.nav.pricing, icon: CreditCard },
     { href: '/admin', label: 'Admin', icon: ShieldCheck },
   ];
 
@@ -159,28 +144,6 @@ export function Navbar() {
           >
             <NotificationBell />
 
-            {/* Language Switcher */}
-            <button
-              onClick={toggleLanguage}
-              title={language === 'en' ? 'Switch to Hindi' : 'Switch to English'}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: 'var(--radius-full)',
-                padding: '6px 12px',
-                color: 'var(--text-primary)',
-                fontSize: 'var(--font-size-xs)',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              <Globe size={13} color="var(--color-primary-light)" />
-              <span>{language === 'en' ? 'EN' : 'हिंदी'}</span>
-            </button>
-
             {/* Login / Dashboard */}
             <Link
               href="/auth/login"
@@ -214,27 +177,6 @@ export function Navbar() {
           >
             <NotificationBell />
 
-            <button
-              onClick={toggleLanguage}
-              style={{
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: 'var(--radius-full)',
-                padding: '5px 8px',
-                color: 'var(--text-primary)',
-                fontSize: '11px',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                cursor: 'pointer',
-              }}
-              aria-label="Toggle language"
-            >
-              <Globe size={12} color="var(--color-primary-light)" />
-              <span>{language === 'en' ? 'EN' : 'हिं'}</span>
-            </button>
-
             {/* Mobile Hamburger Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -267,6 +209,8 @@ export function Navbar() {
             zIndex: 85,
             display: 'flex',
             flexDirection: 'column',
+            overscrollBehavior: 'contain',
+            touchAction: 'none',
           }}
         >
           {/* Backdrop */}
@@ -278,6 +222,8 @@ export function Navbar() {
               background: 'rgba(0, 0, 0, 0.75)',
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)',
+              overscrollBehavior: 'contain',
+              touchAction: 'none',
             }}
           />
 
@@ -289,6 +235,9 @@ export function Navbar() {
               width: '100%',
               maxHeight: 'calc(100dvh - 66px)',
               overflowY: 'auto',
+              overscrollBehavior: 'contain',
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-y',
               background: 'hsl(222, 40%, 10%)',
               borderBottom: '1px solid var(--bg-border)',
               boxShadow: '0 20px 40px rgba(0,0,0,0.8)',
@@ -348,7 +297,7 @@ export function Navbar() {
 
             {/* Quick Portfolio & Privacy Links */}
             <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em', marginTop: 'var(--space-2)' }}>
-              Investor Services
+              Account Services
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>

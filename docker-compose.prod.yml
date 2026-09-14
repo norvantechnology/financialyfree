@@ -1,7 +1,7 @@
 version: '3.9'
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FinanciallyFree — Production Compose Orchestration
+# FinanciallyFree  Production Compose Orchestration
 # Strictly environment-variable driven (zero hardcoded secrets)
 # ─────────────────────────────────────────────────────────────────────────────
 

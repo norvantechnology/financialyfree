@@ -10,19 +10,26 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { GoalsService } from './goals.service';
 import { CreateGoalDto } from '@ff/types';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Goal Engine')
 @ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard)
 @Controller('goals')
 export class GoalsController {
   constructor(private readonly goalsService: GoalsService) {}
 
   private getUserId(req: any): string {
-    return req.user?.id || 'f47cfaa8-74c1-4257-81a1-fe803c31e0c0';
+    if (!req.user?.id) {
+      throw new UnauthorizedException('Authentication required');
+    }
+    return req.user.id;
   }
 
   @Get()

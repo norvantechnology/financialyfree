@@ -4,7 +4,7 @@ export type UUID = string;
 
 export type ISO8601 = string;
 
-export type INRAmount = number; // Always stored in paise (integer) or rupees (float) — annotated per field
+export type INRAmount = number; // Always stored in paise (integer) or rupees (float)  annotated per field
 
 export type Percentage = number; // 0–100 (not 0–1 decimal form)
 

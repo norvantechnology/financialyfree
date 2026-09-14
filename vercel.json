@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "pnpm --filter @ff/types build && pnpm --filter @ff/calc build && pnpm --filter @ff/validators build && pnpm --filter web build",
+  "installCommand": "pnpm install",
+  "outputDirectory": "apps/web/.next",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://05t44t95-3001.inc1.devtunnels.ms",
+    "API_URL": "https://05t44t95-3001.inc1.devtunnels.ms",
+    "INTERNAL_API_URL": "https://05t44t95-3001.inc1.devtunnels.ms",
+    "FRONTEND_URL": "https://05t44t95-3000.inc1.devtunnels.ms",
+    "NEXTAUTH_URL": "https://05t44t95-3000.inc1.devtunnels.ms"
+  }
+}

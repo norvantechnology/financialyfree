@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { VahanDataPointDto } from '@ff/types';
 
 export interface VahanStateRegistration {
@@ -8,21 +10,43 @@ export interface VahanStateRegistration {
   formattedCount: string;
 }
 
+export interface VahanSnapshot {
+  id: string;
+  snapshotDate: string; // YYYY-MM-DD
+  category: string;     // '2W', 'PV', 'CV', 'Tractor', or state codes
+  label: string;
+  registrations: number;
+  recordedAt: string;   // ISO timestamp
+  isLiveScraped: boolean;
+  source: string;
+}
+
+export interface VahanCategoryDetail {
+  category: string;
+  label: string;
+  registrations: number;
+  formattedRegistrations: string;
+  yoyChange: number | null;
+  yoyStatusText: string;
+  momChange: number | null;
+  keyOEMs: string[];
+  oemDisclaimer: string;
+  isModeled: boolean;
+  volumeNote: string;
+}
+
 export interface VahanDashboardPayload {
-  categories: {
-    category: string;
-    label: string;
-    registrations: number;
-    yoyChange: number;
-    momChange: number;
-    keyOEMs: string[];
-  }[];
+  mode: 'LIVE_FETCH' | 'STATIC_SEED' | 'UNAVAILABLE';
+  status: 'SUCCESS' | 'FAILURE';
+  categories: VahanCategoryDetail[];
   topStates: VahanStateRegistration[];
   dataPoints: VahanDataPointDto[];
   dataSource: string;
   retrievedAt: string;
   isLiveScraped: boolean;
   refreshCadence: string;
+  historicalSnapshotsCount: number;
+  yoyCalculationStatus: string;
 }
 
 interface VahanCacheEntry {
@@ -46,6 +70,170 @@ export class VahanEtlService {
   private readonly logger = new Logger(VahanEtlService.name);
   private cache: VahanCacheEntry | null = null;
   private readonly CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours (Vahan updates daily/monthly)
+  private readonly memorySnapshots: Map<string, VahanSnapshot> = new Map();
+  private isTableInitialized = false;
+
+  constructor(
+    @Optional()
+    @InjectDataSource()
+    private readonly dataSource?: DataSource,
+  ) {}
+
+  private async ensureSnapshotTable(): Promise<void> {
+    if (this.isTableInitialized || !this.dataSource || !this.dataSource.isInitialized) {
+      return;
+    }
+    try {
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS vahan_snapshots (
+          id VARCHAR(64) PRIMARY KEY,
+          snapshot_date VARCHAR(10) NOT NULL,
+          category VARCHAR(32) NOT NULL,
+          label VARCHAR(128) NOT NULL,
+          registrations BIGINT NOT NULL,
+          recorded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          is_live_scraped BOOLEAN NOT NULL DEFAULT false,
+          source VARCHAR(256) NOT NULL,
+          CONSTRAINT uq_vahan_snapshot_date_cat UNIQUE (snapshot_date, category)
+        );
+        CREATE INDEX IF NOT EXISTS idx_vahan_snapshots_date ON vahan_snapshots(snapshot_date);
+      `);
+      this.isTableInitialized = true;
+    } catch (err: any) {
+      this.logger.warn(`Could not ensure vahan_snapshots table in DB: ${err.message}. Relying on in-memory snapshot store.`);
+    }
+  }
+
+  async saveSnapshot(item: Omit<VahanSnapshot, 'id'>): Promise<VahanSnapshot> {
+    const id = `vsnap_${item.snapshotDate}_${item.category}`;
+    const snapshot: VahanSnapshot = { id, ...item };
+    this.memorySnapshots.set(id, snapshot);
+
+    if (this.dataSource && this.dataSource.isInitialized) {
+      try {
+        await this.ensureSnapshotTable();
+        await this.dataSource.query(
+          `INSERT INTO vahan_snapshots (id, snapshot_date, category, label, registrations, recorded_at, is_live_scraped, source)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (snapshot_date, category) DO UPDATE
+           SET registrations = EXCLUDED.registrations,
+               recorded_at = EXCLUDED.recorded_at,
+               is_live_scraped = EXCLUDED.is_live_scraped`,
+          [
+            snapshot.id,
+            snapshot.snapshotDate,
+            snapshot.category,
+            snapshot.label,
+            snapshot.registrations,
+            snapshot.recordedAt,
+            snapshot.isLiveScraped,
+            snapshot.source,
+          ],
+        );
+      } catch (err: any) {
+        this.logger.warn(`Failed to persist snapshot to PostgreSQL: ${err.message}`);
+      }
+    }
+
+    return snapshot;
+  }
+
+  async getSnapshots(category?: string): Promise<VahanSnapshot[]> {
+    if (this.dataSource && this.dataSource.isInitialized) {
+      try {
+        await this.ensureSnapshotTable();
+        const rows: any[] = category
+          ? await this.dataSource.query(
+              `SELECT id, snapshot_date as "snapshotDate", category, label, registrations, recorded_at as "recordedAt", is_live_scraped as "isLiveScraped", source
+               FROM vahan_snapshots WHERE category = $1 ORDER BY snapshot_date DESC`,
+              [category],
+            )
+          : await this.dataSource.query(
+              `SELECT id, snapshot_date as "snapshotDate", category, label, registrations, recorded_at as "recordedAt", is_live_scraped as "isLiveScraped", source
+               FROM vahan_snapshots ORDER BY snapshot_date DESC`,
+            );
+        if (rows && rows.length > 0) {
+          return rows.map((r) => ({
+            ...r,
+            registrations: Number(r.registrations),
+          }));
+        }
+      } catch (err: any) {
+        this.logger.warn(`Failed to query snapshots from PostgreSQL: ${err.message}`);
+      }
+    }
+
+    const all = Array.from(this.memorySnapshots.values());
+    return category ? all.filter((s) => s.category === category) : all;
+  }
+
+  async computeYoY(
+    category: string,
+    currentUnits: number,
+  ): Promise<{ yoyChange: number | null; yoyStatusText: string; isRealHistorical: boolean }> {
+    const snapshots = await this.getSnapshots(category);
+    // Looking for a historical snapshot approximately 365 days ago (+/- 30 days)
+    const now = new Date();
+    const targetPast = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const minTime = targetPast.getTime() - 30 * 24 * 60 * 60 * 1000;
+    const maxTime = targetPast.getTime() + 30 * 24 * 60 * 60 * 1000;
+
+    const historical = snapshots.find((s) => {
+      const snapTime = new Date(s.snapshotDate).getTime();
+      return snapTime >= minTime && snapTime <= maxTime;
+    });
+
+    if (historical && historical.registrations > 0) {
+      const diff = currentUnits - historical.registrations;
+      const pct = (diff / historical.registrations) * 100;
+      const rounded = Math.round(pct * 10) / 10;
+      return {
+        yoyChange: rounded,
+        yoyStatusText: `${rounded > 0 ? '+' : ''}${rounded.toFixed(1)}% YoY Growth`,
+        isRealHistorical: true,
+      };
+    }
+
+    return {
+      yoyChange: null,
+      yoyStatusText: 'YoY trend building  insufficient historical data yet',
+      isRealHistorical: false,
+    };
+  }
+
+  private async persistDashboardSnapshots(
+    categories: Array<{ category: string; label: string; registrations: number }>,
+    topStates: VahanStateRegistration[],
+    isLive: boolean,
+  ): Promise<void> {
+    const today = new Date().toISOString().slice(0, 10);
+    const nowIso = new Date().toISOString();
+    const source = isLive ? 'parivahan.gov.in (Live Scrape)' : 'parivahan.gov.in (Baseline Cache)';
+
+    for (const cat of categories) {
+      await this.saveSnapshot({
+        snapshotDate: today,
+        category: cat.category,
+        label: cat.label,
+        registrations: cat.registrations,
+        recordedAt: nowIso,
+        isLiveScraped: isLive,
+        source,
+      });
+    }
+
+    for (const st of topStates) {
+      await this.saveSnapshot({
+        snapshotDate: today,
+        category: `STATE_${st.stateCode}`,
+        label: `${st.stateName} Registrations`,
+        registrations: st.totalRegistrations,
+        recordedAt: nowIso,
+        isLiveScraped: isLive,
+        source,
+      });
+    }
+  }
 
   async getVahanData(forceRefresh = false): Promise<VahanDashboardPayload> {
     const now = Date.now();
@@ -57,7 +245,8 @@ export class VahanEtlService {
       this.logger.log('🚗 Starting scheduled ETL scrape against VAHAN 4 Dashboard (parivahan.gov.in)...');
       const liveStates = await this.scrapeVahanDashboard();
       
-      const payload = this.buildPayload(liveStates, true);
+      const payload = await this.buildPayload(liveStates, true);
+      await this.persistDashboardSnapshots(payload.categories, liveStates, true);
       this.cache = {
         data: payload,
         expiresAt: now + this.CACHE_TTL_MS,
@@ -65,11 +254,16 @@ export class VahanEtlService {
       this.logger.log(`✅ VAHAN ETL scrape succeeded: ${liveStates.length} top states extracted.`);
       return payload;
     } catch (err: any) {
-      this.logger.warn(`VAHAN live scrape failed or timed out: ${err.message}. Using cached baseline data.`);
+      this.logger.warn(`VAHAN live scrape failed or timed out: ${err.message}. Returning UNAVAILABLE empty payload.`);
       if (this.cache) {
         return this.cache.data;
       }
-      return this.buildPayload(this.getBaselineStates(), false);
+      const unavailable = await this.buildUnavailablePayload();
+      this.cache = {
+        data: unavailable,
+        expiresAt: now + Math.min(this.CACHE_TTL_MS, 15 * 60 * 1000),
+      };
+      return unavailable;
     }
   }
 
@@ -99,20 +293,58 @@ export class VahanEtlService {
 
     const viewState = viewStateMatch[1];
 
-    // Step 2: Trigger PrimeFaces AJAX chart request
-    const postBody = new URLSearchParams({
+    // Step 2a: Trigger comparison panel expansion (j_idt51)
+    const step1Body = new URLSearchParams({
       'javax.faces.partial.ajax': 'true',
-      'javax.faces.source': 'j_idt628',
+      'javax.faces.source': 'j_idt51',
       'javax.faces.partial.execute': '@all',
-      'javax.faces.partial.render': 'regnYearWiseCompChart',
-      'j_idt628': 'j_idt628',
+      'javax.faces.partial.render': 'comparison dashboardContentsPanel mainpagepnl',
+      'j_idt51': 'j_idt51',
       'masterLayout_formlogin': 'masterLayout_formlogin',
       'javax.faces.ViewState': viewState,
     }).toString();
 
+    const step1Resp = await fetch(url, {
+      method: 'POST',
+      body: step1Body,
+      headers: {
+        'User-Agent': userAgent,
+        'Faces-Request': 'partial/ajax',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        Cookie: cookie,
+      },
+      signal: AbortSignal.timeout(12000),
+    });
+
+    if (!step1Resp.ok) {
+      throw new Error(`Step 1 AJAX POST HTTP ${step1Resp.status}`);
+    }
+
+    const xml1 = await step1Resp.text();
+    const vsMatch1 = xml1.match(
+      /<update id="j_id1:javax\.faces\.ViewState:0"><!\[CDATA\[([^\]]+)\]\]><\/update>/,
+    );
+    const updatedViewState = vsMatch1 ? vsMatch1[1] : viewState;
+
+    const rcMatch = xml1.match(
+      /rcbarRegnYear\s*=\s*function\(\)\s*\{PrimeFaces\.ab\(\{s:"([^"]+)"/,
+    );
+    const sourceId = rcMatch ? rcMatch[1] : 'j_idt627';
+
+    // Step 2b: Trigger rcbarRegnYear to render the year-wise comparison chart
+    const step2Body = new URLSearchParams({
+      'javax.faces.partial.ajax': 'true',
+      'javax.faces.source': sourceId,
+      'javax.faces.partial.execute': '@all',
+      'javax.faces.partial.render': 'regnYearWiseCompChart',
+      [sourceId]: sourceId,
+      'masterLayout_formlogin': 'masterLayout_formlogin',
+      'javax.faces.ViewState': updatedViewState,
+    }).toString();
+
     const postResp = await fetch(url, {
       method: 'POST',
-      body: postBody,
+      body: step2Body,
       headers: {
         'User-Agent': userAgent,
         'Faces-Request': 'partial/ajax',
@@ -157,79 +389,56 @@ export class VahanEtlService {
       });
     }
 
-    return result.length > 0 ? result : this.getBaselineStates();
+    if (result.length === 0) {
+      throw new Error('VAHAN scrape returned no state registration ticks');
+    }
+
+    return result;
   }
 
-  private getBaselineStates(): VahanStateRegistration[] {
-    return [
-      { stateCode: 'UP', stateName: 'Uttar Pradesh', totalRegistrations: 56451661, formattedCount: '5.65 Cr' },
-      { stateCode: 'MH', stateName: 'Maharashtra', totalRegistrations: 44464252, formattedCount: '4.45 Cr' },
-      { stateCode: 'TN', stateName: 'Tamil Nadu', totalRegistrations: 36957798, formattedCount: '3.70 Cr' },
-      { stateCode: 'KA', stateName: 'Karnataka', totalRegistrations: 35880260, formattedCount: '3.59 Cr' },
-      { stateCode: 'GJ', stateName: 'Gujarat', totalRegistrations: 29442350, formattedCount: '2.94 Cr' },
-    ];
+  private async buildUnavailablePayload(): Promise<VahanDashboardPayload> {
+    const allSnapshots = await this.getSnapshots();
+    return {
+      mode: 'UNAVAILABLE',
+      status: 'FAILURE',
+      categories: [],
+      topStates: [],
+      dataPoints: [],
+      dataSource:
+        'Government of India public VAHAN dashboard (parivahan.gov.in)  Ministry of Road Transport & Highways (MoRTH)',
+      retrievedAt: new Date().toISOString(),
+      isLiveScraped: false,
+      refreshCadence: 'Daily / 24h automated ETL cache (respecting government portal rate limits)',
+      historicalSnapshotsCount: allSnapshots.length,
+      yoyCalculationStatus:
+        'YoY calculation requires 12 months of persisted daily snapshots. Live scrape currently UNAVAILABLE.',
+    };
   }
 
-  private buildPayload(
+  private async buildPayload(
     states: VahanStateRegistration[],
     isLive: boolean,
-  ): VahanDashboardPayload {
-    const currentMonth = '2026-08';
-    const categories = [
-      {
-        category: '2W',
-        label: 'Two-Wheelers',
-        registrations: 1428500,
-        yoyChange: 14.2,
-        momChange: 3.8,
-        keyOEMs: ['Hero MotoCorp', 'Bajaj Auto', 'TVS Motor', 'Eicher (Royal Enfield)'],
-      },
-      {
-        category: 'PV',
-        label: 'Passenger Vehicles (Cars & SUVs)',
-        registrations: 345200,
-        yoyChange: 8.6,
-        momChange: 2.1,
-        keyOEMs: ['Maruti Suzuki', 'Hyundai', 'Tata Motors', 'Mahindra & Mahindra'],
-      },
-      {
-        category: 'CV',
-        label: 'Commercial Vehicles',
-        registrations: 88400,
-        yoyChange: 4.1,
-        momChange: -1.2,
-        keyOEMs: ['Tata Motors', 'Ashok Leyland', 'VECV (Eicher)'],
-      },
-      {
-        category: 'Tractor',
-        label: 'Agricultural Tractors',
-        registrations: 69800,
-        yoyChange: 11.8,
-        momChange: 5.4,
-        keyOEMs: ['Mahindra Tractors', 'Escorts Kubota', 'TAFE'],
-      },
-    ];
-
-    const dataPoints: VahanDataPointDto[] = categories.map((c, idx) => ({
-      id: `vahan-${idx + 1}`,
-      month: currentMonth,
-      category: c.category as any,
-      registrations: c.registrations,
-      momChange: c.momChange,
-      yoyChange: c.yoyChange,
-      dataSource: 'VAHAN / Government of India (parivahan.gov.in)',
-      retrievedAt: new Date().toISOString(),
-    }));
+  ): Promise<VahanDashboardPayload> {
+    // Category volumes are not scraped from the state-registration chart; never fabricate them.
+    const categories: VahanCategoryDetail[] = [];
+    const dataPoints: VahanDataPointDto[] = [];
+    const allSnapshots = await this.getSnapshots();
 
     return {
+      mode: isLive ? 'LIVE_FETCH' : 'UNAVAILABLE',
+      status: isLive && states.length > 0 ? 'SUCCESS' : 'FAILURE',
       categories,
       topStates: states,
       dataPoints,
       dataSource:
-        'Government of India public VAHAN dashboard (parivahan.gov.in) — Ministry of Road Transport & Highways (MoRTH)',
+        'Government of India public VAHAN dashboard (parivahan.gov.in)  Ministry of Road Transport & Highways (MoRTH)',
       retrievedAt: new Date().toISOString(),
       isLiveScraped: isLive,
       refreshCadence: 'Daily / 24h automated ETL cache (respecting government portal rate limits)',
+      historicalSnapshotsCount: allSnapshots.length,
+      yoyCalculationStatus:
+        'YoY calculation requires 12 months of persisted daily snapshots. Snapshot accumulator active.',
     };
   }
 }
+

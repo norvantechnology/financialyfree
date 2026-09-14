@@ -5,6 +5,7 @@ allowBuilds:
   '@nestjs/core': true
   argon2: true
   msgpackr-extract: true
+  puppeteer: set this to true or false
   unrs-resolver: true
 overrides:
   next: '>=14.2.35'
@@ -15,5 +16,3 @@ overrides:
   minimatch: '>=9.0.5'
   picomatch: '>=4.0.2'
   tmp: '>=0.2.6'
-
-

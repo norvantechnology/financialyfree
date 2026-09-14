@@ -2,7 +2,6 @@ export type NotificationChannel = 'in_app' | 'email' | 'whatsapp' | 'sms' | 'pus
 
 export type NotificationType =
   | 'sip_reminder'
-  | 'webinar_reminder'
   | 'course_progress'
   | 'kyc_status'
   | 'payment_success'
@@ -50,5 +49,5 @@ export interface UserConsentDto {
 }
 
 export interface SimulateNotificationDto {
-  triggerType: 'sip_reminder' | 'webinar_reminder' | 'kyc_status' | 'course_progress';
+  triggerType: 'sip_reminder' | 'kyc_status' | 'course_progress';
 }
