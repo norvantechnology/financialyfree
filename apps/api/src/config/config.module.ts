@@ -5,7 +5,31 @@ import { z } from 'zod';
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().default(3001),
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z
+    .string()
+    .url()
+    .refine(
+      (url) => {
+        try {
+          const host = new URL(url).hostname.toLowerCase();
+          // Reject example/placeholder hosts that cause ENOTFOUND HOST on Render
+          return !['host', 'localhost', '127.0.0.1'].includes(host) || process.env.NODE_ENV !== 'production';
+        } catch {
+          return false;
+        }
+      },
+      {
+        message:
+          'DATABASE_URL still has a placeholder host (e.g. HOST). Set the real Supabase Postgres URI from Project Settings → Database → Connection string.',
+      },
+    )
+    .refine(
+      (url) => !/USER:PASSWORD@HOST|YOUR_DB_PASSWORD|CHANGE_ME/i.test(url),
+      {
+        message:
+          'DATABASE_URL contains placeholder credentials. Paste the real Supabase connection URI (with your database password).',
+      },
+    ),
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.coerce.number().default(6379),
   JWT_SECRET: z.string().min(32),
