@@ -21,8 +21,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "jest": "^29.7.0",
-    "ts-jest": "^29.4.12",
-    "typescript": "5.5.4"
+    "ts-jest": "^29.4.12"
   },
   "jest": {
     "preset": "ts-jest",
@@ -34,5 +33,9 @@
     "collectCoverageFrom": [
       "src/**/*.ts"
     ]
-  }
+  },
+  "dependencies": {
+    "typescript": "5.5.4"
+  },
+  "type": "commonjs"
 }

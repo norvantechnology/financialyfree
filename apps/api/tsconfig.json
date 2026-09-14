@@ -3,7 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "module": "CommonJS",
+    "module": "Node16",
     "paths": {
       "@ff/types": ["../../packages/types/dist"],
       "@ff/calc": ["../../packages/calc/dist"],
