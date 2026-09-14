@@ -5,6 +5,7 @@
 # https://github.com/norvantechnology/financialyfree
 #
 # After deploy, set FRONTEND_URL to your Vercel/frontend origin so CORS works.
+# Do NOT use `corepack enable` on Render (EROFS on /usr/bin/pnpm).
 
 services:
   - type: web
@@ -13,10 +14,12 @@ services:
     plan: free
     region: singapore
     rootDir: .
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @ff/types build && pnpm --filter @ff/calc build && pnpm --filter @ff/validators build && pnpm --filter @ff/api build
+    buildCommand: npm install -g pnpm@9.15.0 && pnpm install --frozen-lockfile && pnpm --filter @ff/types build && pnpm --filter @ff/calc build && pnpm --filter @ff/validators build && pnpm --filter @ff/api build
     startCommand: pnpm --filter @ff/api start
     healthCheckPath: /health
     envVars:
+      - key: NODE_VERSION
+        value: "20.19.0"
       - key: NODE_ENV
         value: production
       - key: PORT
@@ -29,6 +32,10 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        value: "6379"
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
