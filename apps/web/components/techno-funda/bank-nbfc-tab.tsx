@@ -31,6 +31,7 @@ export interface BankNbfcTabProps {
     costOfFunds?: BankMetricRow[];
     roa?: BankMetricRow[];
     deposits?: BankMetricRow[];
+    pat?: BankMetricRow[];
     banks?: Array<{
       bankName: string;
       ticker: string;
@@ -41,6 +42,14 @@ export interface BankNbfcTabProps {
       eps?: (number | null)[];
       opmPct?: (number | null)[];
     }>;
+    metricLabels?: {
+      costOfFunds?: string;
+      roa?: string;
+      deposits?: string;
+      pat?: string;
+    };
+    message?: string;
+    dataSource?: string;
     lastUpdated?: string;
   };
   isLoading?: boolean;
@@ -48,26 +57,37 @@ export interface BankNbfcTabProps {
 }
 
 export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfcTabProps = {}) {
-  const [selectedProperty, setSelectedProperty] = useState('Cost Of Funds');
+  const [selectedProperty, setSelectedProperty] = useState('Net Profit Margin');
   const [selectedBank, setSelectedBank] = useState('All');
   const [bankSearch, setBankSearch] = useState('');
   const [sectorFilter, setSectorFilter] = useState<'All' | 'Private' | 'PSU'>('All');
 
   const periods = liveData?.periods && liveData.periods.length > 0 ? liveData.periods : YEARS;
 
-  // Prefer dedicated metric grids; fall back to live banks P&L series from API
+  const hasNumericValues = (rows?: BankMetricRow[]) =>
+    Boolean(rows?.some((r) => (r.values || []).some((v) => v != null && !Number.isNaN(Number(v)))));
+
+  // Prefer dedicated metric grids when they contain real numbers; else derive from banks[]
   const costOfFundsData = useMemo(() => {
-    if (liveData?.costOfFunds && liveData.costOfFunds.length > 0) return liveData.costOfFunds;
+    if (hasNumericValues(liveData?.costOfFunds)) return liveData!.costOfFunds!;
     return (liveData?.banks || []).map((b) => ({
       bankName: b.bankName,
       ticker: b.ticker,
       sector: b.sector,
-      values: (b.opmPct || b.revenue || []).map((v) => (v == null ? null : Number(v))),
+      values: (b.opmPct || []).map((v, i) => {
+        if (v != null) return Number(v);
+        const rev = b.revenue?.[i];
+        const pat = b.pat?.[i];
+        if (rev && pat != null && Number(rev) !== 0) {
+          return Math.round((Number(pat) / Number(rev)) * 1000) / 10;
+        }
+        return null;
+      }),
     }));
   }, [liveData]);
 
   const roaData = useMemo(() => {
-    if (liveData?.roa && liveData.roa.length > 0) return liveData.roa;
+    if (hasNumericValues(liveData?.roa)) return liveData!.roa!;
     return (liveData?.banks || []).map((b) => ({
       bankName: b.bankName,
       ticker: b.ticker,
@@ -77,7 +97,7 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
   }, [liveData]);
 
   const depositsData = useMemo(() => {
-    if (liveData?.deposits && liveData.deposits.length > 0) return liveData.deposits;
+    if (hasNumericValues(liveData?.deposits)) return liveData!.deposits!;
     return (liveData?.banks || []).map((b) => ({
       bankName: b.bankName,
       ticker: b.ticker,
@@ -90,41 +110,41 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
     return ['All', ...costOfFundsData.map((b) => b.bankName)];
   }, [costOfFundsData]);
 
-  const getCostOfFundsCellBg = (val: number | null) => {
+  // NPM % — higher is better
+  const getMarginCellBg = (val: number | null) => {
     if (val === null) return '#F8FAFC';
-    // Lower is better (green for low cost of funds <= 4.5%, yellow 4.6-5.5, orange 5.6-6.5, red > 6.5)
-    if (val <= 4.2) return '#DCFCE7'; // dark green
-    if (val <= 5.0) return '#ECFDF5'; // light green
-    if (val <= 5.8) return '#FEF3C7'; // yellow / amber
-    if (val <= 6.8) return '#FFEDD5'; // orange
-    return '#FEE2E2'; // light red
+    if (val >= 25) return '#DCFCE7';
+    if (val >= 18) return '#ECFDF5';
+    if (val >= 12) return '#FEF3C7';
+    if (val >= 6) return '#FFEDD5';
+    return '#FEE2E2';
   };
 
-  const getCostOfFundsColor = (val: number | null) => {
+  const getMarginColor = (val: number | null) => {
     if (val === null) return '#94A3B8';
-    if (val <= 4.2) return '#15803D';
-    if (val <= 5.0) return '#0F766E';
-    if (val <= 5.8) return '#92400E';
-    if (val <= 6.8) return '#C2410C';
+    if (val >= 25) return '#15803D';
+    if (val >= 18) return '#0F766E';
+    if (val >= 12) return '#92400E';
+    if (val >= 6) return '#C2410C';
     return '#B91C1C';
   };
 
   const getRoaCellBg = (val: number | null) => {
     if (val === null) return '#F8FAFC';
-    // Higher is better for ROA
-    if (val >= 2.0) return '#DCFCE7';
-    if (val >= 1.2) return '#ECFDF5';
-    if (val >= 0.5) return '#FEF3C7';
-    if (val >= 0) return '#FFEDD5';
+    // EPS ₹ — relative green scale
+    if (val >= 40) return '#DCFCE7';
+    if (val >= 25) return '#ECFDF5';
+    if (val >= 15) return '#FEF3C7';
+    if (val >= 5) return '#FFEDD5';
     return '#FEE2E2';
   };
 
   const getRoaColor = (val: number | null) => {
     if (val === null) return '#94A3B8';
-    if (val >= 2.0) return '#15803D';
-    if (val >= 1.2) return '#0F766E';
-    if (val >= 0.5) return '#92400E';
-    if (val >= 0) return '#C2410C';
+    if (val >= 40) return '#15803D';
+    if (val >= 25) return '#0F766E';
+    if (val >= 15) return '#92400E';
+    if (val >= 5) return '#C2410C';
     return '#B91C1C';
   };
 
@@ -213,7 +233,7 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
 
   const handleResetFilters = () => {
     setBankSearch('');
-    setSelectedProperty('All');
+    setSelectedProperty('Net Profit Margin');
     setSelectedBank('All');
     setSectorFilter('All');
   };
@@ -284,7 +304,7 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
                 12-Year Ratio Heatmaps &amp; Liability Benchmarks
               </div>
               <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px', lineHeight: 1.4 }}>
-                Cost of Funds, ROA quality, and deposit growth trends across Indian scheduled commercial banks.
+                Interest Income, Net Profit Margin, and EPS trends from free Screener.in bank P&L (not statutory CoF/ROA).
               </div>
             </div>
           </div>
@@ -382,9 +402,9 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
                 }}
               >
                 <option value="All">All Metrics (All 3)</option>
-                <option value="Cost Of Funds">Cost Of Funds (%)</option>
-                <option value="ROA">ROA Ratio (%)</option>
-                <option value="Deposits">Deposits (₹ Cr)</option>
+                <option value="Net Profit Margin">Net Profit Margin (%)</option>
+                <option value="EPS">EPS (₹)</option>
+                <option value="Interest Income">Interest Income (₹ Cr)</option>
               </select>
             </div>
 
@@ -495,22 +515,22 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
       </div>
 
       {/* ── Section 1: Key Ratios (Cost of Funds Heatmap) ─────────── */}
-      {(selectedProperty === 'All' || selectedProperty === 'Cost Of Funds') && (
+      {(selectedProperty === 'All' || selectedProperty === 'Net Profit Margin') && (
         <div className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
             <div>
               <h3 style={{ fontSize: '14.5px', fontWeight: 700, color: '#0F172A', margin: 0 }}>
-                Cost of Funds Benchmark (%)
+                Net Profit Margin (%) — PAT / Interest Income
               </h3>
               <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '1px' }}>
-                Green cells indicate lower cost of borrowing and higher deposit franchise strength. Click headers to sort.
+                Free Screener.in bank P&L. Green = higher margin. Statutory Cost of Funds is not in this free feed.
               </div>
             </div>
-            <div style={{ fontSize: '11px', color: '#64748B' }}>12-Year Historical Comparison</div>
+            <div style={{ fontSize: '11px', color: '#64748B' }}>Annual Margin Trend</div>
           </div>
 
           <div className="bank-nbfc-scroll-hint">
-            <span>&larr; Swipe table horizontally to view 12-year history &rarr;</span>
+            <span>&larr; Swipe table horizontally to view history &rarr;</span>
           </div>
 
           <div className="table-scroll-container" style={{ border: 'none', margin: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
@@ -551,8 +571,8 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
                           padding: '6px 4px',
                           textAlign: 'center',
                           fontWeight: 600,
-                          background: getCostOfFundsCellBg(val),
-                          color: getCostOfFundsColor(val),
+                          background: getMarginCellBg(val),
+                          color: getMarginColor(val),
                           borderRadius: '2px',
                         }}
                       >
@@ -567,19 +587,19 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
         </div>
       )}
 
-      {/* ── Section 2: More Ratios (ROA Heatmap) ──────────────────── */}
-      {(selectedProperty === 'All' || selectedProperty === 'ROA') && (
+      {/* ── Section 2: EPS Heatmap ──────────────────── */}
+      {(selectedProperty === 'All' || selectedProperty === 'EPS') && (
         <div className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
             <div>
               <h3 style={{ fontSize: '14.5px', fontWeight: 700, color: '#0F172A', margin: 0 }}>
-                Return on Assets (ROA %)
+                Earnings Per Share (₹)
               </h3>
               <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '1px' }}>
-                Green cells indicate strong asset quality and high return generation (&gt;1.5% ROA). Click headers to sort.
+                Annual EPS from Screener.in. Green cells indicate stronger per-share earnings. Click headers to sort.
               </div>
             </div>
-            <div style={{ fontSize: '11px', color: '#64748B' }}>Annual ROA Trend</div>
+            <div style={{ fontSize: '11px', color: '#64748B' }}>Annual EPS Trend</div>
           </div>
 
           <div className="bank-nbfc-scroll-hint">
@@ -640,16 +660,16 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
         </div>
       )}
 
-      {/* ── Section 3: Balance Sheet Deposits / Advances Table ─────── */}
-      {(selectedProperty === 'All' || selectedProperty === 'Deposits') && (
+      {/* ── Section 3: Interest Income (Screener Sales for banks) ─────── */}
+      {(selectedProperty === 'All' || selectedProperty === 'Interest Income') && (
         <div className="card" style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', padding: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
             <div>
               <h3 style={{ fontSize: '14.5px', fontWeight: 700, color: '#0F172A', margin: 0 }}>
-                Total Deposits &amp; Growth (₹ Cr)
+                Interest Income / Sales (₹ Cr)
               </h3>
               <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '1px' }}>
-                Historical reported deposit base across leading commercial and private scheduled banks. Click headers to sort.
+                Screener.in “Sales” line for banks (interest earned). Not statutory deposit balances. Click headers to sort.
               </div>
             </div>
             <div style={{ fontSize: '11px', color: '#64748B' }}>Values in ₹ Cr</div>

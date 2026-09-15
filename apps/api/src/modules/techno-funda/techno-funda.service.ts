@@ -2762,12 +2762,20 @@ export class TechnoFundaService {
         return {
           bankName: pl.companyName || b.name,
           ticker: b.symbol,
-          sector: pl.sector || 'Bank',
+          sector: /bank|finance|nbfc/i.test(pl.sector || '') ? ( /psu|public|state bank|baroda|punjab|canara|union|indian bank/i.test(pl.companyName || b.name) ? 'PSU' : 'Private') : (pl.sector || 'Bank'),
           periods: pl.years.map((y) => y.year),
           revenue: pl.years.map((y) => y.revenue),
           pat: pl.years.map((y) => y.pat),
           eps: pl.years.map((y) => y.eps),
-          opmPct: pl.years.map((y) => y.opmPct),
+          // Banks rarely expose OPM on Screener — derive NPM (PAT / Interest Income)
+          opmPct: pl.years.map((y) => {
+            if (y.opmPct != null) return y.opmPct;
+            if (y.revenue && y.pat != null && Number(y.revenue) !== 0) {
+              return Math.round((Number(y.pat) / Number(y.revenue)) * 1000) / 10;
+            }
+            return null;
+          }),
+          interest: pl.years.map((y) => y.interest ?? null),
           roce: pl.ratios.roce,
           debtToEquity: pl.ratios.debtToEquity,
           sourceUrl: pl.sourceUrl,
@@ -2838,11 +2846,17 @@ export class TechnoFundaService {
     const periods = bankRows[0]?.periods || [];
     const result = {
       source: bankRows.length ? 'LIVE_FETCH' : 'UNAVAILABLE',
-      dataSource: 'NSE Nifty Bank constituents + Screener.in annual P&L (live scrape)',
+      dataSource: 'NSE Nifty Bank constituents + Screener.in annual P&L (free public scrape)',
       periods,
       banksCount: bankRows.length,
       banks: bankRows,
-      // legacy keys kept empty so UI does not render fabricated CoF/ROA grids
+      // Honest free-data grids (true Cost-of-Funds / statutory ROA are not on Screener P&L)
+      metricLabels: {
+        costOfFunds: 'Net Profit Margin % (PAT / Interest Income)',
+        roa: 'EPS (₹)',
+        deposits: 'Interest Income / Sales (₹ Cr)',
+        pat: 'Net Profit (₹ Cr)',
+      },
       costOfFunds: bankRows.map((b) => ({
         bankName: b.bankName,
         ticker: b.ticker,
@@ -2861,9 +2875,15 @@ export class TechnoFundaService {
         sector: b.sector,
         values: b.revenue || [],
       })),
+      pat: bankRows.map((b) => ({
+        bankName: b.bankName,
+        ticker: b.ticker,
+        sector: b.sector,
+        values: b.pat || [],
+      })),
       lastUpdated: new Date().toISOString(),
       message: bankRows.length
-        ? undefined
+        ? 'Free Screener.in bank P&L: Interest Income, PAT, EPS, and derived Net Profit Margin. Statutory Cost of Funds / ROA are not published in this free feed.'
         : 'Live bank financial series unavailable from Screener.in / NSE.',
     };
 
