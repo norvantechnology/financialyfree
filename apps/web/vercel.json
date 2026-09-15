@@ -2,10 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://05t44t95-3001.inc1.devtunnels.ms",
-    "API_URL": "https://05t44t95-3001.inc1.devtunnels.ms",
-    "INTERNAL_API_URL": "https://05t44t95-3001.inc1.devtunnels.ms",
-    "FRONTEND_URL": "https://05t44t95-3000.inc1.devtunnels.ms",
-    "NEXTAUTH_URL": "https://05t44t95-3000.inc1.devtunnels.ms"
+    "NEXT_PUBLIC_API_URL": "https://financialyfree.onrender.com",
+    "API_URL": "https://financialyfree.onrender.com",
+    "INTERNAL_API_URL": "https://financialyfree.onrender.com"
   }
 }

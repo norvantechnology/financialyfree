@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
+  // standalone is for Docker; Vercel provides its own output handling
+  output:
+    process.env.VERCEL || process.env.NODE_ENV !== 'production'
+      ? undefined
+      : 'standalone',
   transpilePackages: ['@ff/types', '@ff/calc', '@ff/validators'],
   images: {
     remotePatterns: [
@@ -10,15 +14,22 @@ const nextConfig = {
     ],
   },
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001',
+    NEXT_PUBLIC_API_URL:
+      process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001',
     NEXT_PUBLIC_RAZORPAY_KEY_ID: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? '',
-    NEXT_PUBLIC_FEATURE_TRACK_B_ENABLED: process.env.NEXT_PUBLIC_FEATURE_TRACK_B_ENABLED ?? 'false',
+    NEXT_PUBLIC_FEATURE_TRACK_B_ENABLED:
+      process.env.NEXT_PUBLIC_FEATURE_TRACK_B_ENABLED ?? 'false',
   },
   async rewrites() {
+    const apiOrigin = (
+      process.env.INTERNAL_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      'http://localhost:3001'
+    ).replace(/\/+$/, '');
     return [
       {
         source: '/api/v1/:path*',
-        destination: `${process.env.INTERNAL_API_URL || 'http://localhost:3001'}/api/v1/:path*`,
+        destination: `${apiOrigin}/api/v1/:path*`,
       },
     ];
   },

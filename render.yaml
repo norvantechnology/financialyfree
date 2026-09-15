@@ -22,7 +22,7 @@ services:
       - key: PORT
         value: 10000
       - key: API_URL
-        sync: false
+        value: https://financialyfree.onrender.com
       - key: FRONTEND_URL
         sync: false
       - key: DATABASE_URL
