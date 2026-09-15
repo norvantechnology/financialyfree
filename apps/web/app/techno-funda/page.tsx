@@ -1176,7 +1176,16 @@ function TechnoFundaContent() {
 
   const [masterTrackerData, setMasterTrackerData] = useState<{ totalStocks: number; stocks: any[]; lastUpdated: string } | null>(null);
   const [orderTrackerData, setOrderTrackerData] = useState<{ totalOrdersCount: number; totalOrderValueCr: number; consolidated: any[]; orders: any[]; lastUpdated: string } | null>(null);
-  const [bankNbfcData, setBankNbfcData] = useState<{ periods: string[]; costOfFunds: any[]; roa: any[]; deposits: any[]; lastUpdated: string } | null>(null);
+  const [bankNbfcData, setBankNbfcData] = useState<{
+    periods: string[];
+    costOfFunds: any[];
+    roa: any[];
+    deposits: any[];
+    banks?: any[];
+    lastUpdated: string;
+    source?: string;
+    message?: string;
+  } | null>(null);
   const [vahanMakersData, setVahanMakersData] = useState<{ totalMakers: number; makers: any[]; lastUpdated: string } | null>(null);
   const [fiftyTwoWeekData, setFiftyTwoWeekData] = useState<FiftyTwoWeekData | null>(null);
   const [bulkDealsData, setBulkDealsData] = useState<BulkBlockDealsData | null>(null);
@@ -1472,6 +1481,18 @@ function TechnoFundaContent() {
               setOrderTrackerData(v);
               statusMap.orders = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
               loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'bank-nbfc':
+            if (ok && (v.banks || v.costOfFunds) && !v.error) {
+              setBankNbfcData(v);
+              statusMap.bankNbfc = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              if ((v.banks?.length || 0) > 0 || (v.costOfFunds?.length || 0) > 0) {
+                loadedFeedsRef.current.add(key);
+              }
+            } else {
+              statusMap.bankNbfc = { ok: false, error: 'Bank / NBFC live feed failed' };
+              failed.push('Bank / NBFC');
             }
             break;
           case 'vahan-makers':
