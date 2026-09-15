@@ -188,6 +188,36 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
     return list;
   };
 
+  // Hooks must run unconditionally (before any early returns) — React #310
+  const sortedCostOfFunds = useMemo(
+    () => getSortedRows(costOfFundsData),
+    [costOfFundsData, sortColumn, sortDirection, selectedBank, sectorFilter, bankSearch, periods],
+  );
+  const sortedRoa = useMemo(
+    () => getSortedRows(roaData),
+    [roaData, sortColumn, sortDirection, selectedBank, sectorFilter, bankSearch, periods],
+  );
+  const sortedDeposits = useMemo(
+    () => getSortedRows(depositsData),
+    [depositsData, sortColumn, sortDirection, selectedBank, sectorFilter, bankSearch, periods],
+  );
+
+  const totalCount = costOfFundsData.length;
+  const filteredCount = sortedCostOfFunds.length;
+
+  const isFiltered =
+    bankSearch.trim() !== '' ||
+    selectedProperty !== 'All' ||
+    selectedBank !== 'All' ||
+    sectorFilter !== 'All';
+
+  const handleResetFilters = () => {
+    setBankSearch('');
+    setSelectedProperty('All');
+    setSelectedBank('All');
+    setSectorFilter('All');
+  };
+
   if (isLoading && costOfFundsData.length === 0) {
     return (
       <TfLoadingState
@@ -228,26 +258,6 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
       </div>
     );
   }
-
-  const isFiltered =
-    bankSearch.trim() !== '' ||
-    selectedProperty !== 'All' ||
-    selectedBank !== 'All' ||
-    sectorFilter !== 'All';
-
-  const handleResetFilters = () => {
-    setBankSearch('');
-    setSelectedProperty('All');
-    setSelectedBank('All');
-    setSectorFilter('All');
-  };
-
-  const sortedCostOfFunds = useMemo(() => getSortedRows(costOfFundsData), [costOfFundsData, sortColumn, sortDirection, selectedBank, sectorFilter, bankSearch]);
-  const sortedRoa = useMemo(() => getSortedRows(roaData), [roaData, sortColumn, sortDirection, selectedBank, sectorFilter, bankSearch]);
-  const sortedDeposits = useMemo(() => getSortedRows(depositsData), [depositsData, sortColumn, sortDirection, selectedBank, sectorFilter, bankSearch]);
-
-  const totalCount = costOfFundsData.length;
-  const filteredCount = sortedCostOfFunds.length;
 
   return (
     <div className="space-y-3">
