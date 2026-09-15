@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo } from 'react';
 import {
-import { TfLoadingState } from './tf-loading-state';
   ArrowUpRight,
   ArrowDownRight,
   RefreshCw,
@@ -13,6 +12,7 @@ import { TfLoadingState } from './tf-loading-state';
   Table as TableIcon,
 } from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
+import { TfLoadingState } from './tf-loading-state';
 
 export interface SectorItem {
   symbol: string;

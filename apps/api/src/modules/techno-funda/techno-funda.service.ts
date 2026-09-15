@@ -1074,25 +1074,23 @@ export class TechnoFundaService {
 
   async enrichBuybacksWithQuotes(buybacks: any[]): Promise<any[]> {
     if (!buybacks || buybacks.length === 0) return [];
-    return Promise.all(
-      buybacks.map(async (bb) => {
-        let currentPrice = bb.currentPrice;
-        if (!currentPrice && bb.symbol) {
-          try {
-            currentPrice = await this.marketIndexService.fetchStockPrice(bb.symbol);
-          } catch {}
-        }
-        let premiumPct = bb.premiumPct;
-        if (currentPrice && bb.buybackPrice) {
-          premiumPct = calculateBuybackPremium(currentPrice, bb.buybackPrice);
-        }
-        return {
-          ...bb,
-          currentPrice,
-          premiumPct: premiumPct !== null && premiumPct !== undefined ? Math.round(premiumPct * 100) / 100 : null,
-        };
-      }),
-    );
+    return this.mapPool(buybacks.slice(0, 20), 4, async (bb) => {
+      let currentPrice = bb.currentPrice;
+      if (!currentPrice && bb.symbol) {
+        try {
+          currentPrice = await this.marketIndexService.fetchStockPrice(bb.symbol);
+        } catch {}
+      }
+      let premiumPct = bb.premiumPct;
+      if (currentPrice && bb.buybackPrice) {
+        premiumPct = calculateBuybackPremium(currentPrice, bb.buybackPrice);
+      }
+      return {
+        ...bb,
+        currentPrice,
+        premiumPct: premiumPct !== null && premiumPct !== undefined ? Math.round(premiumPct * 100) / 100 : null,
+      };
+    });
   }
 
   private buybacksCache: { timestamp: number; data: any } | null = null;
@@ -1141,7 +1139,7 @@ export class TechnoFundaService {
       return this.buybacksCache.data;
     }
 
-    const buildFromActions = async (rawActions: any[], sourceUrl: string) => {
+    const buildFromActions = async (rawActions: any[], sourceUrl: string, source: 'LIVE_FETCH' | 'HEALTH_CACHE') => {
       const actions = (rawActions || []).slice(0, 80).map((a: any) => ({
         symbol: a.symbol,
         company: a.company || a.comp,
@@ -1154,7 +1152,7 @@ export class TechnoFundaService {
       const rawBuybacks = this.filterBuybacks(rawActions);
       const buybacks = await this.enrichBuybacksWithQuotes(rawBuybacks);
       return {
-        source: 'LIVE_FETCH' as const,
+        source,
         sourceUrl,
         totalBuybacks: buybacks.length,
         buybacks,
@@ -1175,6 +1173,7 @@ export class TechnoFundaService {
         const mapped = await buildFromActions(
           rawActions,
           'https://www.nseindia.com/api/corporates-corporateActions?index=equities',
+          'LIVE_FETCH',
         );
         this.buybacksCache = { timestamp: Date.now(), data: mapped };
         // Persist for admin health (non-blocking)
@@ -1208,6 +1207,7 @@ export class TechnoFundaService {
           const mapped = await buildFromActions(
             rawActions,
             parsed.sourceUrl || 'https://www.nseindia.com/api/corporates-corporateActions?index=equities',
+            'HEALTH_CACHE',
           );
           mapped.lastUpdated = record.lastFetchedAt
             ? record.lastFetchedAt.toISOString()
@@ -1346,11 +1346,20 @@ export class TechnoFundaService {
       retrievedAt: new Date().toISOString(),
     };
 
-    // Health metadata only — never store slim snippets used as calendar payload
+    // Health metadata — only persist SUCCESS when live arrays are non-empty
     void this.healthRepo
       .findOne({ where: { sourceKey: 'results_calendar' } })
       .then(async (record) => {
         if (!record) return;
+        const hasData = payload.upcomingMeetings.length > 0 || payload.recentResults.length > 0;
+        if (!hasData) {
+          // Do not overwrite a good prior snippet with empties
+          if (record.status === 'SUCCESS' && record.rawResponseSnippet) return;
+          record.status = 'FAILURE';
+          record.lastFetchedAt = new Date();
+          await this.healthRepo.save(record);
+          return;
+        }
         record.rawResponseSnippet = JSON.stringify({
           sourceUrl: payload.sourceUrl,
           totalEventsListed: payload.upcomingMeetings.length,
@@ -1437,7 +1446,7 @@ export class TechnoFundaService {
         const recentResults = parsed.recentResults || [];
         if (meetings.length > 0 || recentResults.length > 0) {
           const mapped = {
-            source: 'LIVE_FETCH' as const,
+            source: 'HEALTH_CACHE' as const,
             sourceUrl: parsed.sourceUrl || 'https://www.nseindia.com/api/event-calendar',
             totalEvents: meetings.length || parsed.totalEventsListed || 0,
             meetings,
@@ -2681,18 +2690,32 @@ export class TechnoFundaService {
 
   // ── Bank / NBFC Multi-Year Ratios ───────────────────────────────────────
   private bankNbfcCache: { timestamp: number; data: any } | null = null;
+  private bankNbfcInFlight: Promise<any> | null = null;
 
   async getBankNbfcData(forceRefresh = false) {
     const cachedBanks = this.bankNbfcCache?.data?.banks?.length || 0;
+    const cachedSource = this.bankNbfcCache?.data?.source;
+    const ttlMs = cachedSource === 'LIVE_NSE_QUOTES' ? 15 * 60 * 1000 : 6 * 60 * 60 * 1000;
     if (
       !forceRefresh &&
       this.bankNbfcCache &&
       cachedBanks > 0 &&
-      Date.now() - this.bankNbfcCache.timestamp < 6 * 60 * 60 * 1000
+      Date.now() - this.bankNbfcCache.timestamp < ttlMs
     ) {
       return this.bankNbfcCache.data;
     }
 
+    if (!forceRefresh && this.bankNbfcInFlight) {
+      return this.bankNbfcInFlight;
+    }
+
+    this.bankNbfcInFlight = this.loadBankNbfcData().finally(() => {
+      this.bankNbfcInFlight = null;
+    });
+    return this.bankNbfcInFlight;
+  }
+
+  private async loadBankNbfcData() {
     const FALLBACK_BANKS = [
       { symbol: 'HDFCBANK', name: 'HDFC Bank Limited' },
       { symbol: 'ICICIBANK', name: 'ICICI Bank Limited' },
@@ -2884,8 +2907,13 @@ export class TechnoFundaService {
         totalMakers: makers.length,
         makers,
         lastUpdated: new Date().toISOString(),
+        message: makers.length
+          ? undefined
+          : 'OEM manufacturer matrix is not published in the public Vahan state dashboard; category/OEM rows stay empty until MoRTH exposes them.',
       };
-      this.vahanMakersCache = { timestamp: Date.now(), data: result };
+      if (makers.length > 0) {
+        this.vahanMakersCache = { timestamp: Date.now(), data: result };
+      }
       return result;
     } catch (err: any) {
       this.logger.warn(`Vahan makers live load failed: ${err?.message || err}`);
@@ -3710,8 +3738,20 @@ export class TechnoFundaService {
   private rbiMacroCache: { timestamp: number; data: any } | null = null;
   async getRbiMacroCalendar(refresh = false): Promise<any> {
     const TTL = 30 * 60 * 1000;
-    if (!refresh && this.rbiMacroCache && Date.now() - this.rbiMacroCache.timestamp < TTL) {
-      return this.rbiMacroCache.data;
+    const NEGATIVE_TTL = 2 * 60 * 1000;
+    const cached = this.rbiMacroCache?.data;
+    const cacheAge = this.rbiMacroCache ? Date.now() - this.rbiMacroCache.timestamp : Infinity;
+    if (
+      !refresh &&
+      this.rbiMacroCache &&
+      cached?.source !== 'UNAVAILABLE' &&
+      cached?.currentRates?.repoRate != null &&
+      cacheAge < TTL
+    ) {
+      return cached;
+    }
+    if (!refresh && this.rbiMacroCache && cached?.source === 'UNAVAILABLE' && cacheAge < NEGATIVE_TTL) {
+      return cached;
     }
 
     // Attempt lightweight public RBI policy page scrape; never emit fabricated policy rates
@@ -3746,6 +3786,7 @@ export class TechnoFundaService {
           macroIndicators: null,
           message: repoRate != null ? undefined : 'Live RBI policy rates could not be parsed; no static calendar emitted.',
         };
+        // Only long-cache successful parses; short-cache misses via NEGATIVE_TTL
         this.rbiMacroCache = { timestamp: Date.now(), data: result };
         return result;
       }

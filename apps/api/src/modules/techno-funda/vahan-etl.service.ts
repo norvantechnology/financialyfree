@@ -259,9 +259,10 @@ export class VahanEtlService {
         return this.cache.data;
       }
       const unavailable = await this.buildUnavailablePayload();
+      // Short negative cache so a transient MoRTH outage does not poison the feed for 15m
       this.cache = {
         data: unavailable,
-        expiresAt: now + Math.min(this.CACHE_TTL_MS, 15 * 60 * 1000),
+        expiresAt: now + 2 * 60 * 1000,
       };
       return unavailable;
     }
