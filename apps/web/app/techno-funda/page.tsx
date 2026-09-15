@@ -1291,14 +1291,22 @@ function TechnoFundaContent() {
 
       const fetchWithCheck = async (url: string, timeoutMs = 20000) => {
         try {
-          const r = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+          const r = await fetch(url, {
+            cache: 'no-store',
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(timeoutMs),
+          });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           return await r.json();
         } catch (err) {
           if (url.startsWith('http') && !url.includes('localhost:3000')) {
             try {
               const path = url.replace(/^https?:\/\/[^/]+/, '');
-              const localR = await fetch(path, { signal: AbortSignal.timeout(timeoutMs) });
+              const localR = await fetch(path, {
+                cache: 'no-store',
+                headers: { Accept: 'application/json' },
+                signal: AbortSignal.timeout(timeoutMs),
+              });
               if (localR.ok) return await localR.json();
             } catch {}
           }
@@ -1306,8 +1314,23 @@ function TechnoFundaContent() {
         }
       };
 
+      const withRefresh = (path: string, key: string) => {
+        // Force upstream refresh for feeds that previously poisoned empty browser/health caches
+        const forceKeys = new Set(['results-calendar', 'buybacks', 'bank-nbfc', 'vahan', 'vahan-makers', 'rbi-macro']);
+        if (mode !== 'refresh' && !forceKeys.has(key)) return path;
+        const sep = path.includes('?') ? '&' : '?';
+        return `${path}${sep}refresh=true`;
+      };
+
       const settled = await Promise.allSettled(
-        keys.map((key) => fetchWithCheck(`${apiUrl}${feedPath(key)}`)),
+        keys.map((key) => {
+          const path = withRefresh(feedPath(key), key);
+          const timeoutMs =
+            key === 'bank-nbfc' || key === 'results-calendar' || key === 'master-tracker' || key === 'vahan'
+              ? 45000
+              : 20000;
+          return fetchWithCheck(`${apiUrl}${path}`, timeoutMs);
+        }),
       );
 
       const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startT);
@@ -1354,24 +1377,43 @@ function TechnoFundaContent() {
               failed.push('Vehicle Registration');
             }
             break;
-          case 'buybacks':
-            if (ok && v.actions) {
-              setBuybacksData(v);
-              statusMap.buybacks = { ok: true, timestamp: v.timestamp || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
-            } else {
-              statusMap.buybacks = { ok: false, error: 'BSE/NSE Corporate Actions live fetch failed' };
-              failed.push('Corporate Buybacks');
-            }
-            break;
           case 'results-calendar':
-            if (ok && v.meetings) {
-              setResultsData(v);
-              statusMap.results = { ok: true, timestamp: v.timestamp || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+            if (ok && (Array.isArray(v.meetings) || Array.isArray(v.recentResults))) {
+              setResultsData({
+                source: v.source || 'LIVE_FETCH',
+                sourceUrl: v.sourceUrl || '',
+                totalEvents: v.totalEvents ?? (v.meetings?.length || 0),
+                meetings: v.meetings || [],
+                totalRecentResults: v.totalRecentResults ?? (v.recentResults?.length || 0),
+                recentResults: v.recentResults || [],
+                lastUpdated: v.lastUpdated,
+              });
+              statusMap.results = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              // Only cache-as-loaded when we actually received rows (allow retry on empty)
+              if ((v.meetings?.length || 0) > 0 || (v.recentResults?.length || 0) > 0) {
+                loadedFeedsRef.current.add(key);
+              }
             } else {
               statusMap.results = { ok: false, error: 'NSE/BSE Results Calendar feed failed' };
               failed.push('Results Calendar');
+            }
+            break;
+          case 'buybacks':
+            if (ok && (Array.isArray(v.actions) || Array.isArray(v.buybacks))) {
+              setBuybacksData({
+                ...v,
+                buybacks: v.buybacks || [],
+                actions: v.actions || [],
+                totalBuybacks: v.totalBuybacks ?? (v.buybacks?.length || 0),
+                totalActions: v.totalActions ?? (v.actions?.length || 0),
+              });
+              statusMap.buybacks = { ok: true, timestamp: v.lastUpdated || v.timestamp || new Date().toLocaleTimeString() };
+              if ((v.actions?.length || 0) > 0 || (v.buybacks?.length || 0) > 0) {
+                loadedFeedsRef.current.add(key);
+              }
+            } else {
+              statusMap.buybacks = { ok: false, error: 'BSE/NSE Corporate Actions live fetch failed' };
+              failed.push('Corporate Buybacks');
             }
             break;
           case 'news':
@@ -1429,13 +1471,6 @@ function TechnoFundaContent() {
             if (ok && v.orders) {
               setOrderTrackerData(v);
               statusMap.orders = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
-            }
-            break;
-          case 'bank-nbfc':
-            if (ok && (v.banks || v.costOfFunds) && !v.error) {
-              setBankNbfcData(v);
-              statusMap.bankNbfc = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
               loadedFeedsRef.current.add(key);
             }
             break;
@@ -3925,7 +3960,7 @@ function TechnoFundaContent() {
                       flexShrink: 0,
                     }}
                   >
-                    <span>View {buybacksData.actions.length} Corporate Actions</span>
+                    <span>View {(buybacksData.actions || []).length} Corporate Actions</span>
                     <span>↓</span>
                   </a>
                 </div>
@@ -3941,7 +3976,7 @@ function TechnoFundaContent() {
                     Corporate Actions
                   </h3>
                   <span style={{ fontSize: '11.5px', color: '#6B7280' }}>
-                    Dividends, splits, bonus issues &amp; restructuring · {buybacksData.actions.length} announcements
+                    Dividends, splits, bonus issues &amp; restructuring · {(buybacksData.actions || []).length} announcements
                   </span>
                 </div>
               </div>

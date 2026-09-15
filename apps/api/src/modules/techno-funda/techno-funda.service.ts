@@ -973,8 +973,8 @@ export class TechnoFundaService {
     };
   }
 
-  async getVahanData() {
-    return this.vahanEtlService.getVahanData();
+  async getVahanData(forceRefresh = false) {
+    return this.vahanEtlService.getVahanData(forceRefresh);
   }
 
   async getMarketOverview() {
@@ -1095,7 +1095,9 @@ export class TechnoFundaService {
     );
   }
 
-  async getBuybacks(): Promise<{
+  private buybacksCache: { timestamp: number; data: any } | null = null;
+
+  async getBuybacks(forceRefresh = false): Promise<{
     source: string;
     sourceUrl: string;
     totalBuybacks: number;
@@ -1129,46 +1131,101 @@ export class TechnoFundaService {
     emptyStateMessage: string;
     lastUpdated: string;
   }> {
+    const TTL = 15 * 60 * 1000;
+    if (
+      !forceRefresh &&
+      this.buybacksCache &&
+      Date.now() - this.buybacksCache.timestamp < TTL &&
+      (this.buybacksCache.data.actions?.length || 0) > 0
+    ) {
+      return this.buybacksCache.data;
+    }
+
+    const buildFromActions = async (rawActions: any[], sourceUrl: string) => {
+      const actions = (rawActions || []).slice(0, 80).map((a: any) => ({
+        symbol: a.symbol,
+        company: a.company || a.comp,
+        actionSubject: a.actionSubject || a.subject,
+        exDate: a.exDate || '',
+        recordDate: a.recordDate || a.recDate || '',
+        faceVal: a.faceVal || '',
+        series: a.series || 'EQ',
+      }));
+      const rawBuybacks = this.filterBuybacks(rawActions);
+      const buybacks = await this.enrichBuybacksWithQuotes(rawBuybacks);
+      return {
+        source: 'LIVE_FETCH' as const,
+        sourceUrl,
+        totalBuybacks: buybacks.length,
+        buybacks,
+        totalActions: actions.length,
+        actions,
+        emptyStateMessage:
+          buybacks.length === 0
+            ? 'No active buyback tender offers in the current NSE corporate-actions window'
+            : 'No active buybacks on NSE',
+        lastUpdated: new Date().toISOString(),
+      };
+    };
+
+    try {
+      const raw = await this.fetchNseApi('/api/corporates-corporateActions?index=equities');
+      const rawActions = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
+      if (rawActions.length > 0) {
+        const mapped = await buildFromActions(
+          rawActions,
+          'https://www.nseindia.com/api/corporates-corporateActions?index=equities',
+        );
+        this.buybacksCache = { timestamp: Date.now(), data: mapped };
+        // Persist for admin health (non-blocking)
+        void this.healthRepo
+          .findOne({ where: { sourceKey: 'buybacks' } })
+          .then(async (record) => {
+            if (!record) return;
+            record.rawResponseSnippet = JSON.stringify({
+              sourceUrl: mapped.sourceUrl,
+              allCorporateActions: rawActions.slice(0, 80),
+              buybacks: mapped.buybacks,
+              retrievedAt: mapped.lastUpdated,
+            });
+            record.lastFetchedAt = new Date();
+            record.status = 'SUCCESS';
+            await this.healthRepo.save(record);
+          })
+          .catch(() => undefined);
+        return mapped;
+      }
+    } catch (err: any) {
+      this.logger.warn(`Live buybacks/corporate actions fetch failed: ${err?.message || err}`);
+    }
+
     const record = await this.healthRepo.findOne({ where: { sourceKey: 'buybacks' } });
     if (record?.rawResponseSnippet) {
       try {
         const parsed = JSON.parse(record.rawResponseSnippet);
         const rawActions: any[] = parsed.allCorporateActions || parsed.activeCapitalReorganizations || [];
-        const actions = rawActions.map((a: any) => ({
-          symbol: a.symbol,
-          company: a.company || a.comp,
-          actionSubject: a.actionSubject || a.subject,
-          exDate: a.exDate || '',
-          recordDate: a.recordDate || a.recDate || '',
-          faceVal: a.faceVal || '',
-          series: a.series || 'EQ',
-        }));
-
-        const rawBuybacks = (parsed.buybacks && Array.isArray(parsed.buybacks))
-          ? parsed.buybacks
-          : this.filterBuybacks(rawActions);
-        const buybacks = await this.enrichBuybacksWithQuotes(rawBuybacks);
-
-        return {
-          source: 'LIVE_FETCH',
-          sourceUrl: parsed.sourceUrl || 'https://www.nseindia.com/api/corporates-corporateActions?index=equities',
-          totalBuybacks: buybacks.length,
-          buybacks,
-          totalActions: actions.length,
-          actions,
-          emptyStateMessage: 'No active buybacks on NSE',
-          lastUpdated: record.lastFetchedAt ? record.lastFetchedAt.toISOString() : new Date().toISOString(),
-        };
+        if (rawActions.length > 0) {
+          const mapped = await buildFromActions(
+            rawActions,
+            parsed.sourceUrl || 'https://www.nseindia.com/api/corporates-corporateActions?index=equities',
+          );
+          mapped.lastUpdated = record.lastFetchedAt
+            ? record.lastFetchedAt.toISOString()
+            : mapped.lastUpdated;
+          this.buybacksCache = { timestamp: Date.now(), data: mapped };
+          return mapped;
+        }
       } catch {}
     }
+
     return {
-      source: 'LIVE_FETCH',
+      source: 'UNAVAILABLE',
       sourceUrl: 'https://www.nseindia.com/api/corporates-corporateActions?index=equities',
       totalBuybacks: 0,
       buybacks: [],
       totalActions: 0,
       actions: [],
-      emptyStateMessage: 'No active buybacks on NSE',
+      emptyStateMessage: 'Corporate actions feed unavailable from NSE',
       lastUpdated: new Date().toISOString(),
     };
   }
@@ -1289,14 +1346,17 @@ export class TechnoFundaService {
       retrievedAt: new Date().toISOString(),
     };
 
-    // Fire-and-forget health write — never block the HTTP response
+    // Health metadata only — never store slim snippets used as calendar payload
     void this.healthRepo
       .findOne({ where: { sourceKey: 'results_calendar' } })
       .then(async (record) => {
         if (!record) return;
         record.rawResponseSnippet = JSON.stringify({
-          totalEventsListed: payload.totalEventsListed,
-          totalResultsDisclosed: payload.totalResultsDisclosed,
+          sourceUrl: payload.sourceUrl,
+          totalEventsListed: payload.upcomingMeetings.length,
+          totalResultsDisclosed: payload.recentResults.length,
+          upcomingMeetings: payload.upcomingMeetings,
+          recentResults: payload.recentResults,
           retrievedAt: payload.retrievedAt,
         });
         record.lastFetchedAt = new Date();
@@ -1307,6 +1367,8 @@ export class TechnoFundaService {
 
     return payload;
   }
+
+  private resultsCalendarCache: { timestamp: number; data: any } | null = null;
 
   async getResultsCalendar(forceRefresh = false): Promise<{
     source: string;
@@ -1336,48 +1398,63 @@ export class TechnoFundaService {
     }>;
     lastUpdated: string;
   }> {
-    const record = await this.healthRepo.findOne({ where: { sourceKey: 'results_calendar' } });
-    const isStale =
-      !record ||
-      !record.lastFetchedAt ||
-      Date.now() - new Date(record.lastFetchedAt).getTime() > 15 * 60 * 1000;
-
-    if (forceRefresh || isStale) {
-      try {
-        const live = await this.fetchLiveNseResultsCalendar();
-        if (live.upcomingMeetings.length > 0 || live.recentResults.length > 0) {
-          return {
-            source: 'LIVE_FETCH',
-            sourceUrl: live.sourceUrl || 'https://www.nseindia.com/api/event-calendar',
-            totalEvents: live.totalEventsListed,
-            meetings: live.upcomingMeetings,
-            totalRecentResults: live.totalResultsDisclosed,
-            recentResults: live.recentResults,
-            lastUpdated: new Date().toISOString(),
-          };
-        }
-      } catch (err: any) {
-        this.logger.warn(`Live refresh failed, falling back to cache: ${err.message}`);
-      }
+    const TTL = 15 * 60 * 1000;
+    if (
+      !forceRefresh &&
+      this.resultsCalendarCache &&
+      Date.now() - this.resultsCalendarCache.timestamp < TTL &&
+      ((this.resultsCalendarCache.data.meetings?.length || 0) > 0 ||
+        (this.resultsCalendarCache.data.recentResults?.length || 0) > 0)
+    ) {
+      return this.resultsCalendarCache.data;
     }
 
+    try {
+      const live = await this.fetchLiveNseResultsCalendar();
+      const mapped = {
+        source: 'LIVE_FETCH' as const,
+        sourceUrl: live.sourceUrl || 'https://www.nseindia.com/api/event-calendar',
+        totalEvents: live.upcomingMeetings.length || live.totalEventsListed || 0,
+        meetings: live.upcomingMeetings || [],
+        totalRecentResults: live.recentResults.length || live.totalResultsDisclosed || 0,
+        recentResults: live.recentResults || [],
+        lastUpdated: new Date().toISOString(),
+      };
+      if (mapped.meetings.length > 0 || mapped.recentResults.length > 0) {
+        this.resultsCalendarCache = { timestamp: Date.now(), data: mapped };
+        return mapped;
+      }
+    } catch (err: any) {
+      this.logger.warn(`Live results calendar refresh failed: ${err.message}`);
+    }
+
+    // Health fallback only if snippet still contains actual meeting/result arrays
+    const record = await this.healthRepo.findOne({ where: { sourceKey: 'results_calendar' } });
     if (record?.rawResponseSnippet) {
       try {
         const parsed = JSON.parse(record.rawResponseSnippet);
-        return {
-          source: 'LIVE_FETCH',
-          sourceUrl: parsed.sourceUrl || 'https://www.nseindia.com/api/event-calendar',
-          totalEvents: parsed.totalEventsListed || parsed.upcomingMeetings?.length || 0,
-          meetings: parsed.upcomingMeetings || [],
-          totalRecentResults: parsed.totalResultsDisclosed || parsed.recentResults?.length || 0,
-          recentResults: parsed.recentResults || [],
-          lastUpdated: record.lastFetchedAt ? record.lastFetchedAt.toISOString() : new Date().toISOString(),
-        };
+        const meetings = parsed.upcomingMeetings || parsed.meetings || [];
+        const recentResults = parsed.recentResults || [];
+        if (meetings.length > 0 || recentResults.length > 0) {
+          const mapped = {
+            source: 'LIVE_FETCH' as const,
+            sourceUrl: parsed.sourceUrl || 'https://www.nseindia.com/api/event-calendar',
+            totalEvents: meetings.length || parsed.totalEventsListed || 0,
+            meetings,
+            totalRecentResults: recentResults.length || parsed.totalResultsDisclosed || 0,
+            recentResults,
+            lastUpdated: record.lastFetchedAt
+              ? record.lastFetchedAt.toISOString()
+              : new Date().toISOString(),
+          };
+          this.resultsCalendarCache = { timestamp: Date.now(), data: mapped };
+          return mapped;
+        }
       } catch {}
     }
 
     return {
-      source: 'LIVE_FETCH',
+      source: 'UNAVAILABLE',
       sourceUrl: 'https://www.nseindia.com/api/event-calendar',
       totalEvents: 0,
       meetings: [],
@@ -2605,10 +2682,31 @@ export class TechnoFundaService {
   // ── Bank / NBFC Multi-Year Ratios ───────────────────────────────────────
   private bankNbfcCache: { timestamp: number; data: any } | null = null;
 
-  async getBankNbfcData() {
-    if (this.bankNbfcCache && Date.now() - this.bankNbfcCache.timestamp < 6 * 60 * 60 * 1000) {
+  async getBankNbfcData(forceRefresh = false) {
+    const cachedBanks = this.bankNbfcCache?.data?.banks?.length || 0;
+    if (
+      !forceRefresh &&
+      this.bankNbfcCache &&
+      cachedBanks > 0 &&
+      Date.now() - this.bankNbfcCache.timestamp < 6 * 60 * 60 * 1000
+    ) {
       return this.bankNbfcCache.data;
     }
+
+    const FALLBACK_BANKS = [
+      { symbol: 'HDFCBANK', name: 'HDFC Bank Limited' },
+      { symbol: 'ICICIBANK', name: 'ICICI Bank Limited' },
+      { symbol: 'SBIN', name: 'State Bank of India' },
+      { symbol: 'KOTAKBANK', name: 'Kotak Mahindra Bank Limited' },
+      { symbol: 'AXISBANK', name: 'Axis Bank Limited' },
+      { symbol: 'INDUSINDBK', name: 'IndusInd Bank Limited' },
+      { symbol: 'BANKBARODA', name: 'Bank of Baroda' },
+      { symbol: 'PNB', name: 'Punjab National Bank' },
+      { symbol: 'IDFCFIRSTB', name: 'IDFC First Bank Limited' },
+      { symbol: 'FEDERALBNK', name: 'The Federal Bank Limited' },
+      { symbol: 'AUBANK', name: 'AU Small Finance Bank Limited' },
+      { symbol: 'BANDHANBNK', name: 'Bandhan Bank Limited' },
+    ];
 
     let bankSymbols: { symbol: string; name: string; cmp?: number; changePct?: number }[] = [];
     try {
@@ -2628,6 +2726,10 @@ export class TechnoFundaService {
         .filter((x: any): x is { symbol: string; name: string; cmp?: number; changePct?: number } => Boolean(x));
     } catch (err: any) {
       this.logger.warn(`Nifty Bank universe failed: ${err?.message || err}`);
+    }
+
+    if (bankSymbols.length === 0) {
+      bankSymbols = FALLBACK_BANKS.map((b) => ({ ...b }));
     }
 
     const bankRows = (
@@ -2704,7 +2806,9 @@ export class TechnoFundaService {
           ? 'Showing live NSE quotes. Multi-year P&L grids populate when Screener.in is reachable.'
           : 'Live bank data unavailable from NSE / Screener.in.',
       };
-      this.bankNbfcCache = { timestamp: Date.now(), data: result };
+      if (banks.length > 0) {
+        this.bankNbfcCache = { timestamp: Date.now(), data: result };
+      }
       return result;
     }
 
@@ -2740,20 +2844,27 @@ export class TechnoFundaService {
         : 'Live bank financial series unavailable from Screener.in / NSE.',
     };
 
-    this.bankNbfcCache = { timestamp: Date.now(), data: result };
+    if (bankRows.length > 0) {
+      this.bankNbfcCache = { timestamp: Date.now(), data: result };
+    }
     return result;
   }
 
   // ── Vahan Top Manufacturers Matrix ──────────────────────────────────
   private vahanMakersCache: { timestamp: number; data: any } | null = null;
 
-  async getVahanMakersData() {
-    if (this.vahanMakersCache && Date.now() - this.vahanMakersCache.timestamp < 6 * 60 * 60 * 1000) {
+  async getVahanMakersData(forceRefresh = false) {
+    if (
+      !forceRefresh &&
+      this.vahanMakersCache &&
+      (this.vahanMakersCache.data?.makers?.length || 0) > 0 &&
+      Date.now() - this.vahanMakersCache.timestamp < 6 * 60 * 60 * 1000
+    ) {
       return this.vahanMakersCache.data;
     }
 
     try {
-      const vahan = await this.vahanEtlService.getVahanData(false);
+      const vahan = await this.vahanEtlService.getVahanData(forceRefresh);
       const makers = (vahan?.categories || [])
         .flatMap((cat: any) =>
           (cat.keyOEMs || []).map((oem: string) => ({

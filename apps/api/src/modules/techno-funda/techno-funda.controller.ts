@@ -42,15 +42,15 @@ export class TechnoFundaController {
   @Public()
   @Get('vahan')
   @ApiOperation({ summary: 'Get Vahan automotive registration macro trends, categories and top state counts from Government of India MoRTH portal' })
-  getVahanData() {
-    return this.tfService.getVahanData();
+  getVahanData(@Query('refresh') refresh?: string) {
+    return this.tfService.getVahanData(refresh === 'true');
   }
 
   @Public()
   @Get('buybacks')
   @ApiOperation({ summary: 'Get live corporate actions, demergers, and tender offer events from NSE register' })
-  getBuybacks() {
-    return this.tfService.getBuybacks();
+  getBuybacks(@Query('refresh') refresh?: string) {
+    return this.tfService.getBuybacks(refresh === 'true');
   }
 
   @Public()
@@ -115,15 +115,15 @@ export class TechnoFundaController {
   @Public()
   @Get('bank-nbfc')
   @ApiOperation({ summary: 'Get 12-year historical Cost of Funds (%), Return on Assets (%), and balance sheet deposits across 12 major Indian banks' })
-  getBankNbfcData() {
-    return this.tfService.getBankNbfcData();
+  getBankNbfcData(@Query('refresh') refresh?: string) {
+    return this.tfService.getBankNbfcData(refresh === 'true');
   }
 
   @Public()
   @Get('vahan-makers')
   @ApiOperation({ summary: 'Get Top 50 automobile manufacturers monthly production and YoY growth matrix' })
-  getVahanMakers() {
-    return this.tfService.getVahanMakersData();
+  getVahanMakers(@Query('refresh') refresh?: string) {
+    return this.tfService.getVahanMakersData(refresh === 'true');
   }
 
   @Public()
