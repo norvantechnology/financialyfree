@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { WatchlistButton } from '../watchlist-button';
 import { AureusScoreBadge } from './aureus-score-badge';
+import { fmtInr, fmtNum } from '../../lib/format-number';
 
 export interface StockPulseData {
   quarterLabel: string;
@@ -67,6 +68,42 @@ export interface MasterStockItem {
 
 export const INITIAL_MASTER_STOCKS: MasterStockItem[] = [];
 
+/** Map API company/quote payloads (cmp, dayChangePct) into MasterStockItem shape */
+export function normalizeMasterStock(raw: any): MasterStockItem {
+  const price = Number(raw?.price ?? raw?.cmp ?? 0);
+  const changePct = Number(raw?.changePct ?? raw?.dayChangePct ?? 0);
+  const week52High = Number(raw?.technicals?.week52High ?? raw?.week52High ?? 0);
+  const week52Low = Number(raw?.technicals?.week52Low ?? raw?.week52Low ?? 0);
+  const neutralQ = { status: 'Neutral' as const };
+  const q = raw?.quarterly;
+  return {
+    id: String(raw?.id || raw?.symbol || '').toLowerCase() || 'unknown',
+    symbol: String(raw?.symbol || '').toUpperCase(),
+    name: String(raw?.name || raw?.companyName || raw?.symbol || '—'),
+    price: Number.isFinite(price) ? price : 0,
+    changePct: Number.isFinite(changePct) ? changePct : 0,
+    sector: String(raw?.sector || 'Equities'),
+    marketCapCr: Number(raw?.marketCapCr ?? 0) || 0,
+    lastUpdated: String(raw?.lastUpdated || new Date().toISOString()),
+    isWatchlisted: Boolean(raw?.isWatchlisted),
+    keyTriggers: Array.isArray(raw?.keyTriggers) ? raw.keyTriggers : [],
+    pulseData: raw?.pulseData,
+    quarterly: {
+      q2fy26: q?.q2fy26 || neutralQ,
+      q3fy26: q?.q3fy26 || neutralQ,
+      q4fy26: q?.q4fy26 || neutralQ,
+      q1fy27: q?.q1fy27 || neutralQ,
+    },
+    technicals: {
+      above20Dma: Boolean(raw?.technicals?.above20Dma),
+      above100Dma: Boolean(raw?.technicals?.above100Dma),
+      week52High: Number.isFinite(week52High) ? week52High : 0,
+      week52Low: Number.isFinite(week52Low) ? week52Low : 0,
+      expectedEpsFy27: Number(raw?.technicals?.expectedEpsFy27 ?? raw?.expectedEpsFy27 ?? 0) || 0,
+    },
+  };
+}
+
 interface MasterTrackerTabProps {
   onSelectValuation?: (symbol: string) => void;
   onOpenPulse?: (stock: MasterStockItem) => void;
@@ -84,7 +121,9 @@ export function MasterTrackerTab({
   lastUpdated: _lastUpdated,
   onRefresh,
 }: MasterTrackerTabProps) {
-  const [stocks, setStocks] = useState<MasterStockItem[]>(liveStocks || []);
+  const [stocks, setStocks] = useState<MasterStockItem[]>(
+    (liveStocks || []).map(normalizeMasterStock),
+  );
   const [search, setSearch] = useState('');
   const [sectorFilter, setSectorFilter] = useState('All');
   const [signalFilter, setSignalFilter] = useState<'All' | 'beats' | 'above20' | 'above100' | 'near52High' | 'watchlist'>('All');
@@ -100,7 +139,7 @@ export function MasterTrackerTab({
   // Sync with live data from backend when available
   React.useEffect(() => {
     if (liveStocks) {
-      setStocks(liveStocks);
+      setStocks(liveStocks.map(normalizeMasterStock));
     }
   }, [liveStocks]);
 
@@ -297,12 +336,12 @@ export function MasterTrackerTab({
     );
   };
 
-  const formatMarketCap = (cr: number) => {
-    if (!cr) return '-';
+  const formatMarketCap = (cr: number | null | undefined) => {
+    if (cr == null || !Number.isFinite(cr) || cr <= 0) return '-';
     if (cr >= 100000) {
       return `₹${(cr / 100000).toFixed(2)}L Cr`;
     }
-    return `₹${cr.toLocaleString('en-IN')} Cr`;
+    return `${fmtInr(cr)} Cr`;
   };
 
   const quartersKeys: Array<{ key: 'q2fy26' | 'q3fy26' | 'q4fy26' | 'q1fy27'; label: string }> = [
@@ -958,7 +997,7 @@ export function MasterTrackerTab({
                       {/* Right: Price block */}
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         <div style={{ fontSize: '15.5px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                          ₹{stock.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          ₹{fmtNum(stock.price, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'flex-end', marginTop: '2px' }}>
                           <span style={{
@@ -969,7 +1008,7 @@ export function MasterTrackerTab({
                             padding: '1px 5px',
                             borderRadius: '4px',
                           }}>
-                            {isPos ? '+' : ''}{stock.changePct.toFixed(2)}%
+                            {isPos ? '+' : ''}{fmtNum(stock.changePct, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                           </span>
                           <span style={{
                             fontSize: '9.5px', fontWeight: 750, background: '#F1F5F9',
@@ -1234,11 +1273,11 @@ export function MasterTrackerTab({
                     {/* ── ROW 6: 52W Range Bar ────────────────────── */}
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: '#94A3B8', marginBottom: '5px' }}>
-                        <span>52W Low: <strong style={{ color: '#64748B' }}>₹{low.toLocaleString('en-IN')}</strong></span>
+                        <span>52W Low: <strong style={{ color: '#64748B' }}>{fmtInr(low)}</strong></span>
                         <span style={{ fontWeight: 700, color: '#0F172A', fontSize: '12px' }}>
-                          {pctFromLow.toFixed(0)}% from Low
+                          {fmtNum(pctFromLow, { maximumFractionDigits: 0 })}% from Low
                         </span>
-                        <span>52W High: <strong style={{ color: '#64748B' }}>₹{high.toLocaleString('en-IN')}</strong></span>
+                        <span>52W High: <strong style={{ color: '#64748B' }}>{fmtInr(high)}</strong></span>
                       </div>
                       <div style={{ width: '100%', height: '7px', background: '#F1F5F9', borderRadius: '4px', position: 'relative' }}>
                         <div style={{
@@ -1448,7 +1487,7 @@ export function MasterTrackerTab({
                         <td style={{ verticalAlign: 'top', padding: '8px 12px' }}>
                           <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
                             <span style={{ fontSize: '15.5px', fontWeight: 800, color: '#0F172A' }}>
-                              ₹{stock.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              ₹{fmtNum(stock.price, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           </div>
                           <div style={{ marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1463,7 +1502,7 @@ export function MasterTrackerTab({
                               }}
                             >
                               {isPos ? '+' : ''}
-                              {stock.changePct.toFixed(2)}%
+                              {fmtNum(stock.changePct, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                             </span>
                             <span
                               style={{

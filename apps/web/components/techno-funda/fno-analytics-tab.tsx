@@ -363,7 +363,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
                         {stock.symbol}
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 650, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                        ₹{stock.cmp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        ₹{(stock.cmp ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: isPriceUp ? '#16A34A' : '#DC2626', whiteSpace: 'nowrap' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', whiteSpace: 'nowrap' }}>

@@ -442,10 +442,10 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
                           </span>
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 600, color: '#334155', whiteSpace: 'nowrap' }}>
-                          {deal.quantity.toLocaleString('en-IN')}
+                          {(deal.quantity ?? 0).toLocaleString('en-IN')}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                          ₹{deal.tradePrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          ₹{(deal.tradePrice ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                         </td>
                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 800, color: isBuy ? '#059669' : '#0F172A', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
                           ₹{deal.valueCr.toFixed(2)} Cr

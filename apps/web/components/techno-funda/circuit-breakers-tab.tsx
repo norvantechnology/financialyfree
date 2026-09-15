@@ -390,7 +390,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
                           <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stock.companyName}</div>
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 750, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                          ₹{stock.cmp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          ₹{(stock.cmp ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                           <span style={{

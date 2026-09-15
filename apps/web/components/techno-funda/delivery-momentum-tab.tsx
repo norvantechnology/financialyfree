@@ -338,7 +338,7 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
                           </span>
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 750, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                          ₹{stock.cmp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          ₹{(stock.cmp ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                           <div style={{ fontSize: '10.5px', fontWeight: 650, color: stock.dayChangePct >= 0 ? '#16A34A' : '#DC2626', marginTop: '1px', whiteSpace: 'nowrap' }}>
                             {stock.dayChangePct >= 0 ? `+${stock.dayChangePct.toFixed(2)}%` : `${stock.dayChangePct.toFixed(2)}%`}
                           </div>

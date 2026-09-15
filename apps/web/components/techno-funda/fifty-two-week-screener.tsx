@@ -529,7 +529,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
                           </span>
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 750, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                          ₹{stock.cmp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          ₹{(stock.cmp ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: isPositive ? '#16A34A' : '#DC2626', whiteSpace: 'nowrap' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', whiteSpace: 'nowrap' }}>
@@ -538,10 +538,10 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
                           </span>
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', color: '#334155', fontWeight: 650, whiteSpace: 'nowrap' }}>
-                          ₹{stock.week52High.toLocaleString('en-IN')}
+                          ₹{(stock.week52High ?? 0).toLocaleString('en-IN')}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', color: '#64748B', whiteSpace: 'nowrap' }}>
-                          ₹{stock.week52Low.toLocaleString('en-IN')}
+                          ₹{(stock.week52Low ?? 0).toLocaleString('en-IN')}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>
                           <span style={{

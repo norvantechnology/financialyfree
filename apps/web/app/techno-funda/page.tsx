@@ -43,7 +43,7 @@ import { Pagination } from '../../components/pagination';
 import { TechnoFundaPaywallLock } from '../../components/techno-funda/techno-funda-paywall-lock';
 import { isUserSubscribed, fetchAppAccessMode } from '../../lib/auth-client';
 import { formatRelativeTime } from '../../lib/time-utils';
-import { MasterTrackerTab, MasterStockItem } from '../../components/techno-funda/master-tracker-tab';
+import { MasterTrackerTab, MasterStockItem, normalizeMasterStock } from '../../components/techno-funda/master-tracker-tab';
 import type { StockPulseData } from '../../components/techno-funda/master-tracker-tab';
 import { BankNbfcTab } from '../../components/techno-funda/bank-nbfc-tab';
 import { OrderTrackerTab } from '../../components/techno-funda/order-tracker-tab';
@@ -1413,10 +1413,12 @@ function TechnoFundaContent() {
             break;
           case 'master-tracker':
             if (ok && (v.stocks || v.companies) && !v.error) {
+              const rawList = (v.stocks || v.companies || []) as any[];
+              const stocks = rawList.map(normalizeMasterStock);
               setMasterTrackerData({
                 ...v,
-                stocks: v.stocks || v.companies || [],
-                totalStocks: v.totalStocks ?? v.companiesCount ?? (v.stocks || v.companies || []).length,
+                stocks,
+                totalStocks: v.totalStocks ?? v.companiesCount ?? stocks.length,
               });
               statusMap.masterTracker = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
               loadedFeedsRef.current.add(key);
@@ -1964,11 +1966,11 @@ function TechnoFundaContent() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '11.5px', color: '#64748B', flexWrap: 'wrap' }}>
                         <span>Period: <strong style={{ color: '#334155' }}>{valuationData.fiscalPeriod || '—'}</strong></span>
                         <span>•</span>
-                        <span>Rev: <strong style={{ color: '#0F172A' }}>₹{valuationData.financialsCr.revenue.toLocaleString('en-IN')} Cr</strong></span>
+                        <span>Rev: <strong style={{ color: '#0F172A' }}>₹{(valuationData.financialsCr?.revenue ?? 0).toLocaleString('en-IN')} Cr</strong></span>
                         <span>•</span>
-                        <span>EBITDA: <strong style={{ color: '#0F172A' }}>₹{valuationData.financialsCr.ebitda.toLocaleString('en-IN')} Cr</strong></span>
+                        <span>EBITDA: <strong style={{ color: '#0F172A' }}>₹{(valuationData.financialsCr?.ebitda ?? 0).toLocaleString('en-IN')} Cr</strong></span>
                         <span>•</span>
-                        <span>Debt: <strong style={{ color: '#0F172A' }}>₹{valuationData.financialsCr.netDebt.toLocaleString('en-IN')} Cr</strong></span>
+                        <span>Debt: <strong style={{ color: '#0F172A' }}>₹{(valuationData.financialsCr?.netDebt ?? 0).toLocaleString('en-IN')} Cr</strong></span>
                         <span>•</span>
                         <span>Shares: <strong style={{ color: '#0F172A' }}>{valuationData.financialsCr.sharesOutstanding} Cr</strong></span>
                       </div>
@@ -7894,7 +7896,7 @@ function TechnoFundaContent() {
                                 {s.formattedCount}
                               </div>
                               <div style={{ fontSize: '10.5px', color: '#94A3B8', marginBottom: '8px' }}>
-                                {s.totalRegistrations.toLocaleString('en-IN')} units
+                                {(s.totalRegistrations ?? 0).toLocaleString('en-IN')} units
                               </div>
                             </div>
 
@@ -7997,7 +7999,7 @@ function TechnoFundaContent() {
                                   </span>
                                 </td>
                                 <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#0F172A' }}>
-                                  {s.formattedCount} <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>({s.totalRegistrations.toLocaleString('en-IN')})</span>
+                                  {s.formattedCount} <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>({(s.totalRegistrations ?? 0).toLocaleString('en-IN')})</span>
                                 </td>
                                 <td style={{ padding: '8px 12px' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

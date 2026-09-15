@@ -383,7 +383,7 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
                           </span>
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 600, color: '#334155', whiteSpace: 'nowrap' }}>
-                          {tx.sharesTraded.toLocaleString('en-IN')}
+                          {(tx.sharesTraded ?? 0).toLocaleString('en-IN')}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 750, color: isBuy ? '#059669' : '#0F172A', whiteSpace: 'nowrap' }}>
                           ₹{(tx.valueLakh >= 100 ? `${(tx.valueLakh / 100).toFixed(2)} Cr` : `${tx.valueLakh.toFixed(1)} L`)}

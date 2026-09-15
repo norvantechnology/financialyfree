@@ -30,6 +30,16 @@ export interface BankNbfcTabProps {
     costOfFunds?: BankMetricRow[];
     roa?: BankMetricRow[];
     deposits?: BankMetricRow[];
+    banks?: Array<{
+      bankName: string;
+      ticker: string;
+      sector?: string;
+      periods?: string[];
+      revenue?: (number | null)[];
+      pat?: (number | null)[];
+      eps?: (number | null)[];
+      opmPct?: (number | null)[];
+    }>;
     lastUpdated?: string;
   };
   isLoading?: boolean;
@@ -43,9 +53,37 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
   const [sectorFilter, setSectorFilter] = useState<'All' | 'Private' | 'PSU'>('All');
 
   const periods = liveData?.periods && liveData.periods.length > 0 ? liveData.periods : YEARS;
-  const costOfFundsData = liveData?.costOfFunds || [];
-  const roaData = liveData?.roa || [];
-  const depositsData = liveData?.deposits || [];
+
+  // Prefer dedicated metric grids; fall back to live banks P&L series from API
+  const costOfFundsData = useMemo(() => {
+    if (liveData?.costOfFunds && liveData.costOfFunds.length > 0) return liveData.costOfFunds;
+    return (liveData?.banks || []).map((b) => ({
+      bankName: b.bankName,
+      ticker: b.ticker,
+      sector: b.sector,
+      values: (b.opmPct || b.revenue || []).map((v) => (v == null ? null : Number(v))),
+    }));
+  }, [liveData]);
+
+  const roaData = useMemo(() => {
+    if (liveData?.roa && liveData.roa.length > 0) return liveData.roa;
+    return (liveData?.banks || []).map((b) => ({
+      bankName: b.bankName,
+      ticker: b.ticker,
+      sector: b.sector,
+      values: (b.eps || []).map((v) => (v == null ? null : Number(v))),
+    }));
+  }, [liveData]);
+
+  const depositsData = useMemo(() => {
+    if (liveData?.deposits && liveData.deposits.length > 0) return liveData.deposits;
+    return (liveData?.banks || []).map((b) => ({
+      bankName: b.bankName,
+      ticker: b.ticker,
+      sector: b.sector,
+      values: (b.revenue || []).map((v) => (v == null ? null : Number(v))),
+    }));
+  }, [liveData]);
 
   const banks = useMemo(() => {
     return ['All', ...costOfFundsData.map((b) => b.bankName)];
@@ -644,7 +682,9 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
                     </td>
                     {row.values.map((val, idx) => (
                       <td key={idx} style={{ padding: '6px 4px', textAlign: 'right', color: '#334155' }}>
-                        {val !== null ? val.toLocaleString('en-IN', { maximumFractionDigits: 1 }) : '-'}
+                        {val != null && Number.isFinite(Number(val))
+                          ? Number(val).toLocaleString('en-IN', { maximumFractionDigits: 1 })
+                          : '-'}
                       </td>
                     ))}
                   </tr>

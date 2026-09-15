@@ -221,7 +221,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
                 {benchmark.name}
               </strong>
               <span style={{ fontSize: '15px', fontWeight: 700, color: '#38BDF8' }}>
-                ₹{benchmark.currentPrice.toLocaleString('en-IN', { maximumFractionDigits: 1 })}
+                ₹{(benchmark.currentPrice ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 1 })}
               </span>
             </div>
           </div>
@@ -500,7 +500,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
                 {/* Index Value & Performance */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <span style={{ fontSize: '19px', fontWeight: 800, color: '#0F172A' }}>
-                    {sector.current.toLocaleString('en-IN', { maximumFractionDigits: 1 })}
+                    {(sector.current ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 1 })}
                   </span>
                   <div style={{ textAlign: 'right' }}>
                     <span
@@ -604,7 +604,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
                       <div style={{ fontSize: '11px', color: '#64748B' }}>{sec.name}</div>
                     </td>
                     <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0F172A' }}>
-                      {sec.current.toLocaleString('en-IN', { maximumFractionDigits: 1 })}
+                      {(sec.current ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 1 })}
                     </td>
                     <td style={{ padding: '10px 14px', fontWeight: 700, color: sec.return1D >= 0 ? '#059669' : '#DC2626' }}>
                       {sec.return1D >= 0 ? '+' : ''}{sec.return1D.toFixed(2)}%
