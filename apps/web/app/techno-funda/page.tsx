@@ -22,7 +22,6 @@ import {
   List,
   LayoutGrid,
   SlidersHorizontal,
-  Filter,
   Gauge,
   BarChart3,
   ClipboardList,
