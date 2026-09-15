@@ -14,6 +14,7 @@ export interface FiftyTwoWeekItem {
   distFromLowPct?: number;
   dayChangePct: number;
   isNewAllTimeHigh?: boolean;
+  isNear52WeekHigh?: boolean;
   isNew52WeekLow?: boolean;
   volume: number;
 }
@@ -94,7 +95,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
       'Dist from 52W Low (%)',
       'Day Change (%)',
       'Volume',
-      'All-Time High',
+      'Near 52W High',
     ];
     const rows = filteredItems.map((item) => [
       item.symbol,
@@ -107,7 +108,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
       item.distFromLowPct ?? '',
       item.dayChangePct,
       item.volume,
-      item.isNewAllTimeHigh ? 'YES' : 'NO',
+      item.isNewAllTimeHigh || item.isNear52WeekHigh ? 'YES' : 'NO',
     ]);
     exportTableToCsv(`NSE_52W_${activeSubTab.toUpperCase()}`, headers, rows);
   };

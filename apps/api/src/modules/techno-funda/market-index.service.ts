@@ -57,7 +57,7 @@ export class MarketIndexService {
   private cache: CacheEntry | null = null;
   private overviewInFlight: Promise<MarketOverviewData> | null = null;
   private tataMotorsPriceCache: { data: TataMotorsPriceResult; expiresAt: number } | null = null;
-  private readonly CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes — shared by /indices and /market-mood
+  private readonly CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes — shared by /indices and /market-mood
 
   private readonly INDICES = [
     { ticker: '^NSEI', symbol: 'NIFTY 50', name: 'Nifty 50 Index' },

@@ -135,7 +135,12 @@ export function analyzeSectorRotation(
   sectorsInput: SectorCandleInput[],
 ): SectorRotationAnalysisResult {
   const bCloses = benchmarkInput.closes.filter((c) => typeof c === 'number' && !isNaN(c));
-  const bCurrent = bCloses.length > 0 ? bCloses[bCloses.length - 1] : (benchmarkInput.currentPrice || 0);
+  const bCurrent =
+    typeof benchmarkInput.currentPrice === 'number' && benchmarkInput.currentPrice > 0
+      ? benchmarkInput.currentPrice
+      : bCloses.length > 0
+        ? bCloses[bCloses.length - 1]
+        : 0;
   const b1D = computeSessionReturn(bCloses, 1, benchmarkInput.previousClose);
   const b1W = computeSessionReturn(bCloses, 5);
   const b1M = computeSessionReturn(bCloses, 21);
@@ -151,7 +156,12 @@ export function analyzeSectorRotation(
 
   const calculatedSectors: Array<Omit<SectorPerformanceMetrics, 'rank'>> = sectorsInput.map((sec) => {
     const closes = sec.closes.filter((c) => typeof c === 'number' && !isNaN(c));
-    const current = closes.length > 0 ? closes[closes.length - 1] : (sec.currentPrice || 0);
+    const current =
+      typeof sec.currentPrice === 'number' && sec.currentPrice > 0
+        ? sec.currentPrice
+        : closes.length > 0
+          ? closes[closes.length - 1]
+          : 0;
     const return1D = computeSessionReturn(closes, 1, sec.previousClose);
     const return1W = computeSessionReturn(closes, 5);
     const return1M = computeSessionReturn(closes, 21);

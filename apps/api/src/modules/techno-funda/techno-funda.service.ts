@@ -228,11 +228,7 @@ export class TechnoFundaService {
     return cookies;
   }
 
-  private async loadNifty50FromCsv(): Promise<PeadUniverseCompany[]> {
-    const urls = [
-      'https://archives.nseindia.com/content/indices/ind_nifty50list.csv',
-      'https://www.niftyindices.com/IndexConstituent/ind_nifty50list.csv',
-    ];
+  private async loadNiftyIndexCsv(urls: string[], label: string): Promise<PeadUniverseCompany[]> {
     for (const url of urls) {
       try {
         const res = await fetch(url, {
@@ -269,10 +265,30 @@ export class TechnoFundaService {
         }
         if (universe.length > 0) return universe;
       } catch (err: any) {
-        this.logger.warn(`Nifty50 CSV load failed (${url}): ${err?.message || err}`);
+        this.logger.warn(`${label} CSV load failed (${url}): ${err?.message || err}`);
       }
     }
     return [];
+  }
+
+  private async loadNifty50FromCsv(): Promise<PeadUniverseCompany[]> {
+    return this.loadNiftyIndexCsv(
+      [
+        'https://archives.nseindia.com/content/indices/ind_nifty50list.csv',
+        'https://www.niftyindices.com/IndexConstituent/ind_nifty50list.csv',
+      ],
+      'Nifty50',
+    );
+  }
+
+  private async loadNifty500FromCsv(): Promise<PeadUniverseCompany[]> {
+    return this.loadNiftyIndexCsv(
+      [
+        'https://archives.nseindia.com/content/indices/ind_nifty500list.csv',
+        'https://www.niftyindices.com/IndexConstituent/ind_nifty500list.csv',
+      ],
+      'Nifty500',
+    );
   }
 
   private async loadNseEquityUniverse(limit = 80): Promise<PeadUniverseCompany[]> {
@@ -280,37 +296,38 @@ export class TechnoFundaService {
       return this.nseUniverseCache.data.slice(0, limit);
     }
 
-    // 1) Official Nifty 50 CSV (free, reliable)
-    let universe = await this.loadNifty50FromCsv();
-
-    // 2) NSE volume gainers as broader live universe supplement
-    if (universe.length < 20) {
-      try {
-        const raw = await this.fetchNseApi('/api/live-analysis-volume-gainers');
-        const rows = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
-        const fromGainers: PeadUniverseCompany[] = rows
-          .map((row: any) => {
-            const symbol = String(row.symbol || '').toUpperCase().trim();
-            if (!symbol || symbol.includes(' ') || symbol.length > 20) return null;
-            return {
-              symbol,
-              name: String(row.companyName || row.meta?.companyName || symbol),
-              yahooTicker: `${symbol}.NS`,
-              sector: String(row.meta?.industry || 'Equities'),
-            } as PeadUniverseCompany;
-          })
-          .filter((x: PeadUniverseCompany | null): x is PeadUniverseCompany => Boolean(x));
-        const seen = new Set(universe.map((u) => u.symbol));
-        for (const g of fromGainers) {
-          if (!seen.has(g.symbol)) {
-            universe.push(g);
-            seen.add(g.symbol);
-          }
+    // Prefer broad free Nifty 500 list; fall back to Nifty 50
+    let universe = await this.loadNifty500FromCsv();
+    if (universe.length < 50) {
+      const nifty50 = await this.loadNifty50FromCsv();
+      const seen = new Set(universe.map((u) => u.symbol));
+      for (const row of nifty50) {
+        if (!seen.has(row.symbol)) {
+          universe.push(row);
+          seen.add(row.symbol);
         }
-      } catch {}
+      }
     }
 
-    // 3) Symbol-list fallback (quotes still fetched live)
+    // Always merge NSE volume gainers for live movers outside static index lists
+    try {
+      const raw = await this.fetchNseApi('/api/live-analysis-volume-gainers');
+      const rows = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
+      const seen = new Set(universe.map((u) => u.symbol));
+      for (const row of rows) {
+        const symbol = String(row.symbol || '').toUpperCase().trim();
+        if (!symbol || symbol.includes(' ') || symbol.length > 20 || seen.has(symbol)) continue;
+        universe.push({
+          symbol,
+          name: String(row.companyName || row.meta?.companyName || symbol),
+          yahooTicker: `${symbol}.NS`,
+          sector: String(row.meta?.industry || 'Equities'),
+        });
+        seen.add(symbol);
+      }
+    } catch {}
+
+    // Symbol-list fallback (quotes still fetched live)
     if (universe.length === 0) {
       universe = NIFTY50_SYMBOL_FALLBACK.map((s) => ({
         symbol: s.symbol,
@@ -844,13 +861,13 @@ export class TechnoFundaService {
     return 'extreme_greed';
   }
 
-  async getMarketMoodIndex(): Promise<
+  async getMarketMoodIndex(forceRefresh = false): Promise<
     MarketMoodDto & {
       advisory: string;
       historicalTrend: { date: string; score: number }[];
     }
   > {
-    const overview = await this.marketIndexService.getMarketOverview();
+    const overview = await this.marketIndexService.getMarketOverview(forceRefresh);
     const vixCurrent = overview.indiaVix;
     const breadthPct = overview.marketBreadth?.breadthPct;
     const maScore = overview.technicalMetrics?.maTrendScore;
@@ -977,8 +994,8 @@ export class TechnoFundaService {
     return this.vahanEtlService.getVahanData(forceRefresh);
   }
 
-  async getMarketOverview() {
-    return this.marketIndexService.getMarketOverview();
+  async getMarketOverview(forceRefresh = false) {
+    return this.marketIndexService.getMarketOverview(forceRefresh);
   }
 
   async getOverview() {
@@ -2490,14 +2507,14 @@ export class TechnoFundaService {
   private masterTrackerCache: { timestamp: number; data: any } | null = null;
 
   async getMasterTracker(forceRefresh = false) {
-    if (!forceRefresh && this.masterTrackerCache && Date.now() - this.masterTrackerCache.timestamp < 15 * 60 * 1000) {
+    if (!forceRefresh && this.masterTrackerCache && Date.now() - this.masterTrackerCache.timestamp < 5 * 60 * 1000) {
       return this.masterTrackerCache.data;
     }
 
-    const universe = await this.loadNseEquityUniverse(15);
+    const universe = await this.loadNseEquityUniverse(50);
     // Quotes only (no Screener P&L per row) — fundamentals load on demand in Valuation Lab
     const companies = (
-      await this.mapPool(universe, 5, async (item) => {
+      await this.mapPool(universe, 8, async (item) => {
         const detail = await this.fetchLiveStockDetail(item.yahooTicker);
         if (!detail || detail.cmp <= 0) return null;
         return {
@@ -2958,30 +2975,43 @@ export class TechnoFundaService {
     previousClose: number;
   } | null> {
     try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
+      // 5d gives session price + enough closes to recover 52W if meta fields are missing
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y`;
       const resp = await fetch(url, {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
           Accept: 'application/json',
         },
-        signal: AbortSignal.timeout(6000),
+        signal: AbortSignal.timeout(8000),
       });
       if (!resp.ok) return null;
       const json = (await resp.json()) as any;
-      const meta = json?.chart?.result?.[0]?.meta;
+      const result = json?.chart?.result?.[0];
+      const meta = result?.meta;
       if (!meta || meta.regularMarketPrice === undefined) return null;
       const cmp = Math.round(Number(meta.regularMarketPrice) * 100) / 100;
       const prevClose = Number(meta.chartPreviousClose || meta.previousClose || cmp);
       const dayChangePct =
         prevClose > 0 ? Math.round(((cmp - prevClose) / prevClose) * 10000) / 100 : 0;
-      const week52High = Number(meta.fiftyTwoWeekHigh || cmp);
-      const week52Low = Number(meta.fiftyTwoWeekLow || cmp);
+
+      let week52High = Number(meta.fiftyTwoWeekHigh || 0);
+      let week52Low = Number(meta.fiftyTwoWeekLow || 0);
+      const closes: number[] = (result?.indicators?.quote?.[0]?.close || []).filter(
+        (c: any) => typeof c === 'number' && !isNaN(c) && c > 0,
+      );
+      // Never fall back 52W high/low to CMP (that falsely marks every name as near-high)
+      if ((!week52High || !week52Low) && closes.length > 0) {
+        week52High = week52High || Math.max(...closes);
+        week52Low = week52Low || Math.min(...closes);
+      }
+      if (!week52High || !week52Low) return null;
+
       const volume = Number(meta.regularMarketVolume || 0);
       return {
         cmp,
-        week52High,
-        week52Low,
+        week52High: Math.round(week52High * 100) / 100,
+        week52Low: Math.round(week52Low * 100) / 100,
         dayChangePct,
         volume,
         previousClose: prevClose,
@@ -2993,14 +3023,14 @@ export class TechnoFundaService {
 
   private fiftyTwoWeekCache: { timestamp: number; data: any } | null = null;
   async get52WeekHighLow(refresh = false): Promise<any> {
-    const TTL = 15 * 60 * 1000;
+    const TTL = 5 * 60 * 1000;
     if (!refresh && this.fiftyTwoWeekCache && Date.now() - this.fiftyTwoWeekCache.timestamp < TTL) {
       return this.fiftyTwoWeekCache.data;
     }
 
-    // Prefer Yahoo live quotes over Nifty universe — NSE 52W analysis endpoints are often empty/404
-    const universe = await this.loadNseEquityUniverse(30);
-    const liveQuotes = await this.mapPool(universe, 5, async (item) => {
+    // Broader free universe (Nifty 500 + volume gainers) for a real breakout/breakdown screen
+    const universe = await this.loadNseEquityUniverse(120);
+    const liveQuotes = await this.mapPool(universe, 8, async (item) => {
         const detail = await this.fetchLiveStockDetail(item.yahooTicker);
         if (!detail || detail.cmp <= 0 || !detail.week52High || !detail.week52Low) return null;
         const distFromHighPct =
@@ -3023,37 +3053,59 @@ export class TechnoFundaService {
           distFromLowPct: Math.max(0, distFromLowPct),
           dayChangePct: detail.dayChangePct,
           isNewAllTimeHigh: detail.cmp >= detail.week52High * 0.995,
+          isNear52WeekHigh: detail.cmp >= detail.week52High * 0.995,
           isNew52WeekLow: detail.cmp <= detail.week52Low * 1.005,
           volume: detail.volume ?? null,
         };
       });
 
     const validStocks = liveQuotes.filter((s): s is NonNullable<typeof s> => s !== null);
-    // Near 52W high: within 5% of high (distFromHighPct small)
-    const highs = validStocks
+    // Near 52W high/low: within 5% (primary). Widen to 10% if tape is quiet.
+    let highs = validStocks
       .filter((s) => s.distFromHighPct <= 5)
       .sort((a, b) => a.distFromHighPct - b.distFromHighPct);
-    // Near 52W low: within 5% of low
-    const lows = validStocks
+    let lows = validStocks
       .filter((s) => s.distFromLowPct <= 5)
       .sort((a, b) => a.distFromLowPct - b.distFromLowPct);
 
-    // If filters too tight (quiet tape), widen to top proximity ranks so UI is never blank when quotes exist
+    let filterNote: string | undefined;
+    if (highs.length < 5) {
+      highs = validStocks
+        .filter((s) => s.distFromHighPct <= 10)
+        .sort((a, b) => a.distFromHighPct - b.distFromHighPct)
+        .slice(0, 40);
+      filterNote = 'Few names within 5% of 52W high — showing within 10% proximity.';
+    }
+    if (lows.length < 5) {
+      lows = validStocks
+        .filter((s) => s.distFromLowPct <= 10)
+        .sort((a, b) => a.distFromLowPct - b.distFromLowPct)
+        .slice(0, 40);
+      filterNote = filterNote
+        ? `${filterNote} Lows also widened to 10%.`
+        : 'Few names within 5% of 52W low — showing within 10% proximity.';
+    }
+
+    // Last resort: closest proximity ranks so UI is never blank when quotes exist
     const highsOut =
       highs.length > 0
         ? highs
-        : [...validStocks].sort((a, b) => a.distFromHighPct - b.distFromHighPct).slice(0, 15);
+        : [...validStocks].sort((a, b) => a.distFromHighPct - b.distFromHighPct).slice(0, 25);
     const lowsOut =
       lows.length > 0
         ? lows
-        : [...validStocks].sort((a, b) => a.distFromLowPct - b.distFromLowPct).slice(0, 15);
+        : [...validStocks].sort((a, b) => a.distFromLowPct - b.distFromLowPct).slice(0, 25);
 
     const liveData = {
       lastUpdated: new Date().toISOString(),
       source: validStocks.length ? 'YAHOO_LIVE_52W' : 'UNAVAILABLE',
-      filterNote: highs.length === 0 && validStocks.length > 0
-        ? 'No stocks within 5% of 52W high/low — showing closest proximity ranks.'
-        : undefined,
+      dataSource: 'Yahoo Finance delayed quotes for NSE (.NS) — free third-party feed',
+      scanned: validStocks.length,
+      filterNote:
+        filterNote ||
+        (highs.length === 0 && validStocks.length > 0
+          ? 'No stocks within 5–10% of 52W high/low — showing closest proximity ranks.'
+          : undefined),
       totalHighs: highsOut.length,
       totalLows: lowsOut.length,
       highs: highsOut,
@@ -3485,7 +3537,7 @@ export class TechnoFundaService {
   // ── 7. Sectoral Index Performance Heatmap & Rotation ──────────────────
   private sectorHeatmapCache: { timestamp: number; data: any } | null = null;
   async getSectorHeatmap(refresh = false): Promise<any> {
-    const TTL = 15 * 60 * 1000;
+    const TTL = 5 * 60 * 1000;
     if (!refresh && this.sectorHeatmapCache && Date.now() - this.sectorHeatmapCache.timestamp < TTL) {
       return this.sectorHeatmapCache.data;
     }
@@ -3602,76 +3654,83 @@ export class TechnoFundaService {
   // ── 8. 52-Week High Momentum + Delivery % Screener ────────────────────
   private deliveryMomentumCache: { timestamp: number; data: any } | null = null;
   async getDeliveryMomentum(refresh = false): Promise<any> {
-    const TTL = 15 * 60 * 1000;
+    const TTL = 5 * 60 * 1000;
     if (!refresh && this.deliveryMomentumCache && Date.now() - this.deliveryMomentumCache.timestamp < TTL) {
       return this.deliveryMomentumCache.data;
     }
 
-    // Prefer NSE live analysis if present; otherwise Yahoo proximity-to-high without fabricated delivery %
+    // NSE volume gainers for live CMP, then enrich with Yahoo 52W distance (free)
+    let baseRows: any[] = [];
     try {
       const raw = await this.fetchNseApi('/api/live-analysis-volume-gainers');
       const rows = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
-      if (rows.length > 0) {
-        const stocks = rows.slice(0, 40).map((r: any) => ({
-          symbol: r.symbol,
-          companyName: r.meta?.companyName || r.symbol,
-          sector: r.meta?.industry || 'Equities',
-          cmp: Number(r.lastPrice || r.ltp || 0),
-          dayChangePct: Number(r.pChange || 0),
-          distFromHighPct: null,
-          deliveryPct: r.deliveryToTradedQuantity != null ? Number(r.deliveryToTradedQuantity) : null,
-          tradedVolume: Number(r.totalTradedVolume || r.volume || 0),
-          deliveryVolume: null,
-          deliveryTo30dAvgRatio: null,
-          verdict: null,
-        }));
-        const result = {
-          lastUpdated: new Date().toISOString(),
-          source: 'NSE_LIVE_VOLUME_GAINERS',
-          totalStocks: stocks.length,
-          stocks,
-        };
-        this.deliveryMomentumCache = { timestamp: Date.now(), data: result };
-        return result;
-      }
+      baseRows = rows.slice(0, 40).map((r: any) => ({
+        symbol: String(r.symbol || '').toUpperCase().trim(),
+        companyName: r.meta?.companyName || r.symbol,
+        sector: r.meta?.industry || 'Equities',
+        cmp: Number(r.lastPrice || r.ltp || 0),
+        dayChangePct: Number(r.pChange || 0),
+        deliveryPct: r.deliveryToTradedQuantity != null ? Number(r.deliveryToTradedQuantity) : null,
+        tradedVolume: Number(r.totalTradedVolume || r.volume || 0),
+      }));
     } catch {}
 
-    const universe = await this.loadNseEquityUniverse(20);
+    if (baseRows.length === 0) {
+      const universe = await this.loadNseEquityUniverse(40);
+      baseRows = universe.map((c) => ({
+        symbol: c.symbol,
+        companyName: c.name,
+        sector: c.sector,
+        cmp: 0,
+        dayChangePct: 0,
+        deliveryPct: null,
+        tradedVolume: 0,
+        yahooTicker: c.yahooTicker,
+      }));
+    }
+
     const stocks = (
-      await Promise.all(
-        universe.map(async (c) => {
-          const detail = await this.fetchLiveStockDetail(c.yahooTicker);
-          if (!detail || detail.cmp <= 0) return null;
-          const distFromHighPct =
-            detail.week52High > 0
-              ? Math.round((Math.abs(detail.cmp - detail.week52High) / detail.week52High) * 10000) / 100
-              : null;
-          return {
-            symbol: c.symbol,
-            companyName: c.name,
-            sector: c.sector,
-            cmp: detail.cmp,
-            dayChangePct: detail.dayChangePct,
-            distFromHighPct,
-            deliveryPct: null,
-            tradedVolume: detail.volume,
-            deliveryVolume: null,
-            deliveryTo30dAvgRatio: null,
-            verdict: null,
-          };
-        }),
-      )
-    ).filter((s): s is NonNullable<typeof s> => s !== null);
+      await this.mapPool(baseRows, 6, async (row) => {
+        const detail = await this.fetchLiveStockDetail(`${row.symbol}.NS`);
+        const cmp = detail?.cmp || row.cmp || 0;
+        if (!cmp || !detail?.week52High) return null;
+        const distFromHighPct = Math.round(((detail.week52High - cmp) / detail.week52High) * 10000) / 100;
+        // Momentum screen: near 52W high (within 10%)
+        if (distFromHighPct > 10) return null;
+        return {
+          symbol: row.symbol,
+          companyName: row.companyName,
+          sector: row.sector,
+          cmp,
+          dayChangePct: detail?.dayChangePct ?? row.dayChangePct,
+          distFromHighPct: Math.max(0, distFromHighPct),
+          week52High: detail.week52High,
+          deliveryPct: row.deliveryPct,
+          tradedVolume: row.tradedVolume || detail?.volume || 0,
+          deliveryVolume: null,
+          deliveryTo30dAvgRatio: null,
+          verdict: distFromHighPct <= 2 ? 'Near 52W High' : distFromHighPct <= 5 ? 'Approaching High' : 'Within 10%',
+        };
+      })
+    )
+      .filter((s): s is NonNullable<typeof s> => s !== null)
+      .sort((a, b) => a.distFromHighPct - b.distFromHighPct);
 
     const result = {
       lastUpdated: new Date().toISOString(),
-      source: stocks.length ? 'YAHOO_LIVE_52W_PROXIMITY' : 'UNAVAILABLE',
+      source: stocks.length ? 'NSE_VOLUME_GAINERS_PLUS_YAHOO_52W' : 'UNAVAILABLE',
+      dataSource: 'NSE volume gainers CMP + Yahoo 52W proximity (free). Delivery % only when NSE supplies it.',
       totalStocks: stocks.length,
       stocks,
-      message: 'Delivery % omitted unless provided by NSE live feed (not estimated).',
+      message:
+        stocks.length === 0
+          ? 'No volume-gainers currently within 10% of 52-week highs.'
+          : undefined,
     };
 
-    this.deliveryMomentumCache = { timestamp: Date.now(), data: result };
+    if (stocks.length > 0) {
+      this.deliveryMomentumCache = { timestamp: Date.now(), data: result };
+    }
     return result;
   }
 

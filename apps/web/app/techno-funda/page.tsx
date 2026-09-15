@@ -1325,7 +1325,21 @@ function TechnoFundaContent() {
 
       const withRefresh = (path: string, key: string) => {
         // Force upstream refresh for feeds that previously poisoned empty browser/health caches
-        const forceKeys = new Set(['results-calendar', 'buybacks', 'bank-nbfc', 'vahan', 'vahan-makers', 'rbi-macro']);
+        const forceKeys = new Set([
+          'results-calendar',
+          'buybacks',
+          'bank-nbfc',
+          'vahan',
+          'vahan-makers',
+          'rbi-macro',
+          '52w-high-low',
+          'delivery-screener',
+          'sector-heatmap',
+          'master-tracker',
+          'circuit-breakers',
+          'indices',
+          'market-mood',
+        ]);
         if (mode !== 'refresh' && !forceKeys.has(key)) return path;
         const sep = path.includes('?') ? '&' : '?';
         return `${path}${sep}refresh=true`;

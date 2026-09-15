@@ -19,15 +19,15 @@ export class TechnoFundaController {
   @Public()
   @Get('indices')
   @ApiOperation({ summary: 'Get live/delayed index snapshots (Nifty 50, Sensex, Nifty Bank, India VIX) with Section 58 compliance' })
-  getIndices() {
-    return this.tfService.getMarketOverview();
+  getIndices(@Query('refresh') refresh?: string) {
+    return this.tfService.getMarketOverview(refresh === 'true');
   }
 
   @Public()
   @Get('market-mood')
   @ApiOperation({ summary: 'Get Market Mood Index (0-100) computed from live India VIX and index breadth' })
-  getMarketMoodIndex() {
-    return this.tfService.getMarketMoodIndex();
+  getMarketMoodIndex(@Query('refresh') refresh?: string) {
+    return this.tfService.getMarketMoodIndex(refresh === 'true');
   }
 
   @Get('pead')
