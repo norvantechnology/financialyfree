@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter @ff/types build && pnpm --filter @ff/calc build && pnpm --filter @ff/validators build && pnpm --filter @ff/web build",
   "env": {
     "NEXT_PUBLIC_API_URL": "https://financialyfree.onrender.com",
     "API_URL": "https://financialyfree.onrender.com",

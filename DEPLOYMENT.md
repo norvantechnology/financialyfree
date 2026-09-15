@@ -29,7 +29,21 @@ This repo’s [`render.yaml`](./render.yaml) deploys **backend only** (`@ff/api`
 
 ## Frontend on Vercel (Next.js)
 
-Use **repo root** as the Vercel project root (monorepo). Config: [`vercel.json`](./vercel.json).
+**Do not** set Root Directory to `apps/api` — that is the Nest API (deployed on Render). Vercel hosts only the Next.js app.
+
+### Build & Deployment settings (fix the “No Next.js version detected” error)
+
+| Setting | Value |
+|---------|--------|
+| Framework Preset | `Next.js` |
+| Root Directory | `apps/web` |
+| Include files outside the root directory | **ON** |
+| Install Command | `cd ../.. && pnpm install --frozen-lockfile` |
+| Build Command | `cd ../.. && pnpm --filter @ff/types build && pnpm --filter @ff/calc build && pnpm --filter @ff/validators build && pnpm --filter @ff/web build` |
+| Output Directory | leave as Next.js default (empty / not overridden) |
+| Node.js Version | `20.x` (not 24.x) |
+
+Config file used when Root Directory is `apps/web`: [`apps/web/vercel.json`](./apps/web/vercel.json).
 
 ### Vercel Environment Variables (Project Settings → Environment Variables)
 
