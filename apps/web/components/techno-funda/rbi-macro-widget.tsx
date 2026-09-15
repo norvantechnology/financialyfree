@@ -7,33 +7,34 @@ import { exportTableToCsv } from '../../lib/csv-export';
 export interface RbiMacroData {
   lastUpdated: string;
   source: string;
+  message?: string;
   currentRates: {
-    repoRate: number;
-    standingDepositFacility: number;
-    marginalStandingFacility: number;
-    bankRate: number;
-    cashReserveRatio: number;
-    statutoryLiquidityRatio: number;
-  };
+    repoRate: number | null;
+    standingDepositFacility: number | null;
+    marginalStandingFacility: number | null;
+    bankRate: number | null;
+    cashReserveRatio: number | null;
+    statutoryLiquidityRatio: number | null;
+  } | null;
   nextMpcMeeting: {
     startDate: string;
     decisionDate: string;
     expectedAction: string;
     status: string;
-  };
-  policyStance: string;
+  } | null;
+  policyStance: string | null;
   rateHistory: Array<{
     date: string;
     repoRate: number;
     changeBps: number;
     direction: 'HIKE' | 'CUT' | 'PAUSE';
-  }>;
+  }> | null;
   macroIndicators: {
-    cpiInflation: number;
-    cpiTarget: string;
-    gdpGrowthFy26: number;
-    gsec10Y: number;
-  };
+    cpiInflation: number | null;
+    cpiTarget: string | null;
+    gdpGrowthFy26: number | null;
+    gsec10Y: number | null;
+  } | null;
 }
 
 interface RbiMacroWidgetProps {
@@ -41,22 +42,34 @@ interface RbiMacroWidgetProps {
   isLoading?: boolean;
 }
 
+function fmtPct(value: number | null | undefined): string {
+  return value == null || Number.isNaN(value) ? '—' : `${value.toFixed(2)}%`;
+}
+
 export function RbiMacroWidget({ data, isLoading: _isLoading }: RbiMacroWidgetProps) {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   if (!data) return null;
 
+  const rates = data.currentRates;
+  const mpc = data.nextMpcMeeting;
+  const macro = data.macroIndicators;
+  const history = Array.isArray(data.rateHistory) ? data.rateHistory : [];
+  const decisionDate = mpc?.decisionDate ?? 'TBD';
+  const expectedAction = mpc?.expectedAction ?? 'Unavailable';
+  const policyStance = data.policyStance ?? 'Unavailable';
+
   const handleExportCsv = () => {
     const headers = ['Metric / Indicator', 'Current Value', 'Details'];
     const rows = [
-      ['Policy Repo Rate', `${data.currentRates.repoRate.toFixed(2)}%`, 'Benchmark Lending Rate'],
-      ['Standing Deposit Facility (SDF)', `${data.currentRates.standingDepositFacility.toFixed(2)}%`, 'Liquidity Absorption Floor'],
-      ['Marginal Standing Facility (MSF)', `${data.currentRates.marginalStandingFacility.toFixed(2)}%`, 'Overnight Liquidity Ceiling'],
-      ['Cash Reserve Ratio (CRR)', `${data.currentRates.cashReserveRatio.toFixed(2)}%`, 'Bank Reserve Requirement'],
-      ['Retail CPI Inflation', `${data.macroIndicators.cpiInflation.toFixed(2)}%`, `Target: ${data.macroIndicators.cpiTarget}`],
-      ['10-Yr Benchmark G-Sec Yield', `${data.macroIndicators.gsec10Y.toFixed(2)}%`, 'Sovereign Yield Anchor'],
-      ['Next MPC Decision Date', data.nextMpcMeeting.decisionDate, `Expected: ${data.nextMpcMeeting.expectedAction}`],
-      ['Policy Stance', data.policyStance, 'Official RBI Stance'],
+      ['Policy Repo Rate', fmtPct(rates?.repoRate), 'Benchmark Lending Rate'],
+      ['Standing Deposit Facility (SDF)', fmtPct(rates?.standingDepositFacility), 'Liquidity Absorption Floor'],
+      ['Marginal Standing Facility (MSF)', fmtPct(rates?.marginalStandingFacility), 'Overnight Liquidity Ceiling'],
+      ['Cash Reserve Ratio (CRR)', fmtPct(rates?.cashReserveRatio), 'Bank Reserve Requirement'],
+      ['Retail CPI Inflation', fmtPct(macro?.cpiInflation), `Target: ${macro?.cpiTarget ?? '—'}`],
+      ['10-Yr Benchmark G-Sec Yield', fmtPct(macro?.gsec10Y), 'Sovereign Yield Anchor'],
+      ['Next MPC Decision Date', decisionDate, `Expected: ${expectedAction}`],
+      ['Policy Stance', policyStance, 'Official RBI Stance'],
     ];
     exportTableToCsv('RBI_Monetary_Policy_Macro', headers, rows);
   };
@@ -89,6 +102,10 @@ export function RbiMacroWidget({ data, isLoading: _isLoading }: RbiMacroWidgetPr
           </div>
         )}
       </div>
+
+      {data.message && (
+        <p style={{ margin: 0, fontSize: '12px', color: '#64748B' }}>{data.message}</p>
+      )}
 
       {/* ── Top Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -141,59 +158,55 @@ export function RbiMacroWidget({ data, isLoading: _isLoading }: RbiMacroWidgetPr
             whiteSpace: 'nowrap',
           }}>
             <Calendar size={12} />
-            Next MPC: {data.nextMpcMeeting.decisionDate}
+            Next MPC: {decisionDate}
           </div>
         </div>
       </div>
 
       {/* ── Core Rate Cards Grid (2-col on Mobile, 4-col on Desktop) ── */}
       <div className="tf-kpi-grid-responsive">
-        {/* Repo Rate */}
         <div style={{ background: '#F8FAFC', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
           <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Policy Repo Rate
           </div>
           <div className="tf-kpi-val" style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', marginTop: '4px' }}>
-            {data.currentRates.repoRate.toFixed(2)}%
+            {fmtPct(rates?.repoRate)}
           </div>
           <div className="tf-kpi-sub" style={{ fontSize: '11px', color: '#059669', marginTop: '2px', fontWeight: 650 }}>
             Benchmark Lending Rate
           </div>
         </div>
 
-        {/* SDF */}
         <div style={{ background: '#F8FAFC', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
           <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Standing Deposit (SDF)
           </div>
           <div className="tf-kpi-val" style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', marginTop: '4px' }}>
-            {data.currentRates.standingDepositFacility.toFixed(2)}%
+            {fmtPct(rates?.standingDepositFacility)}
           </div>
           <div className="tf-kpi-sub" style={{ fontSize: '11px', color: '#64748B', marginTop: '2px', fontWeight: 650 }}>
             Liquidity Absorption Floor
           </div>
         </div>
 
-        {/* CPI Inflation */}
         <div style={{ background: '#F8FAFC', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
           <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Retail CPI Inflation
           </div>
           <div className="tf-kpi-val" style={{ fontSize: '24px', fontWeight: 800, color: '#059669', marginTop: '4px' }}>
-            {data.macroIndicators.cpiInflation.toFixed(2)}%
+            {fmtPct(macro?.cpiInflation)}
           </div>
           <div className="tf-kpi-sub" style={{ fontSize: '11px', color: '#059669', marginTop: '2px', fontWeight: 650 }}>
-            Inside 4.0% Target Band
+            {macro?.cpiTarget ? `Target: ${macro.cpiTarget}` : 'CPI target unavailable'}
           </div>
         </div>
 
-        {/* 10Y G-Sec Yield */}
         <div style={{ background: '#F8FAFC', padding: '14px 16px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
           <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             10-Yr Benchmark G-Sec
           </div>
           <div className="tf-kpi-val" style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', marginTop: '4px' }}>
-            {data.macroIndicators.gsec10Y.toFixed(2)}%
+            {fmtPct(macro?.gsec10Y)}
           </div>
           <div className="tf-kpi-sub" style={{ fontSize: '11px', color: '#64748B', marginTop: '2px', fontWeight: 650 }}>
             Sovereign Yield Curve Anchor
@@ -216,11 +229,11 @@ export function RbiMacroWidget({ data, isLoading: _isLoading }: RbiMacroWidgetPr
       }}>
         <div>
           <span style={{ color: '#64748B' }}>Monetary Policy Stance:</span>{' '}
-          <strong style={{ color: '#0F172A' }}>{data.policyStance}</strong>
+          <strong style={{ color: '#0F172A' }}>{policyStance}</strong>
         </div>
         <div>
           <span style={{ color: '#64748B' }}>Market Expectation:</span>{' '}
-          <strong style={{ color: '#4338CA' }}>{data.nextMpcMeeting.expectedAction}</strong>
+          <strong style={{ color: '#4338CA' }}>{expectedAction}</strong>
         </div>
       </div>
 
@@ -229,33 +242,37 @@ export function RbiMacroWidget({ data, isLoading: _isLoading }: RbiMacroWidgetPr
         <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748B', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
           Recent Policy Rate Trajectory
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {data.rateHistory.map((step) => (
-            <div
-              key={step.date}
-              style={{
-                background: '#FFFFFF',
-                border: '1px solid #E2E8F0',
-                padding: '5px 10px',
-                borderRadius: '6px',
-                fontSize: '11.5px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-              }}
-            >
-              <span style={{ color: '#64748B' }}>{step.date}:</span>
-              <strong style={{ color: '#0F172A' }}>{step.repoRate.toFixed(2)}%</strong>
-              <span style={{
-                color: step.direction === 'HIKE' ? '#059669' : '#DC2626',
-                fontWeight: 750,
-                fontSize: '10.5px',
-              }}>
-                (+{step.changeBps} bps)
-              </span>
-            </div>
-          ))}
-        </div>
+        {history.length === 0 ? (
+          <p style={{ margin: 0, fontSize: '12px', color: '#94A3B8' }}>No recent rate history available from live RBI sources.</p>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {history.map((step) => (
+              <div
+                key={step.date}
+                style={{
+                  background: '#FFFFFF',
+                  border: '1px solid #E2E8F0',
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                }}
+              >
+                <span style={{ color: '#64748B' }}>{step.date}:</span>
+                <strong style={{ color: '#0F172A' }}>{fmtPct(step.repoRate)}</strong>
+                <span style={{
+                  color: step.direction === 'HIKE' ? '#059669' : '#DC2626',
+                  fontWeight: 750,
+                  fontSize: '10.5px',
+                }}>
+                  ({step.changeBps >= 0 ? '+' : ''}{step.changeBps} bps)
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
