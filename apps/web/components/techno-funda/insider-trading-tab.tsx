@@ -44,27 +44,33 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
+      const q = searchQuery.toLowerCase();
       const matchesSearch =
-        t.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.personName.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        (t.symbol || '').toLowerCase().includes(q) ||
+        (t.companyName || '').toLowerCase().includes(q) ||
+        (t.personName || '').toLowerCase().includes(q);
+
+      const txType = t.transactionType || '';
+      const category = t.personCategory || '';
+      const mode = t.modeOfAcquisition || '';
 
       let matchesType = true;
       if (typeFilter === 'BUY') {
-        matchesType = t.transactionType.includes('Purchase');
+        matchesType = /buy|purchas|acqui|subscri/i.test(txType);
       } else if (typeFilter === 'SELL') {
-        matchesType = t.transactionType.includes('Sale');
+        matchesType = /sell|sale|dispos/i.test(txType) && !/pledge/i.test(txType);
       } else if (typeFilter === 'PLEDGE') {
-        matchesType = t.transactionType.includes('Pledge');
+        matchesType = /pledge/i.test(txType);
       }
 
       let matchesPreset = true;
       if (presetFilter === 'PROMOTER_BUYS') {
-        matchesPreset = t.personCategory.includes('Promoter') && t.transactionType.includes('Purchase');
+        matchesPreset = /promoter/i.test(category) && /buy|purchas|acqui|subscri/i.test(txType);
       } else if (presetFilter === 'PLEDGES') {
-        matchesPreset = t.transactionType.includes('Pledge');
+        matchesPreset = /pledge/i.test(txType);
       } else if (presetFilter === 'MARKET_ONLY') {
-        matchesPreset = t.modeOfAcquisition.includes('Market');
+        matchesPreset = /market/i.test(mode) || /market/i.test(txType);
       }
 
       return matchesSearch && matchesType && matchesPreset;
@@ -350,8 +356,8 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
                   </tr>
                 ) : (
                   filteredTransactions.map((tx) => {
-                    const isBuy = tx.transactionType.includes('Purchase');
-                    const isPledge = tx.transactionType.includes('Pledge');
+                    const isBuy = /buy|purchas|acqui|subscri/i.test(tx.transactionType || '');
+                    const isPledge = /pledge/i.test(tx.transactionType || '');
                     return (
                       <tr key={tx.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.15s ease' }}>
                         <td className="tf-sticky-symbol-cell" style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>

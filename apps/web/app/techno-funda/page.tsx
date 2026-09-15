@@ -49,6 +49,7 @@ import { BankNbfcTab } from '../../components/techno-funda/bank-nbfc-tab';
 import { OrderTrackerTab } from '../../components/techno-funda/order-tracker-tab';
 import { EarningsPulseModal } from '../../components/techno-funda/earnings-pulse-modal';
 import { PeadHowToUseModal } from '../../components/techno-funda/pead-how-to-use-modal';
+import { PeadCandidatesDashboard } from '../../components/techno-funda/pead-candidates-dashboard';
 import { VahanCompanyView } from '../../components/techno-funda/vahan-company-view';
 import { VahanCategoryGroupView } from '../../components/techno-funda/vahan-category-group-view';
 import { VahanIndustryView } from '../../components/techno-funda/vahan-industry-view';
@@ -942,7 +943,6 @@ function TechnoFundaContent() {
   const [pulseSymbol, setPulseSymbol] = useState('');
   const [pulseModalData, setPulseModalData] = useState<StockPulseData | null>(null);
   const [peadHowToUseOpen, setPeadHowToUseOpen] = useState(false);
-  const [peadQuarter, setPeadQuarter] = useState<'current' | 'previous'>('current');
   const [vahanSubTab, setVahanSubTab] = useState<'company' | 'category' | 'categoryGroup' | 'industry'>('company');
 
   const openEarningsPulse = (stock: MasterStockItem) => {
@@ -1016,15 +1016,7 @@ function TechnoFundaContent() {
   // 1. News Desk Category Filter (Orders, Results, Actions, etc.)
   const [newsCategoryFilter, setNewsCategoryFilter] = useState<string>('All');
 
-  // 2. PEAD Screener Filters
-  const [peadSearch, setPeadSearch] = useState<string>('');
-  const [peadStageFilter, setPeadStageFilter] = useState<string>('All');
-  const [peadMinSurprise, setPeadMinSurprise] = useState<string>('');
-  const [peadMaxSurprise, setPeadMaxSurprise] = useState<string>('');
-  const [peadMinDrift, setPeadMinDrift] = useState<string>('');
-  const [peadMaxDrift, setPeadMaxDrift] = useState<string>('');
-
-  // 3. Results Calendar Filters & Progressive Disclosure
+  // 2. Results Calendar Filters & Progressive Disclosure
   const [meetingsPurposeFilter, setMeetingsPurposeFilter] = useState<string>('All');
   const [reportedAuditFilter, setReportedAuditFilter] = useState<string>('All');
   const [expandedMeetingKey, setExpandedMeetingKey] = useState<string | null>(null);
@@ -1068,10 +1060,6 @@ function TechnoFundaContent() {
   const [vahanStateSortCol, setVahanStateSortCol] = useState<string>('rank');
   const [vahanStateSortDir, setVahanStateSortDir] = useState<'asc' | 'desc'>('asc');
 
-  // PEAD Screener Sorting
-  const [peadSortCol, setPeadSortCol] = useState<string>('score');
-  const [peadSortDir, setPeadSortDir] = useState<'asc' | 'desc'>('desc');
-
   const renderSortIcon = (activeCol: string, targetCol: string, dir: 'asc' | 'desc') => {
     if (activeCol !== targetCol) {
       return <ArrowUpDown size={11} style={{ opacity: 0.35, marginLeft: '3px', verticalAlign: 'middle' }} />;
@@ -1089,7 +1077,6 @@ function TechnoFundaContent() {
   const [showCaFilters, setShowCaFilters] = useState<boolean>(false);
   const [showResultsFilters, setShowResultsFilters] = useState<boolean>(false);
   const [showShareholdingFilters, setShowShareholdingFilters] = useState<boolean>(false);
-  const [showPeadFilters, setShowPeadFilters] = useState<boolean>(false);
 
   // PRD Section 18: Buyback Arbitrage Calculator State
   const [bbInvestment, setBbInvestment] = useState<number>(100000);
@@ -1478,7 +1465,7 @@ function TechnoFundaContent() {
             }
             break;
           case 'master-tracker':
-            if (ok && (v.stocks || v.companies) && !v.error) {
+            if (ok && !v.error && (Array.isArray(v.stocks) || Array.isArray(v.companies))) {
               const rawList = (v.stocks || v.companies || []) as any[];
               const stocks = rawList.map(normalizeMasterStock);
               setMasterTrackerData({
@@ -1487,18 +1474,24 @@ function TechnoFundaContent() {
                 totalStocks: v.totalStocks ?? v.companiesCount ?? stocks.length,
               });
               statusMap.masterTracker = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+              if (stocks.length > 0) loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.masterTracker = { ok: false, error: 'Master Tracker feed failed' };
+              failed.push('Master Tracker');
             }
             break;
           case 'orders':
-            if (ok && v.orders) {
+            if (ok && Array.isArray(v.orders)) {
               setOrderTrackerData(v);
               statusMap.orders = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+              if (v.orders.length > 0) loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.orders = { ok: false, error: 'Order Tracker feed failed' };
+              failed.push('Order Tracker');
             }
             break;
           case 'bank-nbfc':
-            if (ok && (v.banks || v.costOfFunds) && !v.error) {
+            if (ok && !v.error && (Array.isArray(v.banks) || Array.isArray(v.costOfFunds))) {
               setBankNbfcData(v);
               statusMap.bankNbfc = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
               if ((v.banks?.length || 0) > 0 || (v.costOfFunds?.length || 0) > 0) {
@@ -1510,73 +1503,112 @@ function TechnoFundaContent() {
             }
             break;
           case 'vahan-makers':
-            if (ok && v.makers) {
+            if (ok && Array.isArray(v.makers)) {
               setVahanMakersData(v);
               statusMap.vahanMakers = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+              if (v.makers.length > 0) loadedFeedsRef.current.add(key);
             }
             break;
           case '52w-high-low':
-            if (ok && v.highs) {
-              setFiftyTwoWeekData(v);
+            if (ok && (Array.isArray(v.highs) || Array.isArray(v.lows))) {
+              setFiftyTwoWeekData({
+                ...v,
+                highs: v.highs || [],
+                lows: v.lows || [],
+                totalHighs: v.totalHighs ?? (v.highs?.length || 0),
+                totalLows: v.totalLows ?? (v.lows?.length || 0),
+              });
               statusMap.fiftyTwoWeek = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+              if ((v.highs?.length || 0) > 0 || (v.lows?.length || 0) > 0) loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.fiftyTwoWeek = { ok: false, error: '52W High/Low feed failed' };
+              failed.push('52W High/Low');
             }
             break;
           case 'bulk-block-deals':
-            if (ok && v.deals) {
+            if (ok && Array.isArray(v.deals)) {
               setBulkDealsData(v);
               statusMap.bulkDeals = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+              if (v.deals.length > 0) loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.bulkDeals = { ok: false, error: 'Bulk/Block deals feed failed' };
+              failed.push('Bulk & Block Deals');
             }
             break;
           case 'fno-oi':
-            if (ok && v.indices) {
+            if (ok && Array.isArray(v.indices)) {
               setFnoData(v);
               statusMap.fno = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+              if (v.indices.length > 0) loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.fno = { ok: false, error: 'F&O OI feed failed' };
+              failed.push('F&O Analytics');
             }
             break;
           case 'insider-trading':
-            if (ok && v.transactions) {
+            if (ok && Array.isArray(v.transactions)) {
               setInsiderData(v);
               statusMap.insider = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+              if (v.transactions.length > 0) loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.insider = { ok: false, error: 'Insider trading feed failed' };
+              failed.push('Insider Trading');
             }
             break;
           case 'ipo-tracker':
-            if (ok && v.ipos) {
+            if (ok && Array.isArray(v.ipos)) {
               setIpoData(v);
               statusMap.ipo = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+              if (v.ipos.length > 0) loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.ipo = { ok: false, error: 'IPO tracker feed failed' };
+              failed.push('IPO Tracker');
             }
             break;
           case 'dividends':
-            if (ok && v.corporateActions) {
+            if (ok && Array.isArray(v.corporateActions)) {
               setDividendsData(v);
               statusMap.dividends = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+              if (v.corporateActions.length > 0) loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.dividends = { ok: false, error: 'Dividends feed failed' };
+              failed.push('Dividend Calendar');
             }
             break;
           case 'sector-heatmap':
-            if (ok && v.sectors) {
+            if (ok && Array.isArray(v.sectors)) {
               setSectorHeatmapData(v);
               statusMap.sectorHeatmap = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+              if (v.sectors.length > 0) loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.sectorHeatmap = { ok: false, error: 'Sector heatmap feed failed' };
+              failed.push('Sector Heatmap');
             }
             break;
           case 'delivery-screener':
-            if (ok && v.stocks) {
+            if (ok && Array.isArray(v.stocks)) {
               setDeliveryMomentumData(v);
               statusMap.deliveryMomentum = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+              if (v.stocks.length > 0) loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.deliveryMomentum = { ok: false, error: 'Delivery momentum feed failed' };
+              failed.push('Delivery Momentum');
             }
             break;
           case 'circuit-breakers':
-            if (ok && v.upperCircuits) {
-              setCircuitBreakersData(v);
+            if (ok && (Array.isArray(v.upperCircuits) || Array.isArray(v.lowerCircuits))) {
+              setCircuitBreakersData({
+                ...v,
+                upperCircuits: v.upperCircuits || [],
+                lowerCircuits: v.lowerCircuits || [],
+              });
               statusMap.circuitBreakers = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
-              loadedFeedsRef.current.add(key);
+              if ((v.upperCircuits?.length || 0) + (v.lowerCircuits?.length || 0) > 0) {
+                loadedFeedsRef.current.add(key);
+              }
+            } else {
+              statusMap.circuitBreakers = { ok: false, error: 'Circuit breakers feed failed' };
+              failed.push('Circuit Watch');
             }
             break;
           case 'rbi-macro':
@@ -5064,8 +5096,18 @@ function TechnoFundaContent() {
               {resultsSubTab === 'reported' && (() => {
                 const filteredResults = (resultsData.recentResults || []).filter((r) => {
                   if (reportedAuditFilter !== 'All') {
-                    const a = `${r.audited || ''} ${r.consolidated || ''}`.toLowerCase();
-                    if (!a.includes(reportedAuditFilter.toLowerCase())) return false;
+                    const auditedVal = (r as any).audited;
+                    const raw = String(auditedVal ?? '').toLowerCase();
+                    const isUnaudited =
+                      auditedVal === false ||
+                      raw === 'false' ||
+                      /un[\s-]*audit/.test(raw);
+                    const isAudited =
+                      auditedVal === true ||
+                      raw === 'true' ||
+                      (/audit/.test(raw) && !isUnaudited);
+                    if (reportedAuditFilter === 'Unaudited' && !isUnaudited) return false;
+                    if (reportedAuditFilter === 'Audited' && !isAudited) return false;
                   }
                   const q = resultsSearch.toLowerCase().trim();
                   if (!q) return true;
@@ -5074,11 +5116,11 @@ function TechnoFundaContent() {
                     r.symbol?.toLowerCase().includes(q) ||
                     r.quarter?.toLowerCase().includes(q) ||
                     r.financialYear?.toLowerCase().includes(q) ||
-                    r.audited?.toLowerCase().includes(q) ||
-                    r.consolidated?.toLowerCase().includes(q) ||
-                    (r.revenue && r.revenue.toLowerCase().includes(q)) ||
-                    (r.pat && r.pat.toLowerCase().includes(q)) ||
-                    (r.eps && r.eps.toLowerCase().includes(q))
+                    String(r.audited ?? '').toLowerCase().includes(q) ||
+                    String(r.consolidated ?? '').toLowerCase().includes(q) ||
+                    (r.revenue && String(r.revenue).toLowerCase().includes(q)) ||
+                    (r.pat && String(r.pat).toLowerCase().includes(q)) ||
+                    (r.eps && String(r.eps).toLowerCase().includes(q))
                   );
                 });
 
@@ -6733,584 +6775,13 @@ function TechnoFundaContent() {
 
       {/* ── Tab 7: PEAD Screener ────────────────────────────────────── */}
       {activeTab === 'pead' && (
-        <div>
-          {isRefreshingFeeds && !peadFeed ? (
-            <TfLoadingState
-              title="Loading PEAD Screener…"
-              subtitle="Fetching post-earnings surprises and 20-day price drift from live filings."
-              variant="table"
-              rows={6}
-            />
-          ) : (!peadFeed || peadFeed.length === 0) ? (
-            <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
-              <Activity size={36} style={{ margin: '0 auto 12px', color: '#94A3B8' }} />
-              <h3 style={{ fontSize: '16px', fontWeight: 650, color: '#1E293B', marginBottom: '6px' }}>No PEAD Drift Data Available</h3>
-              <p style={{ fontSize: '13.5px', color: '#64748B', maxWidth: '460px', margin: '0 auto 16px' }}>
-                No active quarterly earnings drift setups found in the current feed.
-              </p>
-              <button
-                type="button"
-                onClick={fetchLiveFeeds}
-                style={{
-                  padding: '8px 18px',
-                  background: '#0F766E',
-                  color: '#FFFFFF',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Retry / Reconnect Feed
-              </button>
-            </div>
-          ) : (() => {
-            const filteredPead = (peadFeed || []).filter((s: any) => {
-              // 1. Quarter filter: Current (<= 65 days) vs Previous (> 65 days)
-              if (s.resultDate) {
-                const daysAgo = Math.floor((Date.now() - new Date(s.resultDate).getTime()) / (24 * 60 * 60 * 1000));
-                if (peadQuarter === 'current' && daysAgo > 65) return false;
-                if (peadQuarter === 'previous' && daysAgo <= 65) return false;
-              }
-
-              // 2. Search filter: Symbol or Company Name
-              if (peadSearch.trim()) {
-                const q = peadSearch.trim().toLowerCase();
-                const sym = (s.symbol || '').toLowerCase();
-                const name = (s.name || s.companyName || '').toLowerCase();
-                if (!sym.includes(q) && !name.includes(q)) return false;
-              }
-
-              // 3. Stage filter
-              if (peadStageFilter !== 'All') {
-                if (!s.stage?.toLowerCase().includes(peadStageFilter.toLowerCase())) return false;
-              }
-
-              // 4. Surprise % filter (handles s.surprise or s.surprisePct)
-              const surpriseVal = s.surprise ?? s.surprisePct ?? 0;
-              if (peadMinSurprise !== '' && surpriseVal < parseFloat(peadMinSurprise)) return false;
-              if (peadMaxSurprise !== '' && surpriseVal > parseFloat(peadMaxSurprise)) return false;
-
-              // 5. 20-Day Drift filter
-              const driftVal = s.drift20d ?? 0;
-              if (peadMinDrift !== '' && driftVal < parseFloat(peadMinDrift)) return false;
-              if (peadMaxDrift !== '' && driftVal > parseFloat(peadMaxDrift)) return false;
-              return true;
-            });
-
-            const sortedPead = [...filteredPead].sort((a: any, b: any) => {
-              const surpA = a.surprise ?? a.surprisePct ?? 0;
-              const surpB = b.surprise ?? b.surprisePct ?? 0;
-              const scoreA = Math.round(surpA * 1.6 + (a.drift20d || 0) * 1.8);
-              const scoreB = Math.round(surpB * 1.6 + (b.drift20d || 0) * 1.8);
-              const curPeA = parseFloat(String(a.currentPe || '')) || 0;
-              const curPeB = parseFloat(String(b.currentPe || '')) || 0;
-              const fwdPeA = parseFloat(String(a.forwardPe || '')) || 0;
-              const fwdPeB = parseFloat(String(b.forwardPe || '')) || 0;
-              const retA = a.drift20d ?? 0;
-              const retB = b.drift20d ?? 0;
-              const dailyA = a.dailyRet ?? 0;
-              const dailyB = b.dailyRet ?? 0;
-
-              let cmp = 0;
-              switch (peadSortCol) {
-                case 'company':
-                  cmp = a.symbol.localeCompare(b.symbol);
-                  break;
-                case 'score':
-                  cmp = scoreA - scoreB;
-                  break;
-                case 'resultDate':
-                  cmp = new Date(a.resultDate || 0).getTime() - new Date(b.resultDate || 0).getTime();
-                  break;
-                case 'currentPe':
-                  cmp = curPeA - curPeB;
-                  break;
-                case 'forwardPe':
-                  cmp = fwdPeA - fwdPeB;
-                  break;
-                case 'returns':
-                  cmp = retA - retB;
-                  break;
-                case 'dailyRet':
-                  cmp = dailyA - dailyB;
-                  break;
-              }
-              return peadSortDir === 'asc' ? cmp : -cmp;
-            });
-
-            return (
-              <div className="card">
-                <div className="tf-pead-header">
-                  <div className="tf-pead-header-row1">
-                    <h3 className="tf-pead-title font-serif">
-                      PEAD Candidates Dashboard
-                    </h3>
-
-                    {/* Quarter Switcher */}
-                    <div className="tf-pead-quarter-switcher" style={{ border: '1px solid #CBD5E1', background: '#F1F5F9' }}>
-                      <button
-                        type="button"
-                        onClick={() => setPeadQuarter('current')}
-                        className="tf-pead-quarter-btn"
-                        style={{
-                          background: peadQuarter === 'current' ? '#0F766E' : 'transparent',
-                          color: peadQuarter === 'current' ? '#FFFFFF' : '#334155',
-                          fontWeight: peadQuarter === 'current' ? 700 : 600,
-                          boxShadow: peadQuarter === 'current' ? '0 1px 3px rgba(15, 118, 110, 0.3)' : 'none',
-                        }}
-                      >
-                        Current Quarter
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPeadQuarter('previous')}
-                        className="tf-pead-quarter-btn"
-                        style={{
-                          background: peadQuarter === 'previous' ? '#0F766E' : 'transparent',
-                          color: peadQuarter === 'previous' ? '#FFFFFF' : '#334155',
-                          fontWeight: peadQuarter === 'previous' ? 700 : 600,
-                          boxShadow: peadQuarter === 'previous' ? '0 1px 3px rgba(15, 118, 110, 0.3)' : 'none',
-                        }}
-                      >
-                        Previous Quarter
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="tf-pead-header-row2">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        onClick={() => setPeadHowToUseOpen(true)}
-                        className="tf-pead-how-btn"
-                      >
-                        <Info size={13} />
-                        <span>How To Use PEAD Tool</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowPeadFilters(!showPeadFilters)}
-                        className="tf-pead-filter-btn"
-                        style={{
-                          background: showPeadFilters ? '#F0FDFA' : '#FFFFFF',
-                          color: showPeadFilters ? '#0F766E' : '#334155',
-                          border: showPeadFilters ? '1px solid #99F6E4' : '1px solid #CBD5E1',
-                        }}
-                      >
-                        <Filter size={13} />
-                        <span>{showPeadFilters ? 'Hide Filters' : 'Show Filters'}</span>
-                        <ChevronDown size={13} style={{ transform: showPeadFilters ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s ease' }} />
-                      </button>
-                    </div>
-
-                    <span className="tf-pead-count-badge">
-                      <strong style={{ color: '#0F172A' }}>{sortedPead.length}</strong> screened
-                    </span>
-                  </div>
-                </div>
-
-                {/* PEAD Screener Filter Toolbar */}
-                {showPeadFilters && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      gap: '10px',
-                      padding: '8px 12px',
-                      background: '#F8FAFC',
-                      border: '1px solid #E2E8F0',
-                      borderRadius: '8px',
-                      marginBottom: '10px',
-                    }}
-                  >
-                    {/* Search Box */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Search:</label>
-                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                        <input
-                          type="text"
-                          value={peadSearch}
-                          onChange={(e) => setPeadSearch(e.target.value)}
-                          placeholder="Symbol or company..."
-                          style={{
-                            padding: '5px 22px 5px 8px',
-                            borderRadius: '6px',
-                            border: '1px solid #CBD5E1',
-                            fontSize: '12px',
-                            background: '#FFFFFF',
-                            width: '150px',
-                          }}
-                        />
-                        {peadSearch && (
-                          <button
-                            type="button"
-                            onClick={() => setPeadSearch('')}
-                            style={{
-                              position: 'absolute',
-                              right: '4px',
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              color: '#94A3B8',
-                              fontSize: '13px',
-                              lineHeight: 1,
-                              padding: '2px',
-                            }}
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Setup Stage Dropdown */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Stage:</label>
-                      <select
-                        value={peadStageFilter}
-                        onChange={(e) => setPeadStageFilter(e.target.value)}
-                        style={{
-                          padding: '6px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid #CBD5E1',
-                          fontSize: '12px',
-                          color: '#0F172A',
-                          background: '#FFFFFF',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="All">All Stages</option>
-                        <option value="Breakout">Stage 2 Breakout</option>
-                        <option value="Consolidating">Consolidating</option>
-                      </select>
-                    </div>
-
-                    {/* Surprise % Range */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Surprise:</label>
-                      <input
-                        type="number"
-                        value={peadMinSurprise}
-                        onChange={(e) => setPeadMinSurprise(e.target.value)}
-                        placeholder="Min %"
-                        style={{ width: '65px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px', background: '#FFFFFF' }}
-                      />
-                      <span style={{ color: '#64748B', fontSize: '11px', fontWeight: 600 }}>to</span>
-                      <input
-                        type="number"
-                        value={peadMaxSurprise}
-                        onChange={(e) => setPeadMaxSurprise(e.target.value)}
-                        placeholder="Max %"
-                        style={{ width: '65px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px', background: '#FFFFFF' }}
-                      />
-                    </div>
-
-                    {/* 20-Day Drift Range */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>20d Drift:</label>
-                      <input
-                        type="number"
-                        value={peadMinDrift}
-                        onChange={(e) => setPeadMinDrift(e.target.value)}
-                        placeholder="Min %"
-                        style={{ width: '65px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px', background: '#FFFFFF' }}
-                      />
-                      <span style={{ color: '#64748B', fontSize: '11px', fontWeight: 600 }}>to</span>
-                      <input
-                        type="number"
-                        value={peadMaxDrift}
-                        onChange={(e) => setPeadMaxDrift(e.target.value)}
-                        placeholder="Max %"
-                        style={{ width: '65px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px', background: '#FFFFFF' }}
-                      />
-                    </div>
-
-                    {/* Reset Button */}
-                    {(peadSearch.trim() !== '' || peadStageFilter !== 'All' || peadMinSurprise !== '' || peadMaxSurprise !== '' || peadMinDrift !== '' || peadMaxDrift !== '') && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPeadSearch('');
-                          setPeadStageFilter('All');
-                          setPeadMinSurprise('');
-                          setPeadMaxSurprise('');
-                          setPeadMinDrift('');
-                          setPeadMaxDrift('');
-                        }}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid #CBD5E1',
-                          background: '#FFFFFF',
-                          color: '#DC2626',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          marginLeft: 'auto',
-                        }}
-                      >
-                        Reset
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Mobile Touch Cards (< 768px) */}
-                <div className="tf-mobile-only">
-                  {/* Quick Mobile Sort Strip */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      background: '#FFFFFF',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #E2E8F0',
-                      marginBottom: '10px',
-                      fontSize: '11.5px',
-                    }}
-                  >
-                    <span style={{ fontWeight: 600, color: '#475569' }}>Sort:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <select
-                        value={peadSortCol}
-                        onChange={(e) => setPeadSortCol(e.target.value)}
-                        style={{ height: '32px', padding: '0 26px 0 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '11.5px', background: '#FFFFFF', color: '#0F172A', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
-                      >
-                        <option value="score">PEAD Score</option>
-                        <option value="returns">20d Returns</option>
-                        <option value="company">Company</option>
-                        <option value="resultDate">Result Date</option>
-                        <option value="currentPe">Current PE</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => setPeadSortDir((p) => (p === 'asc' ? 'desc' : 'asc'))}
-                        style={{ height: '32px', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '0 8px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#F8FAFC', fontSize: '11px', fontWeight: 650, color: '#0F766E', cursor: 'pointer' }}
-                      >
-                        <ArrowUpDown size={12} />
-                        <span>{peadSortDir === 'asc' ? 'Asc' : 'Desc'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {sortedPead.map((s: any, i) => (
-                    <div key={i} className="tf-mobile-card">
-                      <div className="tf-mobile-card-header">
-                        <div>
-                          <div className="tf-mobile-card-title">{s.symbol}</div>
-                          <div className="tf-mobile-card-meta">{s.name || s.companyName}</div>
-                        </div>
-                        <span className="badge-muted" style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{s.stage}</span>
-                      </div>
-                      <div className="tf-mobile-card-grid">
-                        <div className="tf-mobile-card-stat">
-                          <span className="tf-mobile-card-stat-label">Surprise</span>
-                          <span className="tf-mobile-card-stat-val" style={{ color: '#16A34A', fontWeight: 700 }}>
-                            +{(s.surprise ?? s.surprisePct ?? 0)}%
-                          </span>
-                        </div>
-                        <div className="tf-mobile-card-stat">
-                          <span className="tf-mobile-card-stat-label">YoY PAT</span>
-                          <span className="tf-mobile-card-stat-val" style={{ fontWeight: 700 }}>+{s.yoyPat}%</span>
-                        </div>
-                        <div className="tf-mobile-card-stat">
-                          <span className="tf-mobile-card-stat-label">20d Drift</span>
-                          <span className="tf-mobile-card-stat-val" style={{ color: s.drift20d >= 0 ? '#0F766E' : '#DC2626', fontWeight: 700 }}>
-                            {s.drift20d > 0 ? '+' : ''}{s.drift20d}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {sortedPead.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '24px', color: '#9CA3AF', fontSize: '12px' }}>
-                      No earnings drift setups found matching the selected filter criteria.
-                    </div>
-                  )}
-                </div>
-
-                {/* Desktop Table (>= 768px) */}
-                <div className="tf-table-container tf-desktop-only">
-                  <table className="tf-table" style={{ width: '100%', minWidth: '920px', borderCollapse: 'collapse', fontSize: '13.5px' }}>
-                    <thead>
-                      <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        <th
-                          className="tf-sortable-th"
-                          onClick={() => {
-                            if (peadSortCol === 'company') setPeadSortDir((p) => (p === 'asc' ? 'desc' : 'asc'));
-                            else { setPeadSortCol('company'); setPeadSortDir('asc'); }
-                          }}
-                          style={{ minWidth: '180px', padding: '8px 12px', color: peadSortCol === 'company' ? '#0F766E' : '#475569' }}
-                        >
-                          Company
-                          {renderSortIcon(peadSortCol, 'company', peadSortDir)}
-                        </th>
-                        <th
-                          className="tf-sortable-th"
-                          onClick={() => {
-                            if (peadSortCol === 'score') setPeadSortDir((p) => (p === 'asc' ? 'desc' : 'asc'));
-                            else { setPeadSortCol('score'); setPeadSortDir('desc'); }
-                          }}
-                          style={{ minWidth: '105px', padding: '8px 10px', textAlign: 'center', color: peadSortCol === 'score' ? '#0F766E' : '#475569' }}
-                        >
-                          PEAD Score
-                          {renderSortIcon(peadSortCol, 'score', peadSortDir)}
-                        </th>
-                        <th
-                          className="tf-sortable-th"
-                          onClick={() => {
-                            if (peadSortCol === 'resultDate') setPeadSortDir((p) => (p === 'asc' ? 'desc' : 'asc'));
-                            else { setPeadSortCol('resultDate'); setPeadSortDir('desc'); }
-                          }}
-                          style={{ minWidth: '110px', padding: '8px 10px', textAlign: 'center', color: peadSortCol === 'resultDate' ? '#0F766E' : '#475569' }}
-                        >
-                          Result Date
-                          {renderSortIcon(peadSortCol, 'resultDate', peadSortDir)}
-                        </th>
-                        <th
-                          className="tf-sortable-th"
-                          onClick={() => {
-                            if (peadSortCol === 'currentPe') setPeadSortDir((p) => (p === 'asc' ? 'desc' : 'asc'));
-                            else { setPeadSortCol('currentPe'); setPeadSortDir('asc'); }
-                          }}
-                          style={{ minWidth: '100px', padding: '8px 12px', textAlign: 'right', color: peadSortCol === 'currentPe' ? '#0F766E' : '#475569' }}
-                        >
-                          Current PE
-                          {renderSortIcon(peadSortCol, 'currentPe', peadSortDir)}
-                        </th>
-                        <th
-                          className="tf-sortable-th"
-                          onClick={() => {
-                            if (peadSortCol === 'forwardPe') setPeadSortDir((p) => (p === 'asc' ? 'desc' : 'asc'));
-                            else { setPeadSortCol('forwardPe'); setPeadSortDir('asc'); }
-                          }}
-                          style={{ minWidth: '100px', padding: '8px 12px', textAlign: 'right', color: peadSortCol === 'forwardPe' ? '#0F766E' : '#475569' }}
-                        >
-                          Forward PE
-                          {renderSortIcon(peadSortCol, 'forwardPe', peadSortDir)}
-                        </th>
-                        <th
-                          className="tf-sortable-th"
-                          onClick={() => {
-                            if (peadSortCol === 'returns') setPeadSortDir((p) => (p === 'asc' ? 'desc' : 'asc'));
-                            else { setPeadSortCol('returns'); setPeadSortDir('desc'); }
-                          }}
-                          style={{ minWidth: '100px', padding: '8px 10px', textAlign: 'center', color: peadSortCol === 'returns' ? '#0F766E' : '#475569' }}
-                        >
-                          Returns
-                          {renderSortIcon(peadSortCol, 'returns', peadSortDir)}
-                        </th>
-                        <th
-                          className="tf-sortable-th"
-                          onClick={() => {
-                            if (peadSortCol === 'dailyRet') setPeadSortDir((p) => (p === 'asc' ? 'desc' : 'asc'));
-                            else { setPeadSortCol('dailyRet'); setPeadSortDir('desc'); }
-                          }}
-                          style={{ minWidth: '100px', padding: '8px 10px', textAlign: 'center', color: peadSortCol === 'dailyRet' ? '#0F766E' : '#475569' }}
-                        >
-                          Daily Ret
-                          {renderSortIcon(peadSortCol, 'dailyRet', peadSortDir)}
-                        </th>
-                        <th style={{ minWidth: '95px', padding: '8px 10px', textAlign: 'center' }}>Analysis</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedPead.map((s: any, i) => {
-                        const surpVal = s.surprise ?? s.surprisePct ?? 0;
-                        const peadScore = Math.round(surpVal * 1.6 + (s.drift20d || 0) * 1.8);
-                        const isScorePos = peadScore >= 30;
-                        const isScoreNeutral = peadScore >= 0 && peadScore < 30;
-                        const scoreColor = isScorePos ? '#166534' : isScoreNeutral ? '#92400E' : '#991B1B';
-                        const scoreBg = isScorePos ? '#DCFCE7' : isScoreNeutral ? '#FEF3C7' : '#FEE2E2';
-                        const scoreBorder = isScorePos ? '#86EFAC' : isScoreNeutral ? '#FDE68A' : '#FCA5A5';
-                        const companyDisplayName = s.name || s.companyName || s.symbol;
-                        const cleanResultDate = s.resultDate ? (String(s.resultDate).includes('T') ? String(s.resultDate).split('T')[0] : String(s.resultDate)) : '-';
-
-                        const curPe = s.currentPe != null && String(s.currentPe).trim() !== '' ? String(s.currentPe) : '-';
-                        const fwdPe = s.forwardPe != null && String(s.forwardPe).trim() !== '' ? String(s.forwardPe) : '-';
-                        const ret = s.drift20d != null ? Number(s.drift20d) : null;
-                        const dailyRet = s.dailyRet != null ? Number(s.dailyRet) : null;
-
-                        return (
-                          <tr key={i} style={{ borderBottom: '1px solid #E2E8F0' }}>
-                            <td style={{ padding: '8px 12px' }}>
-                              <strong style={{ color: '#0F766E', fontSize: '13.5px' }}>{s.symbol}</strong>
-                              <div style={{ fontSize: '11.5px', color: '#334155', fontWeight: 550, marginTop: '1px' }}>{companyDisplayName}</div>
-                            </td>
-                            <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                              <span
-                                style={{
-                                  background: scoreBg,
-                                  color: scoreColor,
-                                  border: `1px solid ${scoreBorder}`,
-                                  padding: '2.5px 8px',
-                                  borderRadius: '6px',
-                                  fontWeight: 800,
-                                  fontSize: '12px',
-                                }}
-                              >
-                                {peadScore > 0 ? `+${peadScore}` : peadScore}
-                              </span>
-                            </td>
-                            <td style={{ padding: '8px 10px', textAlign: 'center', color: '#1E293B', fontWeight: 550, fontSize: '12.5px' }}>
-                              {cleanResultDate}
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 650, color: '#1E293B', fontSize: '13px' }}>
-                              {curPe}
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#0F766E', fontSize: '13px' }}>
-                              {fwdPe}
-                            </td>
-                            <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 700, color: ret != null ? (ret >= 0 ? '#166534' : '#991B1B') : '#475569', fontSize: '12.5px' }}>
-                              {ret != null ? `${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%` : '-'}
-                            </td>
-                            <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 700, color: dailyRet != null ? (dailyRet >= 0 ? '#166534' : '#991B1B') : '#475569', fontSize: '12.5px' }}>
-                              {dailyRet != null ? `${dailyRet >= 0 ? '+' : ''}${dailyRet.toFixed(2)}%` : '-'}
-                            </td>
-                            <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                              <button
-                                type="button"
-                                onClick={() => openPulseByName(companyDisplayName, s.symbol)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  background: '#F0FDFA',
-                                  border: '1px solid #CCFBF1',
-                                  color: '#0F766E',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                Pulse
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {sortedPead.length === 0 && (
-                        <tr>
-                          <td colSpan={8} style={{ textAlign: 'center', padding: '24px', color: '#9CA3AF' }}>
-                            No earnings drift setups found matching the selected filter criteria.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })()}
-        </div>
+        <PeadCandidatesDashboard
+          data={peadFeed}
+          isLoading={isRefreshingFeeds}
+          onRefresh={fetchLiveFeeds}
+          onHowToUse={() => setPeadHowToUseOpen(true)}
+          onOpenPulse={openPulseByName}
+        />
       )}
 
       {/* ── Tab 8: Vahan Auto ────────────────────────────────────────── */}

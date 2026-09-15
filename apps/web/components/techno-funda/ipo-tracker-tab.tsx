@@ -32,7 +32,14 @@ export interface IpoTrackerData {
   lastUpdated: string;
   source: string;
   totalIpos: number;
+  counts?: {
+    liveBidding?: number;
+    upcoming?: number;
+    listed?: number;
+    closed?: number;
+  };
   ipos: IpoItem[];
+  message?: string;
 }
 
 interface IpoTrackerTabProps {
@@ -41,24 +48,51 @@ interface IpoTrackerTabProps {
   onRefresh?: () => void;
 }
 
+function normalizeIpoStatus(status: string): IpoItem['status'] {
+  const s = String(status || '');
+  if (/active|open|live|bid/i.test(s)) return 'Live Bidding';
+  if (/upcom|forthcoming/i.test(s)) return 'Upcoming';
+  if (/list/i.test(s)) return 'Listed';
+  if (/close|past/i.test(s)) return 'Closed';
+  return (s as IpoItem['status']) || 'Upcoming';
+}
+
 export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps) {
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'Live Bidding' | 'Upcoming' | 'Listed'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'Live Bidding' | 'Upcoming' | 'Listed' | 'Closed'>('ALL');
   const [presetFilter, setPresetFilter] = useState<'ALL' | 'OVER_SUBSCRIBED' | 'HIGH_GMP'>('ALL');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const ipos = data?.ipos || [];
 
+  const statusCounts = useMemo(() => {
+    const counts = { live: 0, upcoming: 0, listed: 0, closed: 0 };
+    for (const ipo of ipos) {
+      const s = normalizeIpoStatus(ipo.status);
+      if (s === 'Live Bidding') counts.live++;
+      else if (s === 'Upcoming') counts.upcoming++;
+      else if (s === 'Listed') counts.listed++;
+      else if (s === 'Closed') counts.closed++;
+    }
+    return counts;
+  }, [ipos]);
+
   const filteredIpos = useMemo(() => {
     return ipos.filter((ipo) => {
       const matchesSearch =
-        ipo.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ipo.symbol.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === 'ALL' || ipo.status === statusFilter;
+        (ipo.companyName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (ipo.symbol || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const normalizedStatus = normalizeIpoStatus(ipo.status);
+      const matchesStatus = statusFilter === 'ALL' || normalizedStatus === statusFilter;
 
       let matchesPreset = true;
-      if (presetFilter === 'OVER_SUBSCRIBED') matchesPreset = ipo.subscriptionMultiples.total >= 5.0;
-      else if (presetFilter === 'HIGH_GMP') matchesPreset = (Boolean(ipo.gmpEstimate) && ipo.gmpEstimate !== '-') || (ipo.listingGainPct ?? 0) >= 20;
+      if (presetFilter === 'OVER_SUBSCRIBED') {
+        matchesPreset = (ipo.subscriptionMultiples?.total ?? 0) >= 5.0;
+      } else if (presetFilter === 'HIGH_GMP') {
+        matchesPreset =
+          (Boolean(ipo.gmpEstimate) && ipo.gmpEstimate !== '-' && !/^at par$/i.test(ipo.gmpEstimate || '')) ||
+          (ipo.listingGainPct ?? 0) >= 20;
+      }
 
       return matchesSearch && matchesStatus && matchesPreset;
     });
@@ -77,10 +111,10 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
       ipo.openDate,
       ipo.closeDate,
       ipo.listingDate || '-',
-      `${ipo.subscriptionMultiples.qib}x`,
-      `${ipo.subscriptionMultiples.niiHni}x`,
-      `${ipo.subscriptionMultiples.retail}x`,
-      `${ipo.subscriptionMultiples.total}x`,
+      `${ipo.subscriptionMultiples?.qib ?? 0}x`,
+      `${ipo.subscriptionMultiples?.niiHni ?? 0}x`,
+      `${ipo.subscriptionMultiples?.retail ?? 0}x`,
+      `${ipo.subscriptionMultiples?.total ?? 0}x`,
       ipo.gmpEstimate || (ipo.listingGainPct ? `+${ipo.listingGainPct.toFixed(1)}%` : '-'),
     ]);
     exportTableToCsv('NSE_BSE_IPO_Tracker', headers, rows);
@@ -160,25 +194,33 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
 
           {/* Segmented Status Pills */}
           <div className="tf-segmented-pills">
-            {(['ALL', 'Live Bidding', 'Upcoming', 'Listed'] as const).map((status) => (
+            {(
+              [
+                { id: 'ALL' as const, label: `All (${ipos.length})` },
+                { id: 'Live Bidding' as const, label: `Live (${statusCounts.live})` },
+                { id: 'Upcoming' as const, label: `Upcoming (${statusCounts.upcoming})` },
+                { id: 'Listed' as const, label: `Listed (${statusCounts.listed})` },
+                { id: 'Closed' as const, label: `Closed (${statusCounts.closed})` },
+              ] as const
+            ).map((status) => (
               <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
+                key={status.id}
+                onClick={() => setStatusFilter(status.id)}
                 style={{
                   padding: '6px 14px',
                   borderRadius: '5px',
                   border: 'none',
-                  background: statusFilter === status ? '#FFFFFF' : 'transparent',
-                  color: statusFilter === status ? (status === 'Live Bidding' ? '#059669' : '#0F172A') : '#64748B',
+                  background: statusFilter === status.id ? '#FFFFFF' : 'transparent',
+                  color: statusFilter === status.id ? (status.id === 'Live Bidding' ? '#059669' : '#0F172A') : '#64748B',
                   fontWeight: 700,
                   fontSize: '12px',
                   cursor: 'pointer',
-                  boxShadow: statusFilter === status ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                  boxShadow: statusFilter === status.id ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
                   transition: 'all 0.15s ease',
                   whiteSpace: 'nowrap',
                 }}
               >
-                {status === 'ALL' ? 'All IPOs' : status}
+                {status.label}
               </button>
             ))}
           </div>
@@ -373,7 +415,7 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
                       Subscription Demand:
                     </span>
                     <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#0F172A' }}>
-                      Total {ipo.subscriptionMultiples.total}x
+                      Total {ipo.subscriptionMultiples?.total ?? 0}x
                     </span>
                   </div>
 
@@ -381,19 +423,19 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
                     <div style={{ background: '#F1F5F9', padding: '5px 7px', borderRadius: '5px', textAlign: 'center' }}>
                       <div style={{ color: '#64748B', fontSize: '10px' }}>QIB (Inst.)</div>
                       <div style={{ fontWeight: 750, color: '#0F172A', marginTop: '1px' }}>
-                        {ipo.subscriptionMultiples.qib}x
+                        {ipo.subscriptionMultiples?.qib ?? 0}x
                       </div>
                     </div>
                     <div style={{ background: '#F1F5F9', padding: '5px 7px', borderRadius: '5px', textAlign: 'center' }}>
                       <div style={{ color: '#64748B', fontSize: '10px' }}>NII (HNI)</div>
                       <div style={{ fontWeight: 750, color: '#0F172A', marginTop: '1px' }}>
-                        {ipo.subscriptionMultiples.niiHni}x
+                        {ipo.subscriptionMultiples?.niiHni ?? 0}x
                       </div>
                     </div>
                     <div style={{ background: '#F1F5F9', padding: '5px 7px', borderRadius: '5px', textAlign: 'center' }}>
                       <div style={{ color: '#64748B', fontSize: '10px' }}>Retail</div>
                       <div style={{ fontWeight: 750, color: '#0F172A', marginTop: '1px' }}>
-                        {ipo.subscriptionMultiples.retail}x
+                        {ipo.subscriptionMultiples?.retail ?? 0}x
                       </div>
                     </div>
                   </div>

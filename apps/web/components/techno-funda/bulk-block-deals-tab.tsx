@@ -45,19 +45,24 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
   const deals = data?.deals || [];
 
   const filteredDeals = useMemo(() => {
+    const normalizeSide = (v: string | undefined) => {
+      const s = String(v || 'BUY').toUpperCase();
+      return s === 'S' || s === 'SELL' || s.startsWith('S') ? 'SELL' : 'BUY';
+    };
     return deals.filter((deal) => {
+      const side = normalizeSide(deal.dealType);
       const matchesSearch =
         deal.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        deal.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        deal.clientName.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesType = dealTypeFilter === 'ALL' || deal.dealType === dealTypeFilter;
+        (deal.companyName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (deal.clientName || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesType = dealTypeFilter === 'ALL' || side === dealTypeFilter;
       const matchesMarket = marketFilter === 'ALL' || deal.dealMarket === marketFilter;
       const matchesMarquee = !marqueeOnly || deal.isMarqueeInvestor;
 
       let matchesPreset = true;
       if (presetFilter === 'MARQUEE') matchesPreset = deal.isMarqueeInvestor;
-      else if (presetFilter === 'BUYS_ONLY') matchesPreset = deal.dealType === 'BUY';
-      else if (presetFilter === 'OVER_100CR') matchesPreset = deal.valueCr >= 100;
+      else if (presetFilter === 'BUYS_ONLY') matchesPreset = side === 'BUY';
+      else if (presetFilter === 'OVER_100CR') matchesPreset = (deal.valueCr || 0) >= 50;
 
       return matchesSearch && matchesType && matchesMarket && matchesMarquee && matchesPreset;
     });
@@ -275,7 +280,7 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
             onClick={() => setPresetFilter('OVER_100CR')}
             className={`tf-preset-chip ${presetFilter === 'OVER_100CR' ? 'tf-preset-chip-active' : ''}`}
           >
-            Mega Trades (&ge;₹100 Cr)
+            Mega Trades (&ge;₹50 Cr)
           </button>
         </div>
 

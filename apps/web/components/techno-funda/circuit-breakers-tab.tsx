@@ -47,8 +47,11 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
         s.companyName.toLowerCase().includes(searchQuery.toLowerCase());
 
       let matchesPreset = true;
-      if (presetFilter === 'BAND_20') matchesPreset = s.circuitBandPct === 20;
-      else if (presetFilter === 'MULTI_DAY') matchesPreset = s.consecutiveDays >= 2;
+      if (presetFilter === 'BAND_20') matchesPreset = (s.circuitBandPct || 0) >= 20;
+      else if (presetFilter === 'MULTI_DAY') {
+        // NSE free feed often reports consecutiveDays=1; use turnover as a useful live proxy
+        matchesPreset = (s.consecutiveDays || 0) >= 2 || (s.turnoverCr || 0) >= 50;
+      }
 
       return matchesSearch && matchesPreset;
     });
@@ -328,7 +331,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
             onClick={() => setPresetFilter('MULTI_DAY')}
             className={`tf-preset-chip ${presetFilter === 'MULTI_DAY' ? 'tf-preset-chip-active' : ''}`}
           >
-            Multi-Day Streak (&ge;2 Days)
+            Multi-Day / High Turnover
           </button>
         </div>
 

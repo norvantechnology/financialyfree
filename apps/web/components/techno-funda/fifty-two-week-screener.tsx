@@ -44,6 +44,11 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
 
   const items = activeSubTab === 'highs' ? data?.highs || [] : data?.lows || [];
 
+  // Reset sector when switching highs/lows so sticky sectors don't empty the table
+  React.useEffect(() => {
+    setSelectedSector('ALL');
+  }, [activeSubTab]);
+
   const sectors = useMemo(() => {
     const set = new Set<string>();
     items.forEach((item) => {
@@ -56,7 +61,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
     return items.filter((item) => {
       const matchesSearch =
         item.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.companyName.toLowerCase().includes(searchQuery.toLowerCase());
+        (item.companyName || '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchesSector = selectedSector === 'ALL' || item.sector === selectedSector;
       
       let matchesProximity = true;
@@ -76,7 +81,8 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
       } else if (presetFilter === 'FRESH_BREAKOUT') {
         matchesPreset = item.isNewAllTimeHigh === true || item.dayChangePct >= 2.0;
       } else if (presetFilter === 'HEAVY_VOLUME') {
-        matchesPreset = item.volume >= 500000;
+        // Null volume from Yahoo = unknown, don't zero the table
+        matchesPreset = item.volume == null ? true : item.volume >= 500000;
       }
 
       return matchesSearch && matchesSector && matchesProximity && matchesPreset;

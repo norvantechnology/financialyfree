@@ -34,7 +34,7 @@ interface DeliveryMomentumTabProps {
 
 export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMomentumTabProps) {
   const [minDeliveryPct, setMinDeliveryPct] = useState<number>(0);
-  const [presetFilter, setPresetFilter] = useState<'ALL' | 'HIGH_DELIVERY_70' | 'SPIKE_2X'>('ALL');
+  const [presetFilter, setPresetFilter] = useState<'ALL' | 'HIGH_DELIVERY_70' | 'NEAR_52W_HIGH'>('ALL');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -42,20 +42,25 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
 
   const filteredStocks = useMemo(() => {
     return stocks.filter((stock) => {
+      const q = searchQuery.toLowerCase();
       const matchesSearch =
-        stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        stock.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        stock.sector.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        stock.symbol.toLowerCase().includes(q) ||
+        (stock.companyName || '').toLowerCase().includes(q) ||
+        (stock.sector || '').toLowerCase().includes(q);
       const matchesDelivery =
         minDeliveryPct <= 0
           ? true
           : stock.deliveryPct != null && stock.deliveryPct >= minDeliveryPct;
 
       let matchesPreset = true;
-      if (presetFilter === 'HIGH_DELIVERY_70')
-        matchesPreset = stock.deliveryPct != null && stock.deliveryPct >= 70;
-      else if (presetFilter === 'SPIKE_2X')
-        matchesPreset = stock.deliveryTo30dAvgRatio != null && stock.deliveryTo30dAvgRatio >= 2.0;
+      if (presetFilter === 'HIGH_DELIVERY_70') {
+        const anyDelivery = stocks.some((s) => s.deliveryPct != null);
+        matchesPreset = !anyDelivery ? true : stock.deliveryPct != null && stock.deliveryPct >= 70;
+      } else if (presetFilter === 'NEAR_52W_HIGH') {
+        const anyDist = stocks.some((s) => s.distFromHighPct != null);
+        matchesPreset = !anyDist ? true : stock.distFromHighPct != null && stock.distFromHighPct <= 5;
+      }
 
       return matchesSearch && matchesDelivery && matchesPreset;
     });
@@ -267,10 +272,10 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
           </button>
           <button
             type="button"
-            onClick={() => setPresetFilter('SPIKE_2X')}
-            className={`tf-preset-chip ${presetFilter === 'SPIKE_2X' ? 'tf-preset-chip-active' : ''}`}
+            onClick={() => setPresetFilter('NEAR_52W_HIGH')}
+            className={`tf-preset-chip ${presetFilter === 'NEAR_52W_HIGH' ? 'tf-preset-chip-active' : ''}`}
           >
-            Volume Spike (&ge;2.0x 30D Avg)
+            Near 52W High (&le;5%)
           </button>
         </div>
 

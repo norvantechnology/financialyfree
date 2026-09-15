@@ -157,6 +157,119 @@ export class TechnoFundaService {
     return results;
   }
 
+  /** Skip ETF / index / ADD products that pollute volume-gainer feeds */
+  private isNonCashEquitySymbol(symbol: string, name = ''): boolean {
+    const s = String(symbol || '').toUpperCase();
+    const n = String(name || '').toUpperCase();
+    if (!s || s.length > 12) return true;
+    return (
+      /ETF|IETF|BEES|NIFTY|SENSEX|BANKBEES|GOLDBEES|LIQUID|ADD$|BETA|INVIT|REIT/i.test(s) ||
+      /ETF|INDEX FUND|BEES|NIFTY|SENSEX|INVIT|REIT/i.test(n)
+    );
+  }
+
+  private formatNseArchiveDate(d: Date): string {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}${mm}${yyyy}`;
+  }
+
+  private formatNseApiDate(d: Date): string {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  }
+
+  /**
+   * Latest CM full bhavcopy with DELIV_PER (free NSE archives).
+   * Walks back up to 12 calendar days to skip weekends/holidays.
+   */
+  private async fetchLatestEquityDeliveryBhavcopy(): Promise<{
+    asOf: string;
+    rows: Array<{
+      symbol: string;
+      close: number;
+      volume: number;
+      deliveryQty: number | null;
+      deliveryPct: number | null;
+      turnoverLacs: number;
+    }>;
+  } | null> {
+    const cursor = new Date();
+    for (let i = 0; i < 12; i++) {
+      const stamp = this.formatNseArchiveDate(cursor);
+      const url = `https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_${stamp}.csv`;
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            Accept: 'text/csv,*/*',
+            Referer: 'https://www.nseindia.com/',
+          },
+          signal: AbortSignal.timeout(20000),
+        });
+        if (res.ok) {
+          const text = await res.text();
+          if (text.includes('SYMBOL') && text.includes('DELIV_PER')) {
+            const lines = text.split(/\r?\n/).filter(Boolean);
+            const header = lines[0].split(',').map((h) => h.trim().toUpperCase());
+            const idx = (name: string) => header.indexOf(name);
+            const iSym = idx('SYMBOL');
+            const iSeries = idx('SERIES');
+            const iClose = idx('CLOSE_PRICE');
+            const iVol = idx('TTL_TRD_QNTY');
+            const iDelQty = idx('DELIV_QTY');
+            const iDelPer = idx('DELIV_PER');
+            const iTurn = idx('TURNOVER_LACS');
+            const iDate = idx('DATE1');
+            const rows: Array<{
+              symbol: string;
+              close: number;
+              volume: number;
+              deliveryQty: number | null;
+              deliveryPct: number | null;
+              turnoverLacs: number;
+            }> = [];
+            let asOf = stamp;
+            for (let li = 1; li < lines.length; li++) {
+              const cols = lines[li].split(',').map((c) => c.trim());
+              if (iSeries >= 0 && cols[iSeries] !== 'EQ') continue;
+              const symbol = String(cols[iSym] || '').toUpperCase();
+              if (!symbol || this.isNonCashEquitySymbol(symbol)) continue;
+              const deliveryPctRaw = cols[iDelPer];
+              const deliveryPct =
+                deliveryPctRaw && deliveryPctRaw !== '-' && deliveryPctRaw !== ''
+                  ? Number(deliveryPctRaw)
+                  : null;
+              const deliveryQtyRaw = cols[iDelQty];
+              const deliveryQty =
+                deliveryQtyRaw && deliveryQtyRaw !== '-' && deliveryQtyRaw !== ''
+                  ? Number(deliveryQtyRaw)
+                  : null;
+              if (iDate >= 0 && cols[iDate]) asOf = cols[iDate];
+              rows.push({
+                symbol,
+                close: Number(cols[iClose] || 0),
+                volume: Number(cols[iVol] || 0),
+                deliveryQty: Number.isFinite(deliveryQty as number) ? deliveryQty : null,
+                deliveryPct: Number.isFinite(deliveryPct as number) ? deliveryPct : null,
+                turnoverLacs: Number(cols[iTurn] || 0),
+              });
+            }
+            if (rows.length > 0) return { asOf, rows };
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Bhavcopy ${stamp} fetch failed: ${err?.message || err}`);
+      }
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return null;
+  }
+
   private parseScreenerNumber(raw: string | undefined | null): number | null {
     if (raw == null) return null;
     const cleaned = String(raw).replace(/,/g, '').replace(/%/g, '').trim();
@@ -3175,18 +3288,27 @@ export class TechnoFundaService {
       const mapDeal = (d: any, idx: number, market: 'BULK' | 'BLOCK') => {
         const qty = Number(d.qty || d.quantityTraded || d.quantity || 0);
         const price = Number(d.watp || d.tradePrice || d.price || 0);
+        const rawSide = String(d.buySell || d.dealType || d.buySellFlag || 'BUY').toUpperCase();
+        const dealType =
+          rawSide === 'S' || rawSide === 'SELL' || rawSide.startsWith('S')
+            ? 'SELL'
+            : 'BUY';
+        const clientName = String(d.clientName || 'Institutional Trader');
+        const marqueeRe =
+          /hdfc|icici|sbi|kotak|axis|uti|nippon|mirae|motilal|quant|edelweiss|dsp|franklin|aditya birla|tata mutual|lic|gqj|goldman|morgan stanley|jp morgan|citadel|bridgewater|blackrock|vanguard|fidelity/i;
         return {
           id: `bb-live-${market}-${d.symbol || idx}-${idx}`,
           date: d.date || rawDeals?.as_on_date || new Date().toISOString().split('T')[0],
           symbol: d.symbol,
           companyName: d.name || d.companyName || d.symbol,
-          dealType: String(d.buySell || d.dealType || 'BUY').toUpperCase(),
+          dealType,
           dealMarket: market,
-          clientName: d.clientName || 'Institutional Trader',
+          clientName,
           quantity: qty,
           tradePrice: price,
           valueCr: Math.round(((qty * price) / 10000000) * 100) / 100,
-          isMarqueeInvestor: Boolean(d.isMarquee || false),
+          isMarqueeInvestor: Boolean(d.isMarquee) || marqueeRe.test(clientName),
+          marqueeTag: marqueeRe.test(clientName) ? 'MARQUEE' : undefined,
         };
       };
 
@@ -3367,41 +3489,66 @@ export class TechnoFundaService {
       return this.insiderTradingCache.data;
     }
 
+    const mapPitRows = (rows: any[]) =>
+      rows.map((t: any, idx: number) => ({
+        id: `pit-live-${t.symbol || idx}-${idx}`,
+        date: t.date || t.acqDate || t.broadcastDate || t.anexDate || new Date().toISOString().split('T')[0],
+        symbol: t.symbol,
+        companyName: t.company || t.companyName || t.symbol,
+        personName: t.acqName || t.acquirerName || t.personName || 'Promoter / Key Person',
+        personCategory: t.personCategory || t.category || t.buyerCategory || 'Promoter',
+        transactionType: t.tdpTransactionType || t.acqMode || t.typeOfSecurity || t.transactionType || 'Market Purchase',
+        sharesTraded: Number(t.secAcq || t.secVal || t.noOfShares || t.quantity || 0),
+        valueLakh: Math.round((Number(t.valAcq || t.val || t.value || 0) / 100000) * 100) / 100,
+        postHoldingPct: Number(t.afterAcqSharesPer || t.postHoldingPct || 0),
+        modeOfAcquisition: t.modeOfAcquisition || t.acquisitionMode || t.acqMode || 'Open Market',
+      }));
+
     try {
-      const rawPit = await this.fetchNseApi(
+      const to = new Date();
+      const from30 = new Date();
+      from30.setDate(from30.getDate() - 30);
+      const from90 = new Date();
+      from90.setDate(from90.getDate() - 90);
+
+      const endpoints = [
+        `/api/corporates-pit?index=equities&from_date=${this.formatNseApiDate(from30)}&to_date=${this.formatNseApiDate(to)}`,
+        `/api/corporates-pit?index=equities&from_date=${this.formatNseApiDate(from90)}&to_date=${this.formatNseApiDate(to)}`,
         '/api/corporates-pit?index=equities',
-        'https://www.nseindia.com/companies-listing/corporate-filings-insider-trading',
-      );
-      const rows = Array.isArray(rawPit?.data)
-        ? rawPit.data
-        : Array.isArray(rawPit)
-          ? rawPit
-          : [];
+      ];
+
+      let rows: any[] = [];
+      for (const endpoint of endpoints) {
+        try {
+          const rawPit = await this.fetchNseApi(
+            endpoint,
+            'https://www.nseindia.com/companies-listing/corporate-filings-insider-trading',
+          );
+          const candidate = Array.isArray(rawPit?.data)
+            ? rawPit.data
+            : Array.isArray(rawPit)
+              ? rawPit
+              : [];
+          if (candidate.length > 0) {
+            rows = candidate;
+            break;
+          }
+        } catch (err: any) {
+          this.logger.warn(`Insider endpoint ${endpoint} failed: ${err?.message || err}`);
+        }
+      }
 
       if (rows.length > 0) {
-        const livePit = rows.map((t: any, idx: number) => ({
-          id: `pit-live-${t.symbol || idx}-${idx}`,
-          date: t.date || t.acqDate || t.broadcastDate || new Date().toISOString().split('T')[0],
-          symbol: t.symbol,
-          companyName: t.company || t.companyName || t.symbol,
-          personName: t.acquirerName || t.personName || t.acqName || 'Promoter / Key Person',
-          personCategory: t.category || t.personCategory || 'Promoter',
-          transactionType: t.tdpTransactionType || t.typeOfSecurity || t.transactionType || 'Market Purchase',
-          sharesTraded: Number(t.secVal || t.noOfShares || t.quantity || 0),
-          valueLakh: Math.round((Number(t.val || t.value || 0) / 100000) * 100) / 100,
-          postHoldingPct: Number(t.afterAcqSharesPer || t.postHoldingPct || 0),
-          modeOfAcquisition: t.modeOfAcquisition || t.acquisitionMode || 'Open Market',
-        }));
-
+        const livePit = mapPitRows(rows);
         const result = {
           lastUpdated: new Date().toISOString(),
           source: 'SEBI_PIT_REGULATION_DISCLOSURES',
           totalTransactions: livePit.length,
           totalBuyValueLakh: livePit
-            .filter((t: any) => /purchase|buy|acquisition/i.test(String(t.transactionType)))
+            .filter((t: any) => /purchase|buy|acquisition|acqui|subscri/i.test(String(t.transactionType)))
             .reduce((a: number, b: any) => a + b.valueLakh, 0),
           totalSellValueLakh: livePit
-            .filter((t: any) => /sale|sell|disposal/i.test(String(t.transactionType)))
+            .filter((t: any) => /sale|sell|disposal|dispos/i.test(String(t.transactionType)))
             .reduce((a: number, b: any) => a + b.valueLakh, 0),
           transactions: livePit,
         };
@@ -3422,66 +3569,242 @@ export class TechnoFundaService {
       totalSellValueLakh: 0,
       transactions: [],
     };
-    this.insiderTradingCache = { timestamp: Date.now(), data: empty };
+    // Short TTL on empty so a later filing cycle is picked up quickly
+    this.insiderTradingCache = { timestamp: Date.now() - TTL + 60_000, data: empty };
     return empty;
   }
 
   // ── 5. IPO Tracker & Subscription Multiples Calendar ──────────────────
   private ipoTrackerCache: { timestamp: number; data: any } | null = null;
+
+  private normalizeIpoStatus(raw: string, listingDate?: string): 'Upcoming' | 'Live Bidding' | 'Closed' | 'Listed' {
+    const s = String(raw || '').trim();
+    const list = String(listingDate || '').trim();
+    if (list && list !== '-' && /\d/.test(list)) return 'Listed';
+    if (/active|open|live|bid/i.test(s)) return 'Live Bidding';
+    if (/upcom|forthcoming|new/i.test(s)) return 'Upcoming';
+    if (/list/i.test(s)) return 'Listed';
+    if (/close|clos|past/i.test(s)) return 'Closed';
+    // Past feed rows without status: listing date already handled; else closed/bidding window over
+    if (!s) return list && list !== '-' ? 'Listed' : 'Closed';
+    return 'Upcoming';
+  }
+
+  private parseIpoSeries(raw: string | undefined): 'Mainboard' | 'SME' {
+    const s = String(raw || '').toUpperCase();
+    return s === 'SM' || s === 'SME' || s.includes('SME') ? 'SME' : 'Mainboard';
+  }
+
+  private parseIpoIssueSizeCr(item: any): number {
+    const shares = Number(item.issueSize || item.noOfSharesOffered || 0);
+    const band = String(item.issuePrice || item.priceRange || '');
+    const nums = band.match(/(\d+(?:\.\d+)?)/g)?.map(Number).filter((n) => Number.isFinite(n) && n > 0) || [];
+    const mid = nums.length >= 2 ? (nums[0] + nums[1]) / 2 : nums[0] || 0;
+    if (shares > 0 && mid > 0) {
+      // NSE issueSize is share count; convert to ₹ Cr
+      return Math.round(((shares * mid) / 1e7) * 100) / 100;
+    }
+    if (shares > 0 && shares < 1e5) {
+      // Already looks like ₹ Cr
+      return Math.round(shares * 100) / 100;
+    }
+    return 0;
+  }
+
   async getIpoTracker(refresh = false): Promise<any> {
     const TTL = 10 * 60 * 1000;
     if (!refresh && this.ipoTrackerCache && Date.now() - this.ipoTrackerCache.timestamp < TTL) {
       return this.ipoTrackerCache.data;
     }
 
+    const referer = 'https://www.nseindia.com/market-data/all-upcoming-issues-ipo';
+    const bySymbol = new Map<string, any>();
+
+    const upsert = (ipo: any, priority: number) => {
+      const key = String(ipo.symbol || ipo.companyName || '').toUpperCase();
+      if (!key) return;
+      const prev = bySymbol.get(key);
+      if (!prev || priority >= (prev._priority || 0)) {
+        bySymbol.set(key, { ...ipo, _priority: priority });
+      }
+    };
+
     try {
-      const rawIpos = await this.fetchNseApi('/api/ipo-current-issue');
-      if (Array.isArray(rawIpos) && rawIpos.length > 0) {
-        const liveIpos = rawIpos.map((item: any, idx: number) => {
-          const subscriptionTimes = item.noOfTime ? Math.round(parseFloat(item.noOfTime) * 100) / 100 : 0;
-          const status = item.status === 'Active' ? 'Live Bidding' : item.status || 'Active';
-          return {
+      const to = new Date();
+      const from90 = new Date();
+      from90.setDate(from90.getDate() - 90);
+      const fromDate = this.formatNseApiDate(from90);
+      const toDate = this.formatNseApiDate(to);
+
+      const [currentRaw, upcomingRaw, pastRaw] = await Promise.all([
+        this.fetchNseApi('/api/ipo-current-issue', referer).catch(() => null),
+        this.fetchNseApi('/api/all-upcoming-issues?category=ipo', referer).catch(() => null),
+        this.fetchNseApi(
+          `/api/public-past-issues?from_date=${fromDate}&to_date=${toDate}`,
+          referer,
+        ).catch(() => null),
+      ]);
+
+      const currentRows = Array.isArray(currentRaw) ? currentRaw : [];
+      const upcomingRows = Array.isArray(upcomingRaw) ? upcomingRaw : [];
+      const pastRows = Array.isArray(pastRaw) ? pastRaw : [];
+
+      // Live bidding (Active) — may include category Total row with subscription
+      for (const [idx, item] of currentRows.entries()) {
+        const subscriptionTimes = item.noOfTime ? Math.round(parseFloat(item.noOfTime) * 100) / 100 : 0;
+        upsert(
+          {
             id: `ipo-live-${item.symbol || idx}`,
             companyName: item.companyName || item.symbol,
             symbol: item.symbol,
-            series: item.series === 'SM' ? 'SME' : 'Mainboard',
-            priceBand: item.issuePrice || 'TBD',
-            lotSize: item.lotSize || 50,
-            issueSizeCr: item.issueSize ? Math.round(Number(item.issueSize) / 10000000 * 100) / 100 : 0,
+            series: this.parseIpoSeries(item.series || item.securityType),
+            priceBand: item.issuePrice || item.priceRange || 'TBD',
+            lotSize: Number(item.lotSize || 0) || 50,
+            issueSizeCr: this.parseIpoIssueSizeCr(item),
             openDate: item.issueStartDate || '',
             closeDate: item.issueEndDate || '',
-            listingDate: 'TBD',
-            status,
+            listingDate: undefined,
+            status: this.normalizeIpoStatus(item.status || 'Active'),
             subscriptionMultiples: {
-              qib: Math.round(subscriptionTimes * 0.9 * 10) / 10,
-              niiHni: Math.round(subscriptionTimes * 1.2 * 10) / 10,
-              retail: subscriptionTimes,
+              qib: 0,
+              niiHni: 0,
+              retail: 0,
               total: subscriptionTimes,
             },
-            gmpEstimate: subscriptionTimes > 1 ? `+${Math.round(subscriptionTimes * 15)}% Demand` : 'At Par',
-          };
-        });
-
-        const result = {
-          lastUpdated: new Date().toISOString(),
-          source: 'NSE_LIVE_IPO_PUBLIC_BIDDING',
-          totalIpos: liveIpos.length,
-          ipos: liveIpos,
-        };
-        this.ipoTrackerCache = { timestamp: Date.now(), data: result };
-        return result;
+            gmpEstimate: subscriptionTimes > 1 ? `Demand ${subscriptionTimes}x` : '-',
+          },
+          30,
+        );
       }
+
+      // Upcoming + Active from all-upcoming-issues (Forthcoming / Active)
+      for (const [idx, item] of upcomingRows.entries()) {
+        const status = this.normalizeIpoStatus(item.status || 'Forthcoming');
+        upsert(
+          {
+            id: `ipo-upc-${item.symbol || idx}`,
+            companyName: item.companyName || item.symbol,
+            symbol: item.symbol,
+            series: this.parseIpoSeries(item.series || item.securityType),
+            priceBand: item.issuePrice || item.priceRange || 'TBD',
+            lotSize: Number(item.lotSize || 0) || 50,
+            issueSizeCr: this.parseIpoIssueSizeCr(item),
+            openDate: item.issueStartDate || '',
+            closeDate: item.issueEndDate || '',
+            listingDate: undefined,
+            status,
+            subscriptionMultiples: {
+              qib: 0,
+              niiHni: 0,
+              retail: 0,
+              total: item.noOfTime ? Math.round(parseFloat(item.noOfTime) * 100) / 100 : 0,
+            },
+            gmpEstimate: '-',
+          },
+          status === 'Live Bidding' ? 25 : 20,
+        );
+      }
+
+      // Past 90d — Listed when listingDate present, else Closed
+      for (const [idx, item] of pastRows.entries()) {
+        const listingDate = item.listingDate && item.listingDate !== '-' ? String(item.listingDate).trim() : undefined;
+        const status = this.normalizeIpoStatus('', listingDate);
+        upsert(
+          {
+            id: `ipo-past-${item.symbol || idx}`,
+            companyName: item.company || item.companyName || item.symbol,
+            symbol: item.symbol,
+            series: this.parseIpoSeries(item.securityType || item.series),
+            priceBand: item.priceRange || (item.issuePrice && item.issuePrice !== '-' ? `₹${String(item.issuePrice).trim()}` : 'TBD'),
+            lotSize: 0,
+            issueSizeCr: 0,
+            openDate: item.ipoStartDate || item.issueStartDate || '',
+            closeDate: item.ipoEndDate || item.issueEndDate || '',
+            listingDate,
+            status,
+            subscriptionMultiples: { qib: 0, niiHni: 0, retail: 0, total: 0 },
+            gmpEstimate: '-',
+          },
+          10,
+        );
+      }
+
+      // Enrich live IPOs with category-wise bid multiples from ipo-detail
+      const liveSymbols = Array.from(bySymbol.values())
+        .filter((i) => i.status === 'Live Bidding' && i.symbol)
+        .slice(0, 8);
+
+      await this.mapPool(liveSymbols, 3, async (ipo) => {
+        try {
+          const series = ipo.series === 'SME' ? 'SM' : 'EQ';
+          const detail = await this.fetchNseApi(
+            `/api/ipo-detail?symbol=${encodeURIComponent(ipo.symbol)}&series=${series}`,
+            referer,
+          );
+          const bids = Array.isArray(detail?.bidDetails) ? detail.bidDetails : [];
+          const pick = (re: RegExp) => {
+            const row = bids.find((b: any) => re.test(String(b.category || '')));
+            return row?.noOfTime != null ? Math.round(parseFloat(row.noOfTime) * 100) / 100 : 0;
+          };
+          const qib = pick(/qib|qualified/i);
+          const niiHni = pick(/nii|hni|non.?inst/i);
+          const retail = pick(/retail|individual/i);
+          const totalRow = bids.find((b: any) => /total|overall/i.test(String(b.category || '')));
+          const total =
+            totalRow?.noOfTime != null
+              ? Math.round(parseFloat(totalRow.noOfTime) * 100) / 100
+              : ipo.subscriptionMultiples?.total || Math.max(qib, niiHni, retail);
+
+          const issueInfo = Array.isArray(detail?.issueInfo) ? detail.issueInfo : [];
+          const lotRow = issueInfo.find((r: any) => /lot/i.test(String(r.name || r.key || '')));
+          const lotSize = lotRow ? Number(String(lotRow.value || '').replace(/,/g, '')) : ipo.lotSize;
+
+          const key = String(ipo.symbol).toUpperCase();
+          const prev = bySymbol.get(key);
+          if (prev) {
+            bySymbol.set(key, {
+              ...prev,
+              lotSize: Number.isFinite(lotSize) && lotSize > 0 ? lotSize : prev.lotSize,
+              subscriptionMultiples: { qib, niiHni, retail, total },
+              gmpEstimate: total > 1 ? `Demand ${total}x` : prev.gmpEstimate,
+            });
+          }
+        } catch (err: any) {
+          this.logger.warn(`IPO detail enrich ${ipo.symbol} failed: ${err?.message || err}`);
+        }
+      });
     } catch (err: any) {
       this.logger.warn(`Live NSE IPO fetch failed: ${err.message}`);
     }
 
+    const ipos = Array.from(bySymbol.values())
+      .map(({ _priority, ...rest }) => rest)
+      .sort((a, b) => {
+        const rank = (s: string) =>
+          s === 'Live Bidding' ? 0 : s === 'Upcoming' ? 1 : s === 'Listed' ? 2 : 3;
+        const d = rank(a.status) - rank(b.status);
+        if (d !== 0) return d;
+        return String(b.openDate || '').localeCompare(String(a.openDate || ''));
+      });
+
+    const counts = {
+      liveBidding: ipos.filter((i) => i.status === 'Live Bidding').length,
+      upcoming: ipos.filter((i) => i.status === 'Upcoming').length,
+      listed: ipos.filter((i) => i.status === 'Listed').length,
+      closed: ipos.filter((i) => i.status === 'Closed').length,
+    };
+
     const result = {
       lastUpdated: new Date().toISOString(),
-      source: 'NSE_BSE_PUBLIC_IPO_BIDDING',
-      marketSession: 'Standby / Between Issues',
-      message: 'No public IPOs currently active for subscription bidding.',
-      totalIpos: 0,
-      ipos: [],
+      source: ipos.length ? 'NSE_IPO_CURRENT_UPCOMING_PAST' : 'UNAVAILABLE',
+      dataSource:
+        'NSE /api/ipo-current-issue + /api/all-upcoming-issues?category=ipo + /api/public-past-issues (90d)',
+      totalIpos: ipos.length,
+      counts,
+      ipos,
+      message: ipos.length
+        ? undefined
+        : 'No IPO issues returned from NSE current/upcoming/past feeds.',
     };
 
     this.ipoTrackerCache = { timestamp: Date.now(), data: result };
@@ -3689,72 +4012,151 @@ export class TechnoFundaService {
       return this.deliveryMomentumCache.data;
     }
 
-    // NSE volume gainers for live CMP, then enrich with Yahoo 52W distance (free)
-    let baseRows: any[] = [];
+    // 1) Official NSE full bhavcopy → real DELIV_PER for EQ series
+    const bhav = await this.fetchLatestEquityDeliveryBhavcopy();
+    const deliveryBySymbol = new Map(
+      (bhav?.rows || []).map((r) => [r.symbol, r] as const),
+    );
+
+    // 2) Live movers (most-active + volume gainers), equity-only
+    const liveBySymbol = new Map<
+      string,
+      { symbol: string; companyName: string; sector: string; cmp: number; dayChangePct: number; yearHigh?: number; tradedVolume: number }
+    >();
+
+    const ingestLive = (rows: any[]) => {
+      for (const r of rows) {
+        const symbol = String(r.symbol || '').toUpperCase().trim();
+        const companyName = String(r.companyName || r.meta?.companyName || symbol);
+        if (!symbol || this.isNonCashEquitySymbol(symbol, companyName)) continue;
+        const cmp = Number(r.lastPrice || r.ltp || r.closePrice || 0);
+        liveBySymbol.set(symbol, {
+          symbol,
+          companyName,
+          sector: String(r.meta?.industry || r.industry || 'Equities'),
+          cmp,
+          dayChangePct: Number(r.pChange || r.change || 0),
+          yearHigh: r.yearHigh != null ? Number(r.yearHigh) : undefined,
+          tradedVolume: Number(r.totalTradedVolume || r.quantityTraded || r.volume || 0),
+        });
+      }
+    };
+
     try {
-      const raw = await this.fetchNseApi('/api/live-analysis-volume-gainers');
-      const rows = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
-      baseRows = rows.slice(0, 40).map((r: any) => ({
-        symbol: String(r.symbol || '').toUpperCase().trim(),
-        companyName: r.meta?.companyName || r.symbol,
-        sector: r.meta?.industry || 'Equities',
-        cmp: Number(r.lastPrice || r.ltp || 0),
-        dayChangePct: Number(r.pChange || 0),
-        deliveryPct: r.deliveryToTradedQuantity != null ? Number(r.deliveryToTradedQuantity) : null,
-        tradedVolume: Number(r.totalTradedVolume || r.volume || 0),
-      }));
+      const [byVol, byVal, gainers] = await Promise.all([
+        this.fetchNseApi('/api/live-analysis-most-active-securities?index=volume').catch(() => null),
+        this.fetchNseApi('/api/live-analysis-most-active-securities?index=value').catch(() => null),
+        this.fetchNseApi('/api/live-analysis-volume-gainers').catch(() => null),
+      ]);
+      ingestLive(Array.isArray(byVol?.data) ? byVol.data : []);
+      ingestLive(Array.isArray(byVal?.data) ? byVal.data : []);
+      ingestLive(Array.isArray(gainers?.data) ? gainers.data : Array.isArray(gainers) ? gainers : []);
     } catch {}
 
-    if (baseRows.length === 0) {
-      const universe = await this.loadNseEquityUniverse(40);
-      baseRows = universe.map((c) => ({
-        symbol: c.symbol,
-        companyName: c.name,
-        sector: c.sector,
-        cmp: 0,
-        dayChangePct: 0,
-        deliveryPct: null,
-        tradedVolume: 0,
-        yahooTicker: c.yahooTicker,
-      }));
+    // Candidate set: high-delivery names from bhavcopy + live actives
+    const highDelivery = (bhav?.rows || [])
+      .filter((r) => (r.deliveryPct ?? 0) >= 50 && r.volume >= 100000)
+      .sort((a, b) => b.turnoverLacs - a.turnoverLacs)
+      .slice(0, 60);
+
+    const candidateSymbols = new Set<string>([
+      ...highDelivery.map((r) => r.symbol),
+      ...Array.from(liveBySymbol.keys()).slice(0, 40),
+    ]);
+
+    // Pad with Nifty universe if feed thin
+    if (candidateSymbols.size < 25) {
+      const universe = await this.loadNseEquityUniverse(50);
+      for (const u of universe) {
+        if (!this.isNonCashEquitySymbol(u.symbol, u.name)) candidateSymbols.add(u.symbol);
+      }
     }
 
+    const candidates = Array.from(candidateSymbols).map((symbol) => {
+      const live = liveBySymbol.get(symbol);
+      const del = deliveryBySymbol.get(symbol);
+      return {
+        symbol,
+        companyName: live?.companyName || symbol,
+        sector: live?.sector || 'Equities',
+        cmp: live?.cmp || del?.close || 0,
+        dayChangePct: live?.dayChangePct || 0,
+        yearHigh: live?.yearHigh,
+        deliveryPct: del?.deliveryPct ?? null,
+        deliveryVolume: del?.deliveryQty ?? null,
+        tradedVolume: live?.tradedVolume || del?.volume || 0,
+      };
+    });
+
     const stocks = (
-      await this.mapPool(baseRows, 6, async (row) => {
-        const detail = await this.fetchLiveStockDetail(`${row.symbol}.NS`);
-        const cmp = detail?.cmp || row.cmp || 0;
-        if (!cmp || !detail?.week52High) return null;
-        const distFromHighPct = Math.round(((detail.week52High - cmp) / detail.week52High) * 10000) / 100;
-        // Momentum screen: near 52W high (within 10%)
-        if (distFromHighPct > 10) return null;
+      await this.mapPool(candidates, 6, async (row) => {
+        let week52High = row.yearHigh || 0;
+        let cmp = row.cmp;
+        let dayChangePct = row.dayChangePct;
+        let volume = row.tradedVolume;
+
+        // Prefer Yahoo when NSE yearHigh missing or CMP missing
+        if (!week52High || !cmp) {
+          const detail = await this.fetchLiveStockDetail(`${row.symbol}.NS`);
+          cmp = detail?.cmp || cmp || 0;
+          week52High = detail?.week52High || week52High || 0;
+          dayChangePct = detail?.dayChangePct ?? dayChangePct;
+          volume = volume || detail?.volume || 0;
+        }
+        if (!cmp || !week52High) return null;
+
+        const distFromHighPct = Math.round(((week52High - cmp) / week52High) * 10000) / 100;
+        if (distFromHighPct > 10 || distFromHighPct < -1) return null;
+
         return {
           symbol: row.symbol,
           companyName: row.companyName,
           sector: row.sector,
           cmp,
-          dayChangePct: detail?.dayChangePct ?? row.dayChangePct,
+          dayChangePct,
           distFromHighPct: Math.max(0, distFromHighPct),
-          week52High: detail.week52High,
+          week52High,
           deliveryPct: row.deliveryPct,
-          tradedVolume: row.tradedVolume || detail?.volume || 0,
-          deliveryVolume: null,
+          tradedVolume: volume,
+          deliveryVolume: row.deliveryVolume,
           deliveryTo30dAvgRatio: null,
-          verdict: distFromHighPct <= 2 ? 'Near 52W High' : distFromHighPct <= 5 ? 'Approaching High' : 'Within 10%',
+          verdict:
+            distFromHighPct <= 2
+              ? 'Near 52W High'
+              : distFromHighPct <= 5
+                ? 'Approaching High'
+                : 'Within 10%',
         };
       })
     )
       .filter((s): s is NonNullable<typeof s> => s !== null)
-      .sort((a, b) => a.distFromHighPct - b.distFromHighPct);
+      .sort((a, b) => {
+        // Prefer rows with real delivery %, then nearest highs
+        const da = a.deliveryPct == null ? -1 : a.deliveryPct;
+        const db = b.deliveryPct == null ? -1 : b.deliveryPct;
+        if (db !== da) return db - da;
+        return a.distFromHighPct - b.distFromHighPct;
+      })
+      .slice(0, 80);
 
+    const withDelivery = stocks.filter((s) => s.deliveryPct != null).length;
     const result = {
       lastUpdated: new Date().toISOString(),
-      source: stocks.length ? 'NSE_VOLUME_GAINERS_PLUS_YAHOO_52W' : 'UNAVAILABLE',
-      dataSource: 'NSE volume gainers CMP + Yahoo 52W proximity (free). Delivery % only when NSE supplies it.',
+      source: stocks.length
+        ? bhav
+          ? 'NSE_BHAVCOPY_DELIVERY_PLUS_LIVE_ACTIVES'
+          : 'NSE_LIVE_ACTIVES_PLUS_YAHOO_52W'
+        : 'UNAVAILABLE',
+      dataSource: bhav
+        ? `NSE full bhavcopy DELIV_PER (as of ${bhav.asOf}) + most-active/volume-gainers + 52W proximity`
+        : 'NSE most-active/volume-gainers + Yahoo 52W (bhavcopy delivery unavailable)',
+      bhavcopyAsOf: bhav?.asOf,
       totalStocks: stocks.length,
+      stocksWithDeliveryPct: withDelivery,
       stocks,
       message:
         stocks.length === 0
-          ? 'No volume-gainers currently within 10% of 52-week highs.'
+          ? 'No equity names currently within 10% of 52-week highs.'
           : undefined,
     };
 

@@ -47,12 +47,20 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
         act.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         act.details.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = actionTypeFilter === 'ALL' || act.actionType === actionTypeFilter;
-      const matchesYield = !highYieldOnly || (act.dividendYieldPct ?? 0) >= 2.5;
-
+      const matchesYield =
+        !highYieldOnly ||
+        (act.dividendYieldPct != null
+          ? act.dividendYieldPct >= 1.0
+          : (act.dividendPerShare ?? 0) >= 5);
       let matchesPreset = true;
-      if (presetFilter === 'HIGH_YIELD') matchesPreset = (act.dividendYieldPct ?? 0) >= 3.0;
-      else if (presetFilter === 'SPLITS_BONUSES') matchesPreset = act.actionType === 'Bonus Issue' || act.actionType === 'Stock Split';
-
+      if (presetFilter === 'HIGH_YIELD') {
+        matchesPreset =
+          act.dividendYieldPct != null
+            ? act.dividendYieldPct >= 1.0
+            : (act.dividendPerShare ?? 0) >= 5;
+      } else if (presetFilter === 'SPLITS_BONUSES') {
+        matchesPreset = act.actionType === 'Bonus Issue' || act.actionType === 'Stock Split';
+      }
       return matchesSearch && matchesType && matchesYield && matchesPreset;
     });
   }, [actions, searchQuery, actionTypeFilter, highYieldOnly, presetFilter]);

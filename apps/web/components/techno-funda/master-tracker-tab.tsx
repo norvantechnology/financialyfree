@@ -127,7 +127,7 @@ export function MasterTrackerTab({
   );
   const [search, setSearch] = useState('');
   const [sectorFilter, setSectorFilter] = useState('All');
-  const [signalFilter, setSignalFilter] = useState<'All' | 'beats' | 'above20' | 'above100' | 'near52High' | 'watchlist'>('All');
+  const [signalFilter, setSignalFilter] = useState<'All' | 'gainers' | 'near52High' | 'watchlist'>('All');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [expandedQuarterId, setExpandedQuarterId] = useState<string | null>(null);
   const [expandedTriggerId, setExpandedTriggerId] = useState<string | null>(null);
@@ -177,12 +177,7 @@ export function MasterTrackerTab({
   // Executive Summary Stats (Also act as 1-tap fast filters)
   const summaryStats = useMemo(() => {
     const total = stocks.length;
-    const beatStocks = stocks.filter((s) => {
-      const quarters = Object.values(s.quarterly || {});
-      const beats = quarters.filter((q) => q?.status === 'Beat').length;
-      return beats >= 2;
-    });
-    const above20 = stocks.filter((s) => s.technicals?.above20Dma);
+    const gainers = stocks.filter((s) => (s.changePct || 0) > 0);
     const near52High = stocks.filter((s) => {
       if (!s.technicals?.week52High || !s.price) return false;
       return s.price / s.technicals.week52High >= 0.88;
@@ -193,8 +188,7 @@ export function MasterTrackerTab({
 
     return {
       total,
-      beatCount: beatStocks.length,
-      above20Count: above20.length,
+      gainersCount: gainers.length,
       near52HighCount: near52High.length,
       avgChange,
       watchlistCount,
@@ -246,15 +240,11 @@ export function MasterTrackerTab({
       }
       if (sectorFilter !== 'All' && s.sector !== sectorFilter) return false;
 
-      if (signalFilter === 'beats') {
-        const beats = Object.values(s.quarterly || {}).filter((q) => q?.status === 'Beat').length;
-        if (beats < 2) return false;
-      } else if (signalFilter === 'above20') {
-        if (!s.technicals?.above20Dma) return false;
-      } else if (signalFilter === 'above100') {
-        if (!s.technicals?.above100Dma) return false;
+      if (signalFilter === 'gainers') {
+        if (!(s.changePct > 0)) return false;
       } else if (signalFilter === 'near52High') {
-        if (!s.technicals?.week52High || s.price / s.technicals.week52High < 0.88) return false;
+        const high = s.technicals?.week52High || 0;
+        if (!high || !s.price || s.price / high < 0.88) return false;
       } else if (signalFilter === 'watchlist') {
         if (!s.isWatchlisted) return false;
       }
@@ -444,19 +434,19 @@ export function MasterTrackerTab({
           </p>
         </div>
 
-        {/* Card 2: Earnings Outperformers */}
+        {/* Card 2: Day Gainers (live quote field — always available) */}
         <div
-          onClick={() => setSignalFilter(signalFilter === 'beats' ? 'All' : 'beats')}
+          onClick={() => setSignalFilter(signalFilter === 'gainers' ? 'All' : 'gainers')}
           className="tf-kpi-card"
           style={{
-            background: signalFilter === 'beats' ? '#ECFDF5' : '#FFFFFF',
-            border: signalFilter === 'beats' ? '1.5px solid #059669' : '1px solid #E2E8F0',
-            boxShadow: signalFilter === 'beats' ? '0 1px 4px rgba(5, 150, 105, 0.12)' : 'none',
+            background: signalFilter === 'gainers' ? '#ECFDF5' : '#FFFFFF',
+            border: signalFilter === 'gainers' ? '1.5px solid #059669' : '1px solid #E2E8F0',
+            boxShadow: signalFilter === 'gainers' ? '0 1px 4px rgba(5, 150, 105, 0.12)' : 'none',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
             <span className="tf-kpi-title">
-              Earnings Outperformers
+              Day Gainers
             </span>
             <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: '#ECFDF5', border: '1px solid #A7F3D0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#059669' }}>
               <Award size={14} />
@@ -464,49 +454,18 @@ export function MasterTrackerTab({
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
             <span className="tf-kpi-val" style={{ color: '#065F46' }}>
-              {summaryStats.beatCount}
+              {summaryStats.gainersCount}
             </span>
             <span className="tf-kpi-subval" style={{ color: '#059669', background: '#DCFCE7', padding: '1px 6px', borderRadius: '8px' }}>
-              {summaryStats.total > 0 ? Math.round((summaryStats.beatCount / summaryStats.total) * 100) : 0}% of list
+              {summaryStats.total > 0 ? Math.round((summaryStats.gainersCount / summaryStats.total) * 100) : 0}% of list
             </span>
           </div>
           <p className="tf-kpi-desc tf-desktop-only">
-            Beating quarterly operational guidance
+            Positive day change from live quotes
           </p>
         </div>
 
-        {/* Card 3: Bullish Momentum (Above 20 DMA) */}
-        <div
-          onClick={() => setSignalFilter(signalFilter === 'above20' ? 'All' : 'above20')}
-          className="tf-kpi-card"
-          style={{
-            background: signalFilter === 'above20' ? '#F0FDFA' : '#FFFFFF',
-            border: signalFilter === 'above20' ? '1.5px solid #0D9488' : '1px solid #E2E8F0',
-            boxShadow: signalFilter === 'above20' ? '0 1px 4px rgba(13, 148, 136, 0.12)' : 'none',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
-            <span className="tf-kpi-title">
-              Above 20 DMA
-            </span>
-            <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: '#F0FDFA', border: '1px solid #CCFBF1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0F766E' }}>
-              <TrendingUp size={14} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
-            <span className="tf-kpi-val" style={{ color: '#0F766E' }}>
-              {summaryStats.above20Count}
-            </span>
-            <span className="tf-kpi-subval" style={{ color: '#0F766E', background: '#CCFBF1', padding: '1px 6px', borderRadius: '8px' }}>
-              {summaryStats.total > 0 ? Math.round((summaryStats.above20Count / summaryStats.total) * 100) : 0}% of list
-            </span>
-          </div>
-          <p className="tf-kpi-desc tf-desktop-only">
-            Strong short-term institutional accumulation
-          </p>
-        </div>
-
-        {/* Card 4: Near 52W High */}
+        {/* Card 3: Near 52W High */}
         <div
           onClick={() => setSignalFilter(signalFilter === 'near52High' ? 'All' : 'near52High')}
           className="tf-kpi-card"
@@ -609,7 +568,6 @@ export function MasterTrackerTab({
                 <option value="marketCap">Market Cap</option>
                 <option value="price">Stock Price</option>
                 <option value="changePct">1-Day Change</option>
-                <option value="beats">Beat Quarters</option>
                 <option value="week52High">52W High</option>
                 <option value="eps">FY27 (E) EPS</option>
                 <option value="stock">Symbol (A-Z)</option>
@@ -798,9 +756,7 @@ export function MasterTrackerTab({
           </span>
           {[
             { id: 'All', label: 'All Stocks' },
-            { id: 'beats', label: 'Consistent Beats (≥2)' },
-            { id: 'above20', label: 'Above 20 DMA' },
-            { id: 'above100', label: 'Above 100 DMA' },
+            { id: 'gainers', label: 'Day Gainers' },
             { id: 'near52High', label: 'Near 52W High' },
             { id: 'watchlist', label: `My Watchlist (${summaryStats.watchlistCount})` },
           ].map((sig) => {
@@ -876,7 +832,6 @@ export function MasterTrackerTab({
                 <option value="marketCap">Market Cap</option>
                 <option value="price">Price</option>
                 <option value="changePct">Day Change</option>
-                <option value="beats">Beat Quarters</option>
                 <option value="week52High">52W High</option>
                 <option value="eps">FY27 EPS</option>
               </select>
