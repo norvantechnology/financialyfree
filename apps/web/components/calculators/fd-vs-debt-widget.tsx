@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Download, CheckCircle, Percent, ArrowRight, ShieldAlert, Info } from 'lucide-react';
+import { Download, Info } from 'lucide-react';
 import { calculateFdVsDebt, DebtAlternativeType, InvestorTaxSlab } from '@ff/calc';
 import { exportTableToCsv } from '../../lib/csv-export';
 

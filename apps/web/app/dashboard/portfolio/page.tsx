@@ -213,7 +213,6 @@ export default function PortfolioPage() {
           </Link>
         </div>
 
-
         {/* Portfolio Performance Summary Cards  Compact 2x2 on Mobile */}
         <div className="kpi-grid-mobile-2col">
           <div className="kpi-card-compact">

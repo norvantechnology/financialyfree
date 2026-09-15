@@ -2682,7 +2682,6 @@ function TechnoFundaContent() {
                   </button>
                 </div>
 
-
               </div>
 
               {/* ═══ RIGHT CARD: Output (per method) ═══ */}
@@ -3295,7 +3294,6 @@ function TechnoFundaContent() {
                         ))}
                       </div>
                     </div>
-
 
                   {/* CMP and Offer Price */}
                   <div>

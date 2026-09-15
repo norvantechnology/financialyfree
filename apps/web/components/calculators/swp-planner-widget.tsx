@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Download, CheckCircle, AlertTriangle, Infinity as InfinityIcon, ShieldCheck, Info } from 'lucide-react';
+import { Download, Infinity as InfinityIcon, Info } from 'lucide-react';
 import { calculateSwpPlan } from '@ff/calc';
 import { exportTableToCsv } from '../../lib/csv-export';
 

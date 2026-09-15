@@ -12,7 +12,6 @@ import {
   Target,
   ArrowUpDown,
   Award,
-  TrendingUp,
   LayoutGrid,
   List,
   ShieldCheck,

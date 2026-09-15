@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { X, Download, ShieldCheck, ArrowRight, AlertTriangle } from 'lucide-react';
+import { X, Download } from 'lucide-react';
 import { scanTaxLossHarvesting, TaxLossHoldingInput } from '@ff/calc';
 import { exportTableToCsv } from '../../lib/csv-export';
 

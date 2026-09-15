@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Download, CheckCircle2, TrendingUp, Sliders, Info } from 'lucide-react';
+import { Download, Info } from 'lucide-react';
 import { calculateSipVsLumpsum, MarketRegime } from '@ff/calc';
 import { exportTableToCsv } from '../../lib/csv-export';
 

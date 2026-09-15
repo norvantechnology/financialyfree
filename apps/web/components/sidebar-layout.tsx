@@ -291,8 +291,6 @@ function SidebarNavLinks({
   );
 }
 
-
-
 function SidebarNavSkeleton({ isCollapsed = false }: { isCollapsed?: boolean }) {
   if (isCollapsed) {
     return (
