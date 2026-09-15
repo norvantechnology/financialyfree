@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import dns from 'node:dns';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -7,6 +8,9 @@ import { AppModule } from './app.module';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import type { Request, Response, NextFunction } from 'express';
+
+// Render (and many PaaS) lack IPv6 egress — prefer IPv4 for Supabase DNS
+dns.setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
