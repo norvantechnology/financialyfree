@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Landmark, Calendar, Download, Info } from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
+import { TfLoadingState } from './tf-loading-state';
 
 export interface RbiMacroData {
   lastUpdated: string;
@@ -46,8 +47,19 @@ function fmtPct(value: number | null | undefined): string {
   return value == null || Number.isNaN(value) ? '—' : `${value.toFixed(2)}%`;
 }
 
-export function RbiMacroWidget({ data, isLoading: _isLoading }: RbiMacroWidgetProps) {
+export function RbiMacroWidget({ data, isLoading }: RbiMacroWidgetProps) {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  if (isLoading && !data) {
+    return (
+      <TfLoadingState
+        title="Loading RBI macro radar…"
+        subtitle="Fetching policy rates and MPC calendar from live RBI sources."
+        variant="cards"
+        rows={4}
+      />
+    );
+  }
 
   if (!data) return null;
 

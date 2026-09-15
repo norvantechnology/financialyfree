@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import {
+import { TfLoadingState } from './tf-loading-state';
   ArrowUpRight,
   ArrowDownRight,
   RefreshCw,
@@ -174,6 +175,16 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
         return { bg: '#FEE2E2', text: '#991B1B', border: '#FECACA', label: 'Lagging Sector' };
     }
   };
+
+  if (isLoading && !data) {
+    return (
+      <TfLoadingState
+        title="Loading sector heatmap…"
+        subtitle="Pulling live exchange and market data for this workspace."
+        variant="cards"
+      />
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

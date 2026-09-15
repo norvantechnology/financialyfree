@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, RefreshCw, ArrowUpRight, ArrowDownRight, X, Download, Info } from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
+import { TfLoadingState } from './tf-loading-state';
 
 export interface InsiderTransactionItem {
   id: string;
@@ -86,6 +87,16 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
     ]);
     exportTableToCsv('SEBI_PIT_Insider_Disclosures', headers, rows);
   };
+
+  if (isLoading && !data) {
+    return (
+      <TfLoadingState
+        title="Loading insider trading disclosures…"
+        subtitle="Pulling live exchange and market data for this workspace."
+        variant="table"
+      />
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

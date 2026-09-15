@@ -14,6 +14,7 @@ import {
   Building2,
   ArrowUpDown,
 } from 'lucide-react';
+import { TfLoadingState } from './tf-loading-state';
 
 export interface VahanMakerData {
   makerName: string;
@@ -107,7 +108,7 @@ export interface VahanCompanyViewProps {
 
 type SortColumn = 'maker' | 'category' | 'total' | 'yoy' | 'jan' | 'feb' | 'mar' | 'apr' | 'may' | 'jun' | 'jul' | 'aug' | 'q1' | 'q2' | 'q3';
 
-export function VahanCompanyView({ liveMakers }: VahanCompanyViewProps = {}) {
+export function VahanCompanyView({ liveMakers, isLoading }: VahanCompanyViewProps = {}) {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'All' | '2W' | 'PV' | 'CV' | '3W' | 'Tractor'>('All');
   const [listedOnly, setListedOnly] = useState(false);
@@ -352,6 +353,17 @@ export function VahanCompanyView({ liveMakers }: VahanCompanyViewProps = {}) {
     if (num >= 100000) return `${(num / 100000).toFixed(2)} Lakh`;
     return num.toLocaleString('en-IN');
   };
+
+  if (isLoading && (!liveMakers || liveMakers.length === 0)) {
+    return (
+      <TfLoadingState
+        title="Loading Vahan OEM matrix…"
+        subtitle="Fetching manufacturer registration series from the live Vahan feed."
+        variant="table"
+        rows={6}
+      />
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%' }}>

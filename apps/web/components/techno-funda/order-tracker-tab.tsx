@@ -14,6 +14,7 @@ import {
   RotateCcw,
   X,
 } from 'lucide-react';
+import { TfLoadingState } from './tf-loading-state';
 
 export interface SingleOrder {
   id: string;
@@ -368,13 +369,12 @@ export function OrderTrackerTab({
 
   if (isLoading && orders.length === 0) {
     return (
-      <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
-        <div className="tf-linear-loader">
-          <div className="tf-linear-loader-bar" />
-        </div>
-        <h3 style={{ fontSize: '15px', fontWeight: 650, color: '#1E293B', marginBottom: '4px' }}>Loading Order Inflows...</h3>
-        <p style={{ fontSize: '13px', color: '#64748B' }}>Fetching contract disclosures and order wins.</p>
-      </div>
+      <TfLoadingState
+        title="Loading Order Tracker…"
+        subtitle="Fetching SEBI LODR order-win disclosures from exchange filings."
+        variant="table"
+        rows={5}
+      />
     );
   }
 

@@ -21,6 +21,7 @@ import {
 import { WatchlistButton } from '../watchlist-button';
 import { AureusScoreBadge } from './aureus-score-badge';
 import { fmtInr, fmtNum } from '../../lib/format-number';
+import { TfLoadingState } from './tf-loading-state';
 
 export interface StockPulseData {
   quarterLabel: string;
@@ -356,13 +357,12 @@ export function MasterTrackerTab({
 
   if (isLoading && stocks.length === 0) {
     return (
-      <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
-        <div className="tf-linear-loader">
-          <div className="tf-linear-loader-bar" />
-        </div>
-        <h3 style={{ fontSize: '15px', fontWeight: 650, color: '#1E293B', marginBottom: '4px' }}>Loading Master Tracker...</h3>
-        <p style={{ fontSize: '13px', color: '#64748B' }}>Fetching quotes and technicals from exchange feeds.</p>
-      </div>
+      <TfLoadingState
+        title="Loading Master Tracker…"
+        subtitle="Fetching live NSE quotes and technicals for the tracked universe."
+        variant="cards"
+        rows={6}
+      />
     );
   }
 

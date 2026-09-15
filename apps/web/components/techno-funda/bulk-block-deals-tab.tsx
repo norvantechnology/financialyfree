@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, RefreshCw, ArrowUpRight, ArrowDownRight, X, Download, Info } from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
+import { TfLoadingState } from './tf-loading-state';
 
 export interface BulkBlockDealItem {
   id: string;
@@ -86,6 +87,16 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
   const sellVolumeCr = useMemo(() => {
     return deals.filter((d) => d.dealType === 'SELL').reduce((a, b) => a + b.valueCr, 0);
   }, [deals]);
+
+  if (isLoading && !data) {
+    return (
+      <TfLoadingState
+        title="Loading bulk & block deals…"
+        subtitle="Pulling live exchange and market data for this workspace."
+        variant="table"
+      />
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

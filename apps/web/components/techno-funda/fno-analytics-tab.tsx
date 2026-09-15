@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { RefreshCw, ArrowUpRight, ArrowDownRight, Download, Info } from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
+import { TfLoadingState } from './tf-loading-state';
 
 export interface StrikeOiItem {
   strikePrice: number;
@@ -70,6 +71,16 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
   const maxOiInStrikes = Math.max(
     ...(currentIndex?.strikes.map((s) => Math.max(s.callOi, s.putOi)) || [1])
   );
+
+  if (isLoading && !data) {
+    return (
+      <TfLoadingState
+        title="Loading F&O open interest…"
+        subtitle="Pulling live exchange and market data for this workspace."
+        variant="cards"
+      />
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

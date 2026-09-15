@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, RefreshCw, X, Download, Info } from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
+import { TfLoadingState } from './tf-loading-state';
 
 export interface CircuitStockItem {
   symbol: string;
@@ -76,6 +77,16 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
     ]);
     exportTableToCsv(`NSE_${activeSubTab.toUpperCase()}_CIRCUITS`, headers, rows);
   };
+
+  if (isLoading && !data) {
+    return (
+      <TfLoadingState
+        title="Loading circuit breaker watch…"
+        subtitle="Pulling live exchange and market data for this workspace."
+        variant="table"
+      />
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

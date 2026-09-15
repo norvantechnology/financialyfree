@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { RefreshCw, Search, X, Download, Info } from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
+import { TfLoadingState } from './tf-loading-state';
 
 export interface IpoItem {
   id: string;
@@ -84,6 +85,16 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
     ]);
     exportTableToCsv('NSE_BSE_IPO_Tracker', headers, rows);
   };
+
+  if (isLoading && !data) {
+    return (
+      <TfLoadingState
+        title="Loading IPO tracker…"
+        subtitle="Pulling live exchange and market data for this workspace."
+        variant="table"
+      />
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

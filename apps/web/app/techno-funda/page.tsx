@@ -62,6 +62,7 @@ import { SectorHeatmapTab, SectorHeatmapData } from '../../components/techno-fun
 import { DeliveryMomentumTab, DeliveryMomentumData } from '../../components/techno-funda/delivery-momentum-tab';
 import { CircuitBreakersTab, CircuitBreakersData } from '../../components/techno-funda/circuit-breakers-tab';
 import { RbiMacroWidget, RbiMacroData } from '../../components/techno-funda/rbi-macro-widget';
+import { TfLoadingState } from '../../components/techno-funda/tf-loading-state';
 import { WatchlistButton } from '../../components/watchlist-button';
 import { AureusScoreBadge, AureusScoreCard } from '../../components/techno-funda/aureus-score-badge';
 import {
@@ -1855,13 +1856,7 @@ function TechnoFundaContent() {
         {activeTab === 'valuation' && (
           <div>
             {isRefreshingFeeds && (!valuationData.targetCompany || valuationData.financialsCr.revenue === 0) ? (
-              <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
-                <div className="tf-linear-loader">
-                  <div className="tf-linear-loader-bar" />
-                </div>
-                <h3 style={{ fontSize: '15px', fontWeight: 650, color: '#1E293B', marginBottom: '4px' }}>Loading Valuation Financials...</h3>
-                <p style={{ fontSize: '13px', color: '#64748B' }}>Fetching audited balance sheet figures, revenue, and quotes from exchange feeds.</p>
-              </div>
+              <TfLoadingState title="Loading Valuation Financials…" subtitle="Fetching live exchange and market data for this workspace." variant="panel" rows={4} />
             ) : (!valuationData.targetCompany || valuationData.financialsCr.revenue === 0) ? (
               <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
                 <Activity size={36} style={{ margin: '0 auto 12px', color: '#94A3B8' }} />
@@ -3039,7 +3034,7 @@ function TechnoFundaContent() {
         {activeTab === 'master-tracker' && (
           <MasterTrackerTab
             liveStocks={masterTrackerData?.stocks}
-            isLoading={isRefreshingFeeds}
+            isLoading={isRefreshingFeeds && !masterTrackerData}
             lastUpdated={masterTrackerData?.lastUpdated}
             onRefresh={fetchLiveFeeds}
             onSelectValuation={handleSelectValuationForSymbol}
@@ -3051,7 +3046,7 @@ function TechnoFundaContent() {
         {activeTab === 'bank-nbfc' && (
           <BankNbfcTab
             liveData={bankNbfcData || undefined}
-            isLoading={isRefreshingFeeds}
+            isLoading={isRefreshingFeeds && !(bankNbfcData?.banks?.length || bankNbfcData?.costOfFunds?.length)}
             onRefresh={fetchLiveFeeds}
           />
         )}
@@ -3061,7 +3056,7 @@ function TechnoFundaContent() {
           <OrderTrackerTab
             liveOrders={orderTrackerData?.orders}
             liveConsolidated={orderTrackerData?.consolidated}
-            isLoading={isRefreshingFeeds}
+            isLoading={isRefreshingFeeds && !orderTrackerData}
             lastUpdated={orderTrackerData?.lastUpdated}
             onRefresh={fetchLiveFeeds}
           />
@@ -4496,13 +4491,7 @@ function TechnoFundaContent() {
         {activeTab === 'results' && (
           <div>
             {isRefreshingFeeds && resultsData.meetings.length === 0 && (!resultsData.recentResults || resultsData.recentResults.length === 0) ? (
-              <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
-                <div className="tf-linear-loader">
-                  <div className="tf-linear-loader-bar" />
-                </div>
-                <h3 style={{ fontSize: '15px', fontWeight: 650, color: '#1E293B', marginBottom: '4px' }}>Loading Results Calendar...</h3>
-                <p style={{ fontSize: '13px', color: '#64748B' }}>Fetching upcoming board meetings and quarterly financial results.</p>
-              </div>
+              <TfLoadingState title="Loading Results Calendar…" subtitle="Fetching live exchange and market data for this workspace." variant="panel" rows={4} />
             ) : resultsData.meetings.length === 0 && (!resultsData.recentResults || resultsData.recentResults.length === 0) ? (
               <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
                 <Activity size={36} style={{ margin: '0 auto 12px', color: '#94A3B8' }} />
@@ -5405,13 +5394,7 @@ function TechnoFundaContent() {
         {activeTab === 'news' && (() => {
           if (isRefreshingFeeds && (!newsData || newsData.headlines.length === 0)) {
             return (
-              <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
-                <div className="tf-linear-loader">
-                  <div className="tf-linear-loader-bar" />
-                </div>
-                <h3 style={{ fontSize: '15px', fontWeight: 650, color: '#1E293B', marginBottom: '4px' }}>Loading News Desk...</h3>
-                <p style={{ fontSize: '13px', color: '#64748B' }}>Fetching corporate announcements and market updates.</p>
-              </div>
+              <TfLoadingState title="Loading News Desk…" subtitle="Fetching live exchange and market data for this workspace." variant="panel" rows={4} />
             );
           }
 
@@ -5846,13 +5829,7 @@ function TechnoFundaContent() {
       {activeTab === 'shareholding' && (() => {
         if (isRefreshingFeeds && (!shareholdingData || shareholdingData.broadcasts.length === 0)) {
           return (
-            <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
-              <div className="tf-linear-loader">
-                <div className="tf-linear-loader-bar" />
-              </div>
-              <h3 style={{ fontSize: '15px', fontWeight: 650, color: '#1E293B', marginBottom: '4px' }}>Loading Shareholding Patterns...</h3>
-              <p style={{ fontSize: '13px', color: '#64748B' }}>Fetching promoter, FII, and DII ownership data from exchange feeds.</p>
-            </div>
+            <TfLoadingState title="Loading Shareholding Patterns…" subtitle="Fetching live exchange and market data for this workspace." variant="panel" rows={4} />
           );
         }
 
@@ -6562,11 +6539,12 @@ function TechnoFundaContent() {
       {activeTab === 'mmi' && (
         <div>
           {isRefreshingFeeds && !mmiData ? (
-            <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
-              <Gauge size={32} style={{ margin: '0 auto 12px', color: '#0F766E' }} />
-              <h3 style={{ fontSize: '15px', fontWeight: 650, color: '#1E293B', marginTop: '8px', marginBottom: '4px' }}>Loading Market Mood Index...</h3>
-              <p style={{ fontSize: '13px', color: '#64748B' }}>Synthesizing market breadth, volatility, trend positioning, and liquidity data.</p>
-            </div>
+            <TfLoadingState
+              title="Loading Market Mood Index…"
+              subtitle="Synthesizing breadth, volatility, trend positioning, and liquidity from live feeds."
+              variant="cards"
+              rows={4}
+            />
           ) : !mmiData ? (
             <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
               <Activity size={36} style={{ margin: '0 auto 12px', color: '#94A3B8' }} />
@@ -6687,11 +6665,12 @@ function TechnoFundaContent() {
       {activeTab === 'pead' && (
         <div>
           {isRefreshingFeeds && !peadFeed ? (
-            <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
-              <div style={{ display: 'inline-block', width: '32px', height: '32px', border: '3px solid #E2E8F0', borderTopColor: '#0F766E', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-              <h3 style={{ fontSize: '15px', fontWeight: 650, color: '#1E293B', marginTop: '12px', marginBottom: '4px' }}>Loading PEAD Screener...</h3>
-              <p style={{ fontSize: '13px', color: '#64748B' }}>Fetching post-earnings announcement surprises and price drift tracking data.</p>
-            </div>
+            <TfLoadingState
+              title="Loading PEAD Screener…"
+              subtitle="Fetching post-earnings surprises and 20-day price drift from live filings."
+              variant="table"
+              rows={6}
+            />
           ) : (!peadFeed || peadFeed.length === 0) ? (
             <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
               <Activity size={36} style={{ margin: '0 auto 12px', color: '#94A3B8' }} />
@@ -7268,11 +7247,12 @@ function TechnoFundaContent() {
       {activeTab === 'vahan' && (() => {
         if (isRefreshingFeeds && !vahanData) {
           return (
-            <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
-              <div style={{ display: 'inline-block', width: '32px', height: '32px', border: '3px solid #E2E8F0', borderTopColor: '#0F766E', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-              <h3 style={{ fontSize: '15px', fontWeight: 650, color: '#1E293B', marginTop: '12px', marginBottom: '4px' }}>Loading Vahan Auto Registration Data...</h3>
-              <p style={{ fontSize: '13px', color: '#64748B' }}>Scraping national vehicle registrations across 2W, PV, CV, 3W, and Tractor categories.</p>
-            </div>
+            <TfLoadingState
+              title="Loading Vahan registration data…"
+              subtitle="Pulling MoRTH vehicle registration series across 2W, PV, CV, 3W, and Tractor."
+              variant="cards"
+              rows={5}
+            />
           );
         }
 
@@ -7393,7 +7373,7 @@ function TechnoFundaContent() {
             </div>
 
             {vahanSubTab === 'company' && (
-              <VahanCompanyView liveMakers={vahanMakersData?.makers} isLoading={isRefreshingFeeds} />
+              <VahanCompanyView liveMakers={vahanMakersData?.makers} isLoading={isRefreshingFeeds && !vahanMakersData} />
             )}
 
             {vahanSubTab === 'categoryGroup' && (

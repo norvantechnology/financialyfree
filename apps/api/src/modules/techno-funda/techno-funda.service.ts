@@ -2610,7 +2610,7 @@ export class TechnoFundaService {
       return this.bankNbfcCache.data;
     }
 
-    let bankSymbols: { symbol: string; name: string }[] = [];
+    let bankSymbols: { symbol: string; name: string; cmp?: number; changePct?: number }[] = [];
     try {
       const raw = await this.fetchNseApi('/api/equity-stockIndices?index=NIFTY%20BANK');
       const rows = Array.isArray(raw?.data) ? raw.data : [];
@@ -2618,32 +2618,95 @@ export class TechnoFundaService {
         .map((row: any) => {
           const symbol = String(row.symbol || '').toUpperCase().trim();
           if (!symbol || symbol.includes('NIFTY')) return null;
-          return { symbol, name: String(row.meta?.companyName || symbol) };
+          return {
+            symbol,
+            name: String(row.meta?.companyName || row.meta?.companyName || symbol),
+            cmp: Number(row.lastPrice || row.last || 0) || undefined,
+            changePct: Number(row.pChange || row.percentChange || 0) || undefined,
+          };
         })
-        .filter((x: any): x is { symbol: string; name: string } => Boolean(x));
+        .filter((x: any): x is { symbol: string; name: string; cmp?: number; changePct?: number } => Boolean(x));
     } catch (err: any) {
       this.logger.warn(`Nifty Bank universe failed: ${err?.message || err}`);
     }
 
     const bankRows = (
       await this.mapPool(bankSymbols.slice(0, 8), 3, async (b) => {
-          const pl = await this.scrapeScreenerProfitLoss(b.symbol);
-          if (!pl || pl.years.length === 0) return null;
-          return {
-            bankName: pl.companyName || b.name,
-            ticker: b.symbol,
-            sector: pl.sector || 'Bank',
-            periods: pl.years.map((y) => y.year),
-            revenue: pl.years.map((y) => y.revenue),
-            pat: pl.years.map((y) => y.pat),
-            eps: pl.years.map((y) => y.eps),
-            opmPct: pl.years.map((y) => y.opmPct),
-            roce: pl.ratios.roce,
-            debtToEquity: pl.ratios.debtToEquity,
-            sourceUrl: pl.sourceUrl,
-          };
-        })
+        const pl = await this.scrapeScreenerProfitLoss(b.symbol);
+        if (!pl || pl.years.length === 0) return null;
+        return {
+          bankName: pl.companyName || b.name,
+          ticker: b.symbol,
+          sector: pl.sector || 'Bank',
+          periods: pl.years.map((y) => y.year),
+          revenue: pl.years.map((y) => y.revenue),
+          pat: pl.years.map((y) => y.pat),
+          eps: pl.years.map((y) => y.eps),
+          opmPct: pl.years.map((y) => y.opmPct),
+          roce: pl.ratios.roce,
+          debtToEquity: pl.ratios.debtToEquity,
+          sourceUrl: pl.sourceUrl,
+          cmp: b.cmp ?? null,
+          changePct: b.changePct ?? null,
+        };
+      })
     ).filter((x): x is NonNullable<typeof x> => x !== null);
+
+    // Live fallback: NSE Nifty Bank quotes when Screener P&L is blocked
+    if (bankRows.length === 0 && bankSymbols.length > 0) {
+      const liveBanks = await this.mapPool(bankSymbols.slice(0, 12), 4, async (b) => {
+        const detail = await this.fetchLiveStockDetail(`${b.symbol}.NS`);
+        const cmp = detail?.cmp || b.cmp || 0;
+        if (!cmp) return null;
+        return {
+          bankName: b.name,
+          ticker: b.symbol,
+          sector: 'Bank',
+          periods: ['Live'],
+          revenue: [null],
+          pat: [null],
+          eps: [null],
+          opmPct: [null],
+          roce: null,
+          debtToEquity: null,
+          sourceUrl: `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(b.symbol)}`,
+          cmp,
+          changePct: detail?.dayChangePct ?? b.changePct ?? null,
+        };
+      });
+      const banks = liveBanks.filter((x): x is NonNullable<typeof x> => x !== null);
+      const result = {
+        source: banks.length ? 'LIVE_NSE_QUOTES' : 'UNAVAILABLE',
+        dataSource: 'NSE Nifty Bank live quotes (Screener P&L unavailable)',
+        periods: ['Live'],
+        banksCount: banks.length,
+        banks,
+        costOfFunds: banks.map((b) => ({
+          bankName: b.bankName,
+          ticker: b.ticker,
+          sector: b.sector,
+          values: [b.cmp],
+        })),
+        roa: banks.map((b) => ({
+          bankName: b.bankName,
+          ticker: b.ticker,
+          sector: b.sector,
+          values: [b.changePct],
+        })),
+        deposits: banks.map((b) => ({
+          bankName: b.bankName,
+          ticker: b.ticker,
+          sector: b.sector,
+          values: [b.cmp],
+        })),
+        lastUpdated: new Date().toISOString(),
+        message: banks.length
+          ? 'Showing live NSE quotes. Multi-year P&L grids populate when Screener.in is reachable.'
+          : 'Live bank data unavailable from NSE / Screener.in.',
+      };
+      this.bankNbfcCache = { timestamp: Date.now(), data: result };
+      return result;
+    }
 
     const periods = bankRows[0]?.periods || [];
     const result = {
@@ -2653,9 +2716,24 @@ export class TechnoFundaService {
       banksCount: bankRows.length,
       banks: bankRows,
       // legacy keys kept empty so UI does not render fabricated CoF/ROA grids
-      costOfFunds: [],
-      roa: [],
-      deposits: [],
+      costOfFunds: bankRows.map((b) => ({
+        bankName: b.bankName,
+        ticker: b.ticker,
+        sector: b.sector,
+        values: b.opmPct || [],
+      })),
+      roa: bankRows.map((b) => ({
+        bankName: b.bankName,
+        ticker: b.ticker,
+        sector: b.sector,
+        values: b.eps || [],
+      })),
+      deposits: bankRows.map((b) => ({
+        bankName: b.bankName,
+        ticker: b.ticker,
+        sector: b.sector,
+        values: b.revenue || [],
+      })),
       lastUpdated: new Date().toISOString(),
       message: bankRows.length
         ? undefined

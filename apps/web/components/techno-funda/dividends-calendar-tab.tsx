@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, RefreshCw, X, Download, Info } from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
+import { TfLoadingState } from './tf-loading-state';
 
 export interface CorporateActionItem {
   id: string;
@@ -73,6 +74,16 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
 
   const dividendCount = actions.filter((a) => a.actionType === 'Dividend').length;
   const bonusCount = actions.filter((a) => a.actionType === 'Bonus Issue' || a.actionType === 'Stock Split').length;
+
+  if (isLoading && !data) {
+    return (
+      <TfLoadingState
+        title="Loading dividend calendar…"
+        subtitle="Pulling live exchange and market data for this workspace."
+        variant="table"
+      />
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

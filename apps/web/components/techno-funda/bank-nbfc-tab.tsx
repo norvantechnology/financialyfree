@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Search, ArrowUpDown, ChevronUp, ChevronDown, RotateCcw, X, Building2 } from 'lucide-react';
+import { TfLoadingState } from './tf-loading-state';
 
 const YEARS = [
   'Mar 2014',
@@ -189,13 +190,12 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
 
   if (isLoading && costOfFundsData.length === 0) {
     return (
-      <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
-        <div className="tf-linear-loader">
-          <div className="tf-linear-loader-bar" />
-        </div>
-        <h3 style={{ fontSize: '15px', fontWeight: 650, color: '#1E293B', marginBottom: '4px' }}>Loading Bank & NBFC Metrics...</h3>
-        <p style={{ fontSize: '13px', color: '#64748B' }}>Fetching balance sheet metrics and historical liability benchmarks.</p>
-      </div>
+      <TfLoadingState
+        title="Loading Bank & NBFC dashboard…"
+        subtitle="Pulling Nifty Bank constituents and live balance-sheet series."
+        variant="table"
+        rows={6}
+      />
     );
   }
 
