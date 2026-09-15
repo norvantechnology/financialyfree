@@ -24,7 +24,9 @@ services:
       - key: API_URL
         value: https://financialyfree.onrender.com
       - key: FRONTEND_URL
-        sync: false
+        value: https://financialyfree-web.vercel.app
+      - key: NEXTAUTH_URL
+        value: https://financialyfree-web.vercel.app
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL

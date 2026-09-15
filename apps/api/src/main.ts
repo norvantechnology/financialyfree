@@ -40,18 +40,23 @@ async function bootstrap() {
     'http://127.0.0.1:3000',
     'https://05t44t95-3000.inc1.devtunnels.ms',
     'https://05t44t95-3001.inc1.devtunnels.ms',
+    // Production frontend (Vercel)
+    'https://financialyfree-web.vercel.app',
     process.env.NEXTAUTH_URL,
     process.env.FRONTEND_URL,
     process.env.NEXT_PUBLIC_API_URL,
     process.env.API_URL,
+    // Optional comma-separated extras: EXTRA_CORS_ORIGINS=https://a.app,https://b.app
+    ...(process.env.EXTRA_CORS_ORIGINS || '').split(',').map((s) => s.trim()),
   ];
 
   const allowedOrigins: string[] = Array.from(
     new Set(
       rawOrigins
         .filter((o): o is string => Boolean(o))
-        .map((o) => o.replace(/\/+$/, ''))
-    )
+        .filter((o) => !/YOUR-APP|YOUR-FRONTEND|CHANGE_ME|example\.com/i.test(o))
+        .map((o) => o.replace(/\/+$/, '')),
+    ),
   );
 
   const isOriginAllowed = (originOrReferer?: string): boolean => {
@@ -62,10 +67,12 @@ async function bootstrap() {
     }
     try {
       const url = new URL(originOrReferer);
+      const host = url.hostname.toLowerCase();
       if (
-        url.hostname.endsWith('.devtunnels.ms') ||
-        url.hostname === 'localhost' ||
-        url.hostname === '127.0.0.1'
+        host.endsWith('.devtunnels.ms') ||
+        host.endsWith('.vercel.app') ||
+        host === 'localhost' ||
+        host === '127.0.0.1'
       ) {
         return true;
       }
@@ -74,6 +81,8 @@ async function bootstrap() {
     }
     return false;
   };
+
+  console.log(`🔒 CSRF/CORS allowed origins: ${allowedOrigins.join(', ') || '(dynamic vercel.app / localhost)'}`);
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     // Webhook endpoints authenticate via cryptographic signatures (e.g. Razorpay, BSE StAR)

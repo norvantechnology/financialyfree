@@ -6,6 +6,8 @@
   "env": {
     "NEXT_PUBLIC_API_URL": "https://financialyfree.onrender.com",
     "API_URL": "https://financialyfree.onrender.com",
-    "INTERNAL_API_URL": "https://financialyfree.onrender.com"
+    "INTERNAL_API_URL": "https://financialyfree.onrender.com",
+    "FRONTEND_URL": "https://financialyfree-web.vercel.app",
+    "NEXTAUTH_URL": "https://financialyfree-web.vercel.app"
   }
 }
