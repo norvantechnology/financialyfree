@@ -118,8 +118,21 @@ export class DataIntegrityService implements OnModuleInit {
     for (const def of DATA_SOURCES_CATALOG) {
       const existing = await this.healthRepo.findOne({ where: { sourceKey: def.sourceKey } });
       if (!existing) {
-        this.logger.log(`Initializing health record for data source: ${def.sourceKey}`);
-        await this.executeFetchAndRecord(def.sourceKey);
+        // Placeholder only — never scrape all feeds on boot (contends with user traffic)
+        this.logger.log(`Seeding health placeholder for data source: ${def.sourceKey}`);
+        await this.healthRepo.save(
+          this.healthRepo.create({
+            sourceKey: def.sourceKey,
+            sourceName: def.sourceName,
+            mode: def.mode,
+            status: 'SUCCESS',
+            upstreamRef: def.upstreamRef,
+            lastFetchedAt: new Date(0),
+            durationMs: 0,
+            rawResponseSnippet: 'Placeholder — use Admin → Refresh to fetch live data.',
+            errorMessage: null,
+          }),
+        );
       }
     }
   }

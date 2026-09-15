@@ -127,6 +127,7 @@ export class TechnoFundaService {
   private peadQuarterlyCache = new Map<string, { data: CompanyQuarterlyPead; timestamp: number }>();
   private nseUniverseCache: { timestamp: number; data: PeadUniverseCompany[] } | null = null;
   private nseSessionCache: { cookies: string; expiresAt: number } | null = null;
+  private nseSessionInFlight: Promise<string> | null = null;
 
   constructor(
     private readonly marketIndexService: MarketIndexService,
@@ -136,6 +137,25 @@ export class TechnoFundaService {
   ) {}
 
   private screenerPlCache = new Map<string, { data: any; timestamp: number }>();
+
+  /** Bound parallel scrapes so mount storms cannot open dozens of upstream sockets */
+  private async mapPool<T, R>(
+    items: T[],
+    concurrency: number,
+    fn: (item: T, index: number) => Promise<R>,
+  ): Promise<R[]> {
+    if (items.length === 0) return [];
+    const results = new Array<R>(items.length);
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(Math.max(1, concurrency), items.length) }, async () => {
+      while (cursor < items.length) {
+        const i = cursor++;
+        results[i] = await fn(items[i], i);
+      }
+    });
+    await Promise.all(workers);
+    return results;
+  }
 
   private parseScreenerNumber(raw: string | undefined | null): number | null {
     if (raw == null) return null;
@@ -172,15 +192,23 @@ export class TechnoFundaService {
     if (this.nseSessionCache && this.nseSessionCache.expiresAt > Date.now()) {
       return this.nseSessionCache.cookies;
     }
+    if (this.nseSessionInFlight) {
+      return this.nseSessionInFlight;
+    }
+    this.nseSessionInFlight = this.warmNseSession().finally(() => {
+      this.nseSessionInFlight = null;
+    });
+    return this.nseSessionInFlight;
+  }
+
+  private async warmNseSession(): Promise<string> {
     const userAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0';
     let cookies = '';
+    // Two pages are enough for NSE cookies; five sequential 10s fetches blocked cold starts
     for (const url of [
       'https://www.nseindia.com',
       'https://www.nseindia.com/market-data/live-equity-market',
-      'https://www.nseindia.com/option-chain',
-      'https://www.nseindia.com/market-data/equity-derivatives-watch',
-      'https://www.nseindia.com/market-data/large-deals',
     ]) {
       try {
         const res = await fetch(url, {
@@ -190,13 +218,13 @@ export class TechnoFundaService {
             'Accept-Language': 'en-US,en;q=0.9',
             Cookie: cookies,
           },
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(6000),
           redirect: 'follow',
         });
         cookies = this.mergeCookieString(cookies, this.extractSetCookies(res.headers));
       } catch {}
     }
-    this.nseSessionCache = { cookies, expiresAt: Date.now() + 10 * 60 * 1000 };
+    this.nseSessionCache = { cookies, expiresAt: Date.now() + 15 * 60 * 1000 };
     return cookies;
   }
 
@@ -1219,27 +1247,25 @@ export class TechnoFundaService {
       details: m.bm_desc,
     }));
 
-    const rawFilings = await Promise.all(
-      (resultsItems || []).slice(0, 50).map(async (r: any) => {
-        const sym = r.symbol || '';
-        const fin = sym ? await this.getCompanyFinancialSummary(sym, r.companyName || r.company) : null;
-        const hasXbrl = !!(r.xbrl && r.xbrl !== '-' && !r.xbrl.endsWith('/-'));
-        return {
-          symbol: sym,
-          company: r.companyName || r.company || fin?.companyName || sym,
-          quarter: r.relatingTo || r.period || 'Quarterly',
-          financialYear: r.financialYear || fin?.fiscalYear || 'Latest',
-          filingDate: r.filingDate || r.broadCastDate || 'Statutory Filing',
-          audited: r.audited || 'Un-Audited',
-          consolidated: r.consolidated || 'Consolidated',
-          revenue: fin && fin.revenueCr > 0 ? `₹${fin.revenueCr.toLocaleString('en-IN')} Cr` : null,
-          pat: fin && fin.patCr !== 0 ? `₹${fin.patCr.toLocaleString('en-IN')} Cr` : null,
-          eps: fin && fin.eps !== 0 ? `₹${fin.eps.toFixed(2)}` : null,
-          xbrlUrl: hasXbrl ? r.xbrl : null,
-          hasXbrl,
-        };
-      }),
-    );
+    // List path: NSE metadata only (no per-row Screener scrape — was 50 parallel HTML fetches)
+    const rawFilings = (resultsItems || []).slice(0, 40).map((r: any) => {
+      const sym = r.symbol || '';
+      const hasXbrl = !!(r.xbrl && r.xbrl !== '-' && !r.xbrl.endsWith('/-'));
+      return {
+        symbol: sym,
+        company: r.companyName || r.company || sym,
+        quarter: r.relatingTo || r.period || 'Quarterly',
+        financialYear: r.financialYear || 'Latest',
+        filingDate: r.filingDate || r.broadCastDate || 'Statutory Filing',
+        audited: r.audited || 'Un-Audited',
+        consolidated: r.consolidated || 'Consolidated',
+        revenue: null,
+        pat: null,
+        eps: null,
+        xbrlUrl: hasXbrl ? r.xbrl : null,
+        hasXbrl,
+      };
+    });
 
     const seen = new Set<string>();
     const recentResults: any[] = [];
@@ -1263,18 +1289,21 @@ export class TechnoFundaService {
       retrievedAt: new Date().toISOString(),
     };
 
-    // Update database health record asynchronously
-    try {
-      let record = await this.healthRepo.findOne({ where: { sourceKey: 'results_calendar' } });
-      if (record) {
-        record.rawResponseSnippet = JSON.stringify(payload, null, 2);
+    // Fire-and-forget health write — never block the HTTP response
+    void this.healthRepo
+      .findOne({ where: { sourceKey: 'results_calendar' } })
+      .then(async (record) => {
+        if (!record) return;
+        record.rawResponseSnippet = JSON.stringify({
+          totalEventsListed: payload.totalEventsListed,
+          totalResultsDisclosed: payload.totalResultsDisclosed,
+          retrievedAt: payload.retrievedAt,
+        });
         record.lastFetchedAt = new Date();
         record.status = 'SUCCESS';
         await this.healthRepo.save(record);
-      }
-    } catch (e: any) {
-      this.logger.warn(`Failed saving results_calendar health entity: ${e.message}`);
-    }
+      })
+      .catch((e: any) => this.logger.warn(`Failed saving results_calendar health entity: ${e.message}`));
 
     return payload;
   }
@@ -2375,48 +2404,45 @@ export class TechnoFundaService {
   private masterTrackerCache: { timestamp: number; data: any } | null = null;
 
   async getMasterTracker(forceRefresh = false) {
-    if (!forceRefresh && this.masterTrackerCache && Date.now() - this.masterTrackerCache.timestamp < 300000) {
+    if (!forceRefresh && this.masterTrackerCache && Date.now() - this.masterTrackerCache.timestamp < 15 * 60 * 1000) {
       return this.masterTrackerCache.data;
     }
 
-    const universe = await this.loadNseEquityUniverse(25);
+    const universe = await this.loadNseEquityUniverse(15);
+    // Quotes only (no Screener P&L per row) — fundamentals load on demand in Valuation Lab
     const companies = (
-      await Promise.all(
-        universe.map(async (item) => {
-          const [detail, fin] = await Promise.all([
-            this.fetchLiveStockDetail(item.yahooTicker),
-            this.getCompanyFinancialSummary(item.symbol, item.name),
-          ]);
-          if (!detail || detail.cmp <= 0) return null;
-          return {
-            id: item.symbol.toLowerCase(),
-            symbol: item.symbol,
-            yahooTicker: item.yahooTicker,
-            name: fin.companyName || item.name,
-            sector: item.sector,
-            marketCapCr: null,
-            expectedEpsFy27: null,
-            trailingEps: fin.eps || null,
-            cmp: detail.cmp,
-            dayChangePct: detail.dayChangePct,
-            week52High: detail.week52High,
-            week52Low: detail.week52Low,
-            keyTriggers: [] as string[],
-            quarterly: {
-              revenueCr: fin.revenueCr || null,
-              patCr: fin.patCr || null,
-              fiscalYear: fin.fiscalYear,
-            },
-          };
-        }),
-      )
+      await this.mapPool(universe, 5, async (item) => {
+        const detail = await this.fetchLiveStockDetail(item.yahooTicker);
+        if (!detail || detail.cmp <= 0) return null;
+        return {
+          id: item.symbol.toLowerCase(),
+          symbol: item.symbol,
+          yahooTicker: item.yahooTicker,
+          name: item.name,
+          sector: item.sector,
+          marketCapCr: null,
+          expectedEpsFy27: null,
+          trailingEps: null,
+          cmp: detail.cmp,
+          dayChangePct: detail.dayChangePct,
+          week52High: detail.week52High,
+          week52Low: detail.week52Low,
+          keyTriggers: [] as string[],
+          quarterly: {
+            revenueCr: null,
+            patCr: null,
+            fiscalYear: null,
+          },
+        };
+      })
     ).filter((c): c is NonNullable<typeof c> => c !== null);
 
     const result = {
       source: companies.length ? 'LIVE_FETCH' : 'UNAVAILABLE',
-      dataSource: 'NSE Nifty 500 constituents + Yahoo Finance quotes + Screener.in fundamentals',
+      dataSource: 'NSE Nifty constituents + Yahoo Finance quotes (fundamentals on-demand)',
       companiesCount: companies.length,
       companies,
+      stocks: companies,
       lastUpdated: new Date().toISOString(),
     };
 
@@ -2428,21 +2454,21 @@ export class TechnoFundaService {
   private orderTrackerCache: { timestamp: number; data: any } | null = null;
 
   async getOrderTracker(forceRefresh = false) {
-    if (!forceRefresh && this.orderTrackerCache && Date.now() - this.orderTrackerCache.timestamp < 300000) {
+    if (!forceRefresh && this.orderTrackerCache && Date.now() - this.orderTrackerCache.timestamp < 15 * 60 * 1000) {
       return this.orderTrackerCache.data;
     }
 
     // Pull real announcements feed to extract live order wins
     const newsFeed = await this.getNewsFeed(forceRefresh);
-    const orderAnnouncements = newsFeed.headlines.filter((h) => h.isOrderWin);
+    const orderAnnouncements = newsFeed.headlines.filter((h) => h.isOrderWin).slice(0, 12);
+    const universe = await this.loadNseEquityUniverse(80);
 
     // Resolve live announcements into orders using dynamic financial metrics
     const liveOrderPromises = orderAnnouncements.map(async (ann, idx) => {
       let sym = (ann.symbol || '').toUpperCase().trim();
       if (!sym || sym === 'COMPANY') {
         const text = `${ann.company || ''} ${ann.title || ''} ${ann.description || ''}`.toUpperCase();
-        const uni = await this.loadNseEquityUniverse(80);
-        for (const item of uni) {
+        for (const item of universe) {
           if (text.includes(item.symbol) || text.includes(item.name.toUpperCase())) {
             sym = item.symbol;
             break;
@@ -2598,8 +2624,7 @@ export class TechnoFundaService {
     }
 
     const bankRows = (
-      await Promise.all(
-        bankSymbols.map(async (b) => {
+      await this.mapPool(bankSymbols.slice(0, 8), 3, async (b) => {
           const pl = await this.scrapeScreenerProfitLoss(b.symbol);
           if (!pl || pl.years.length === 0) return null;
           return {
@@ -2615,8 +2640,7 @@ export class TechnoFundaService {
             debtToEquity: pl.ratios.debtToEquity,
             sourceUrl: pl.sourceUrl,
           };
-        }),
-      )
+        })
     ).filter((x): x is NonNullable<typeof x> => x !== null);
 
     const periods = bankRows[0]?.periods || [];
@@ -2649,7 +2673,7 @@ export class TechnoFundaService {
     }
 
     try {
-      const vahan = await this.vahanEtlService.getVahanData(true);
+      const vahan = await this.vahanEtlService.getVahanData(false);
       const makers = (vahan?.categories || [])
         .flatMap((cat: any) =>
           (cat.keyOEMs || []).map((oem: string) => ({
@@ -2730,15 +2754,14 @@ export class TechnoFundaService {
 
   private fiftyTwoWeekCache: { timestamp: number; data: any } | null = null;
   async get52WeekHighLow(refresh = false): Promise<any> {
-    const TTL = 5 * 60 * 1000;
+    const TTL = 15 * 60 * 1000;
     if (!refresh && this.fiftyTwoWeekCache && Date.now() - this.fiftyTwoWeekCache.timestamp < TTL) {
       return this.fiftyTwoWeekCache.data;
     }
 
     // Prefer Yahoo live quotes over Nifty universe — NSE 52W analysis endpoints are often empty/404
-    const universe = await this.loadNseEquityUniverse(50);
-    const liveQuotes = await Promise.all(
-      universe.map(async (item) => {
+    const universe = await this.loadNseEquityUniverse(30);
+    const liveQuotes = await this.mapPool(universe, 5, async (item) => {
         const detail = await this.fetchLiveStockDetail(item.yahooTicker);
         if (!detail || detail.cmp <= 0 || !detail.week52High || !detail.week52Low) return null;
         const distFromHighPct =
@@ -2762,10 +2785,9 @@ export class TechnoFundaService {
           dayChangePct: detail.dayChangePct,
           isNewAllTimeHigh: detail.cmp >= detail.week52High * 0.995,
           isNew52WeekLow: detail.cmp <= detail.week52Low * 1.005,
-          volume: detail.volume,
+          volume: detail.volume ?? null,
         };
-      }),
-    );
+      });
 
     const validStocks = liveQuotes.filter((s): s is NonNullable<typeof s> => s !== null);
     // Near 52W high: within 5% of high (distFromHighPct small)
@@ -2806,7 +2828,7 @@ export class TechnoFundaService {
   // ── 2. Bulk & Block Deals Tracker ─────────────────────────────────────
   private bulkBlockDealsCache: { timestamp: number; data: any } | null = null;
   async getBulkBlockDeals(refresh = false): Promise<any> {
-    const TTL = 5 * 60 * 1000;
+    const TTL = 15 * 60 * 1000;
     if (!refresh && this.bulkBlockDealsCache && Date.now() - this.bulkBlockDealsCache.timestamp < TTL) {
       return this.bulkBlockDealsCache.data;
     }
@@ -2886,7 +2908,7 @@ export class TechnoFundaService {
   // ── 3. F&O Open Interest, Rollover & PCR Indicator ───────────────────
   private fnoOiCache: { timestamp: number; data: any } | null = null;
   async getFnoOpenInterest(refresh = false): Promise<any> {
-    const TTL = 5 * 60 * 1000;
+    const TTL = 15 * 60 * 1000;
     if (!refresh && this.fnoOiCache && Date.now() - this.fnoOiCache.timestamp < TTL) {
       return this.fnoOiCache.data;
     }
@@ -3224,7 +3246,7 @@ export class TechnoFundaService {
   // ── 7. Sectoral Index Performance Heatmap & Rotation ──────────────────
   private sectorHeatmapCache: { timestamp: number; data: any } | null = null;
   async getSectorHeatmap(refresh = false): Promise<any> {
-    const TTL = 5 * 60 * 1000;
+    const TTL = 15 * 60 * 1000;
     if (!refresh && this.sectorHeatmapCache && Date.now() - this.sectorHeatmapCache.timestamp < TTL) {
       return this.sectorHeatmapCache.data;
     }
@@ -3341,7 +3363,7 @@ export class TechnoFundaService {
   // ── 8. 52-Week High Momentum + Delivery % Screener ────────────────────
   private deliveryMomentumCache: { timestamp: number; data: any } | null = null;
   async getDeliveryMomentum(refresh = false): Promise<any> {
-    const TTL = 5 * 60 * 1000;
+    const TTL = 15 * 60 * 1000;
     if (!refresh && this.deliveryMomentumCache && Date.now() - this.deliveryMomentumCache.timestamp < TTL) {
       return this.deliveryMomentumCache.data;
     }
@@ -3417,7 +3439,7 @@ export class TechnoFundaService {
   // ── 9. Circuit Filter Watch (Upper & Lower Circuit Stocks) ────────────
   private circuitBreakersCache: { timestamp: number; data: any } | null = null;
   async getCircuitBreakers(refresh = false): Promise<any> {
-    const TTL = 5 * 60 * 1000;
+    const TTL = 15 * 60 * 1000;
     if (!refresh && this.circuitBreakersCache && Date.now() - this.circuitBreakersCache.timestamp < TTL) {
       return this.circuitBreakersCache.data;
     }

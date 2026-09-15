@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Calculator,
@@ -739,11 +739,17 @@ function TechnoFundaContent() {
     runAllCalculations();
   }, []);
 
-  // ── Auto-fetch all live feeds on mount ──────────────────────────────
+  // Fast first paint: core market feeds only (not all 23 endpoints)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    fetchLiveFeeds();
+    fetchLiveFeeds({ mode: 'core' });
   }, []);
+
+  // Lazy-load the active tab’s heavy endpoints on demand
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    fetchLiveFeeds({ mode: 'tab', tab: activeTab });
+  }, [activeTab]);
 
   // Load valuation for URL ?symbol= when opening Valuation Lab from watchlist
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1187,21 +1193,107 @@ function TechnoFundaContent() {
   const [, setFailedFeedList] = useState<string[]>([]);
   const [lastSyncTimestamp, setLastSyncTimestamp] = useState<string>('08-Sep-2026 15:00 IST');
 
-  const fetchLiveFeeds = async () => {
+  const loadedFeedsRef = useRef<Set<string>>(new Set());
+
+  type FeedFetchOpts = { mode?: 'core' | 'tab' | 'refresh'; tab?: string };
+
+  const CORE_FEED_KEYS = ['indices', 'market-mood', 'news'] as const;
+
+  const TAB_FEED_KEYS: Record<string, string[]> = {
+    mmi: ['indices', 'market-mood', 'rbi-macro'],
+    'sector-heatmap': ['sector-heatmap'],
+    '52w-screener': ['52w-high-low'],
+    'delivery-momentum': ['delivery-screener'],
+    deals: ['bulk-block-deals'],
+    fno: ['fno-oi'],
+    insider: ['insider-trading'],
+    circuits: ['circuit-breakers'],
+    ipo: ['ipo-tracker'],
+    dividends: ['dividends'],
+    'master-tracker': ['master-tracker'],
+    pead: ['pead-feed'],
+    orders: ['orders'],
+    valuation: ['valuation-financials'],
+    results: ['results-calendar'],
+    news: ['news'],
+    shareholding: ['shareholding'],
+    vahan: ['vahan', 'vahan-makers'],
+    'bank-nbfc': ['bank-nbfc'],
+    buybacks: ['buybacks'],
+  };
+
+  const feedPath = (key: string) => {
+    const base = {
+      indices: '/api/v1/techno-funda/indices',
+      'market-mood': '/api/v1/techno-funda/market-mood',
+      vahan: '/api/v1/techno-funda/vahan',
+      buybacks: '/api/v1/techno-funda/buybacks',
+      'results-calendar': '/api/v1/techno-funda/results-calendar',
+      news: '/api/v1/techno-funda/news',
+      shareholding: '/api/v1/techno-funda/shareholding',
+      'valuation-financials': `/api/v1/techno-funda/valuation-financials${symbolParam ? `?symbol=${encodeURIComponent(symbolParam)}` : ''}`,
+      'pead-feed': '/api/v1/techno-funda/pead-feed',
+      'master-tracker': '/api/v1/techno-funda/master-tracker',
+      orders: '/api/v1/techno-funda/orders',
+      'bank-nbfc': '/api/v1/techno-funda/bank-nbfc',
+      'vahan-makers': '/api/v1/techno-funda/vahan-makers',
+      '52w-high-low': '/api/v1/techno-funda/52w-high-low',
+      'bulk-block-deals': '/api/v1/techno-funda/bulk-block-deals',
+      'fno-oi': '/api/v1/techno-funda/fno-oi',
+      'insider-trading': '/api/v1/techno-funda/insider-trading',
+      'ipo-tracker': '/api/v1/techno-funda/ipo-tracker',
+      dividends: '/api/v1/techno-funda/dividends',
+      'sector-heatmap': '/api/v1/techno-funda/sector-heatmap',
+      'delivery-screener': '/api/v1/techno-funda/delivery-screener',
+      'circuit-breakers': '/api/v1/techno-funda/circuit-breakers',
+      'rbi-macro': '/api/v1/techno-funda/rbi-macro',
+    } as Record<string, string>;
+    return base[key];
+  };
+
+  const fetchLiveFeeds = async (opts?: FeedFetchOpts | React.SyntheticEvent) => {
+    const request: FeedFetchOpts =
+      opts && typeof opts === 'object' && 'mode' in opts
+        ? (opts as FeedFetchOpts)
+        : { mode: 'refresh' };
+    const mode = request.mode || 'refresh';
+    const tab = request.tab || activeTab;
+
+    let keys: string[] = [];
+    if (mode === 'core') {
+      keys = [...CORE_FEED_KEYS, ...(TAB_FEED_KEYS[tab] || [])];
+    } else if (mode === 'tab') {
+      keys = TAB_FEED_KEYS[tab] || [];
+    } else {
+      // Manual refresh: core + current tab only (never all 23)
+      keys = [...CORE_FEED_KEYS, ...(TAB_FEED_KEYS[tab] || [])];
+      keys.forEach((k) => loadedFeedsRef.current.delete(k));
+    }
+
+    // Skip feeds already warm unless explicit refresh
+    if (mode !== 'refresh') {
+      keys = keys.filter((k) => !loadedFeedsRef.current.has(k));
+    }
+    keys = Array.from(new Set(keys)).filter((k) => Boolean(feedPath(k)));
+    if (keys.length === 0) return;
+
     setIsRefreshingFeeds(true);
     const startT = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const failed: string[] = [];
-    const statusMap: Record<string, { ok: boolean; timestamp?: string; error?: string }> = {};
+    const statusMap: Record<string, { ok: boolean; timestamp?: string; error?: string }> = { ...feedStatus };
 
     try {
-      const apiUrl = typeof window !== 'undefined' ? '' : (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
-      const fetchWithCheck = async (url: string, timeoutMs = 25000) => {
+      const apiUrl =
+        typeof window !== 'undefined'
+          ? ''
+          : process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+      const fetchWithCheck = async (url: string, timeoutMs = 20000) => {
         try {
           const r = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           return await r.json();
         } catch (err) {
-          // If external/tunnel apiUrl failed or timed out, attempt relative proxy path
           if (url.startsWith('http') && !url.includes('localhost:3000')) {
             try {
               const path = url.replace(/^https?:\/\/[^/]+/, '');
@@ -1213,239 +1305,227 @@ function TechnoFundaContent() {
         }
       };
 
-      const [
-        indRes,
-        mmiRes,
-        vahanRes,
-        bbRes,
-        resRes,
-        newsRes,
-        shRes,
-        valRes,
-        peadRes,
-        mtRes,
-        ordRes,
-        bnRes,
-        vmRes,
-        ftwRes,
-        bbdRes,
-        fnoRes,
-        insRes,
-        ipoRes,
-        divRes,
-        secRes,
-        delRes,
-        cirRes,
-        rbiRes,
-      ] = await Promise.allSettled([
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/indices`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/market-mood`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/vahan`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/buybacks`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/results-calendar`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/news`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/shareholding`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/valuation-financials${symbolParam ? `?symbol=${encodeURIComponent(symbolParam)}` : ''}`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/pead-feed`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/master-tracker`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/orders`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/bank-nbfc`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/vahan-makers`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/52w-high-low`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/bulk-block-deals`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/fno-oi`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/insider-trading`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/ipo-tracker`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/dividends`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/sector-heatmap`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/delivery-screener`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/circuit-breakers`),
-        fetchWithCheck(`${apiUrl}/api/v1/techno-funda/rbi-macro`),
-      ]);
+      const settled = await Promise.allSettled(
+        keys.map((key) => fetchWithCheck(`${apiUrl}${feedPath(key)}`)),
+      );
 
       const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startT);
       setFeedLatencyMs(elapsed);
 
-      // 1. Indices
-      if (indRes.status === 'fulfilled' && indRes.value?.indices && !indRes.value?.error) {
-        setIndicesData(indRes.value);
-        statusMap.indices = { ok: true, timestamp: indRes.value.timestamp || new Date().toLocaleTimeString() };
-      } else {
-        statusMap.indices = { ok: false, error: 'Indices & India VIX live fetch failed' };
-        failed.push('Indices & India VIX');
-      }
+      const apply = (key: string, res: PromiseSettledResult<any>) => {
+        const v = res.status === 'fulfilled' ? res.value : null;
+        const ok = res.status === 'fulfilled' && v && !v.error;
 
-      // 2. MMI
-      if (
-        mmiRes.status === 'fulfilled' &&
-        mmiRes.value?.score != null &&
-        !mmiRes.value?.error &&
-        mmiRes.value?.dataSource !== 'UNAVAILABLE'
-      ) {
-        setMmiData(mmiRes.value);
-        statusMap.mmi = { ok: true, timestamp: mmiRes.value.asOfDate || new Date().toLocaleTimeString() };
-      } else {
-        statusMap.mmi = { ok: false, error: 'Market Mood Index calculation failed' };
-        failed.push('Market Mood Index');
-      }
-
-      // 3. Vahan
-      if (vahanRes.status === 'fulfilled' && vahanRes.value && !vahanRes.value?.error) {
-        setVahanData(vahanRes.value);
-        if (vahanRes.value.topStates) {
-          setVahanStates(vahanRes.value.topStates);
+        switch (key) {
+          case 'indices':
+            if (ok && v.indices) {
+              setIndicesData(v);
+              statusMap.indices = { ok: true, timestamp: v.timestamp || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.indices = { ok: false, error: 'Indices & India VIX live fetch failed' };
+              failed.push('Indices & India VIX');
+            }
+            break;
+          case 'market-mood':
+            if (ok && v.score != null && v.dataSource !== 'UNAVAILABLE') {
+              setMmiData(v);
+              statusMap.mmi = { ok: true, timestamp: v.asOfDate || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.mmi = { ok: false, error: 'Market Mood Index calculation failed' };
+              failed.push('Market Mood Index');
+            }
+            break;
+          case 'vahan':
+            if (ok) {
+              setVahanData(v);
+              if (v.topStates) setVahanStates(v.topStates);
+              statusMap.vahan = {
+                ok: true,
+                timestamp: v.retrievedAt
+                  ? new Date(v.retrievedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                  : new Date().toLocaleTimeString(),
+              };
+              loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.vahan = { ok: false, error: 'Vehicle registration feed unavailable' };
+              failed.push('Vehicle Registration');
+            }
+            break;
+          case 'buybacks':
+            if (ok && v.actions) {
+              setBuybacksData(v);
+              statusMap.buybacks = { ok: true, timestamp: v.timestamp || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.buybacks = { ok: false, error: 'BSE/NSE Corporate Actions live fetch failed' };
+              failed.push('Corporate Buybacks');
+            }
+            break;
+          case 'results-calendar':
+            if (ok && v.meetings) {
+              setResultsData(v);
+              statusMap.results = { ok: true, timestamp: v.timestamp || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.results = { ok: false, error: 'NSE/BSE Results Calendar feed failed' };
+              failed.push('Results Calendar');
+            }
+            break;
+          case 'news':
+            if (ok && v.headlines?.length > 0) {
+              setNewsData(v);
+              statusMap.news = { ok: true, timestamp: v.timestamp || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.news = { ok: false, error: 'Market News live RSS feed failed' };
+              failed.push('Market News');
+            }
+            break;
+          case 'shareholding':
+            if (ok && v.broadcasts) {
+              setShareholdingData(v);
+              statusMap.shareholding = { ok: true, timestamp: v.timestamp || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.shareholding = { ok: false, error: 'BSE/NSE Shareholding Patterns feed failed' };
+              failed.push('Shareholding Patterns');
+            }
+            break;
+          case 'valuation-financials':
+            if (ok && v.financialsCr && v.source !== 'UNAVAILABLE') {
+              applyValuationPayload(v);
+              statusMap.valuation = { ok: true, timestamp: v.timestamp || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.valuation = { ok: false, error: 'Live valuation financials unavailable' };
+            }
+            break;
+          case 'pead-feed':
+            if (ok && v.events) {
+              setPeadFeed(v.events);
+              statusMap.pead = { ok: true, timestamp: v.timestamp || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            } else {
+              statusMap.pead = { ok: false, error: 'PEAD drift tracker feed failed' };
+            }
+            break;
+          case 'master-tracker':
+            if (ok && (v.stocks || v.companies) && !v.error) {
+              setMasterTrackerData({
+                ...v,
+                stocks: v.stocks || v.companies || [],
+                totalStocks: v.totalStocks ?? v.companiesCount ?? (v.stocks || v.companies || []).length,
+              });
+              statusMap.masterTracker = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'orders':
+            if (ok && v.orders) {
+              setOrderTrackerData(v);
+              statusMap.orders = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'bank-nbfc':
+            if (ok && (v.banks || v.costOfFunds) && !v.error) {
+              setBankNbfcData(v);
+              statusMap.bankNbfc = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'vahan-makers':
+            if (ok && v.makers) {
+              setVahanMakersData(v);
+              statusMap.vahanMakers = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case '52w-high-low':
+            if (ok && v.highs) {
+              setFiftyTwoWeekData(v);
+              statusMap.fiftyTwoWeek = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'bulk-block-deals':
+            if (ok && v.deals) {
+              setBulkDealsData(v);
+              statusMap.bulkDeals = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'fno-oi':
+            if (ok && v.indices) {
+              setFnoData(v);
+              statusMap.fno = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'insider-trading':
+            if (ok && v.transactions) {
+              setInsiderData(v);
+              statusMap.insider = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'ipo-tracker':
+            if (ok && v.ipos) {
+              setIpoData(v);
+              statusMap.ipo = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'dividends':
+            if (ok && v.corporateActions) {
+              setDividendsData(v);
+              statusMap.dividends = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'sector-heatmap':
+            if (ok && v.sectors) {
+              setSectorHeatmapData(v);
+              statusMap.sectorHeatmap = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'delivery-screener':
+            if (ok && v.stocks) {
+              setDeliveryMomentumData(v);
+              statusMap.deliveryMomentum = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'circuit-breakers':
+            if (ok && v.upperCircuits) {
+              setCircuitBreakersData(v);
+              statusMap.circuitBreakers = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          case 'rbi-macro':
+            if (ok && (v.currentRates || v.source)) {
+              setRbiMacroData(v);
+              statusMap.rbiMacro = { ok: true, timestamp: v.lastUpdated || new Date().toLocaleTimeString() };
+              loadedFeedsRef.current.add(key);
+            }
+            break;
+          default:
+            break;
         }
-        statusMap.vahan = {
-          ok: true,
-          timestamp: vahanRes.value.retrievedAt
-            ? new Date(vahanRes.value.retrievedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-            : new Date().toLocaleTimeString(),
-        };
-      } else {
-        statusMap.vahan = { ok: false, error: 'Vehicle registration feed unavailable' };
-        failed.push('Vehicle Registration');
-      }
+      };
 
-      // 4. Buybacks
-      if (bbRes.status === 'fulfilled' && bbRes.value?.actions && !bbRes.value?.error) {
-        setBuybacksData(bbRes.value);
-        statusMap.buybacks = { ok: true, timestamp: bbRes.value.timestamp || new Date().toLocaleTimeString() };
-      } else {
-        statusMap.buybacks = { ok: false, error: 'BSE/NSE Corporate Actions live fetch failed' };
-        failed.push('Corporate Buybacks');
-      }
-
-      // 5. Results Calendar
-      if (resRes.status === 'fulfilled' && resRes.value?.meetings && !resRes.value?.error) {
-        setResultsData(resRes.value);
-        statusMap.results = { ok: true, timestamp: resRes.value.timestamp || new Date().toLocaleTimeString() };
-      } else {
-        statusMap.results = { ok: false, error: 'NSE/BSE Results Calendar feed failed' };
-        failed.push('Results Calendar');
-      }
-
-      // 6. News
-      if (newsRes.status === 'fulfilled' && newsRes.value?.headlines && newsRes.value.headlines.length > 0 && !newsRes.value?.error) {
-        setNewsData(newsRes.value);
-        statusMap.news = { ok: true, timestamp: newsRes.value.timestamp || new Date().toLocaleTimeString() };
-      } else {
-        statusMap.news = { ok: false, error: 'Market News live RSS feed failed' };
-        failed.push('Market News');
-      }
-
-      // 7. Shareholding
-      if (shRes.status === 'fulfilled' && shRes.value?.broadcasts && !shRes.value?.error) {
-        setShareholdingData(shRes.value);
-        statusMap.shareholding = { ok: true, timestamp: shRes.value.timestamp || new Date().toLocaleTimeString() };
-      } else {
-        statusMap.shareholding = { ok: false, error: 'BSE/NSE Shareholding Patterns feed failed' };
-        failed.push('Shareholding Patterns');
-      }
-
-      // 8. Valuation Financials (symbol-aware)
-      if (valRes.status === 'fulfilled' && valRes.value?.financialsCr && !valRes.value?.error && valRes.value?.source !== 'UNAVAILABLE') {
-        applyValuationPayload(valRes.value);
-        statusMap.valuation = { ok: true, timestamp: valRes.value.timestamp || new Date().toLocaleTimeString() };
-      } else {
-        statusMap.valuation = { ok: false, error: 'Live valuation financials unavailable' };
-      }
-
-      // 9. PEAD Feed
-      if (peadRes.status === 'fulfilled' && peadRes.value?.events && !peadRes.value?.error) {
-        setPeadFeed(peadRes.value.events);
-        statusMap.pead = { ok: true, timestamp: peadRes.value.timestamp || new Date().toLocaleTimeString() };
-      } else {
-        statusMap.pead = { ok: false, error: 'PEAD drift tracker feed failed' };
-      }
-
-      // 10. Master Growth Tracker
-      if (mtRes.status === 'fulfilled' && mtRes.value?.stocks && !mtRes.value?.error) {
-        setMasterTrackerData(mtRes.value);
-        statusMap.masterTracker = { ok: true, timestamp: mtRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 11. Order Tracker
-      if (ordRes.status === 'fulfilled' && ordRes.value?.orders && !ordRes.value?.error) {
-        setOrderTrackerData(ordRes.value);
-        statusMap.orders = { ok: true, timestamp: ordRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 12. Bank / NBFC
-      if (bnRes.status === 'fulfilled' && bnRes.value?.costOfFunds && !bnRes.value?.error) {
-        setBankNbfcData(bnRes.value);
-        statusMap.bankNbfc = { ok: true, timestamp: bnRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 13. Vahan Top Makers
-      if (vmRes.status === 'fulfilled' && vmRes.value?.makers && !vmRes.value?.error) {
-        setVahanMakersData(vmRes.value);
-        statusMap.vahanMakers = { ok: true, timestamp: vmRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 14. 52-Week High / Low
-      if (ftwRes.status === 'fulfilled' && ftwRes.value?.highs && !ftwRes.value?.error) {
-        setFiftyTwoWeekData(ftwRes.value);
-        statusMap.fiftyTwoWeek = { ok: true, timestamp: ftwRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 15. Bulk & Block Deals
-      if (bbdRes.status === 'fulfilled' && bbdRes.value?.deals && !bbdRes.value?.error) {
-        setBulkDealsData(bbdRes.value);
-        statusMap.bulkDeals = { ok: true, timestamp: bbdRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 16. F&O Analytics
-      if (fnoRes.status === 'fulfilled' && fnoRes.value?.indices && !fnoRes.value?.error) {
-        setFnoData(fnoRes.value);
-        statusMap.fno = { ok: true, timestamp: fnoRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 17. Insider Trading
-      if (insRes.status === 'fulfilled' && insRes.value?.transactions && !insRes.value?.error) {
-        setInsiderData(insRes.value);
-        statusMap.insider = { ok: true, timestamp: insRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 18. IPO Tracker
-      if (ipoRes.status === 'fulfilled' && ipoRes.value?.ipos && !ipoRes.value?.error) {
-        setIpoData(ipoRes.value);
-        statusMap.ipo = { ok: true, timestamp: ipoRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 19. Dividend Calendar
-      if (divRes.status === 'fulfilled' && divRes.value?.corporateActions && !divRes.value?.error) {
-        setDividendsData(divRes.value);
-        statusMap.dividends = { ok: true, timestamp: divRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 20. Sector Heatmap
-      if (secRes.status === 'fulfilled' && secRes.value?.sectors && !secRes.value?.error) {
-        setSectorHeatmapData(secRes.value);
-        statusMap.sectorHeatmap = { ok: true, timestamp: secRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 21. Delivery Momentum Screener
-      if (delRes.status === 'fulfilled' && delRes.value?.stocks && !delRes.value?.error) {
-        setDeliveryMomentumData(delRes.value);
-        statusMap.deliveryMomentum = { ok: true, timestamp: delRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 22. Circuit Breakers
-      if (cirRes.status === 'fulfilled' && cirRes.value?.upperCircuits && !cirRes.value?.error) {
-        setCircuitBreakersData(cirRes.value);
-        statusMap.circuitBreakers = { ok: true, timestamp: cirRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
-
-      // 23. RBI Macro
-      if (rbiRes.status === 'fulfilled' && rbiRes.value?.currentRates && !rbiRes.value?.error) {
-        setRbiMacroData(rbiRes.value);
-        statusMap.rbiMacro = { ok: true, timestamp: rbiRes.value.lastUpdated || new Date().toLocaleTimeString() };
-      }
+      keys.forEach((key, i) => apply(key, settled[i]));
 
       setFeedStatus(statusMap);
       setFailedFeedList(failed);
       if (failed.length === 0) {
-        setLastSyncTimestamp(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' IST');
+        setLastSyncTimestamp(
+          new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' IST',
+        );
       }
     } catch {
       setFailedFeedList(['All External Feeds']);

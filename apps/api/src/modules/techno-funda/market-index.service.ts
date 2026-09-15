@@ -55,8 +55,9 @@ type TataMotorsPriceResult = {
 export class MarketIndexService {
   private readonly logger = new Logger(MarketIndexService.name);
   private cache: CacheEntry | null = null;
+  private overviewInFlight: Promise<MarketOverviewData> | null = null;
   private tataMotorsPriceCache: { data: TataMotorsPriceResult; expiresAt: number } | null = null;
-  private readonly CACHE_TTL_MS = 300 * 1000; // 5 minutes TTL
+  private readonly CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes — shared by /indices and /market-mood
 
   private readonly INDICES = [
     { ticker: '^NSEI', symbol: 'NIFTY 50', name: 'Nifty 50 Index' },
@@ -73,7 +74,18 @@ export class MarketIndexService {
     if (!forceRefresh && this.cache && this.cache.expiresAt > now) {
       return { ...this.cache.data, isCached: true };
     }
+    // Coalesce concurrent /indices + /market-mood cold misses into one upstream fan-out
+    if (!forceRefresh && this.overviewInFlight) {
+      return this.overviewInFlight;
+    }
 
+    this.overviewInFlight = this.loadMarketOverviewFresh(now).finally(() => {
+      this.overviewInFlight = null;
+    });
+    return this.overviewInFlight;
+  }
+
+  private async loadMarketOverviewFresh(now: number): Promise<MarketOverviewData> {
     try {
       const results = await Promise.allSettled(
         this.INDICES.map((idx) => this.fetchQuote(idx.ticker, idx.symbol, idx.name)),
@@ -96,13 +108,11 @@ export class MarketIndexService {
         this.logger.warn('Incomplete index quotes fetched; returning available snapshots only.');
       }
 
-      // Fetch live official breadth from NSE allIndices and technical trend in parallel
       let [liveBreadth, techMetrics] = await Promise.all([
         this.fetchNseBreadth(),
         this.fetchNiftyHistoricalTrend(),
       ]);
 
-      // Yahoo Nifty-50 constituent advance/decline when NSE breadth unavailable
       if (!liveBreadth) {
         liveBreadth = await this.fetchYahooNiftyBreadth();
       }
@@ -126,7 +136,6 @@ export class MarketIndexService {
         isCached: false,
       };
 
-      // Only cache complete overview so MMI is not stuck on a breadth miss
       if (snapshots.length >= 3 && indiaVix != null && marketBreadth && techMetrics) {
         this.cache = {
           data: overview,
