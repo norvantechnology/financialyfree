@@ -18,6 +18,37 @@ const YEARS = [
   'Sep 2025',
 ];
 
+/** Screener sector strings are unreliable ([1], Website, etc.) — classify by ticker/name */
+const PSU_BANK_TICKERS = new Set([
+  'SBIN',
+  'BANKBARODA',
+  'PNB',
+  'CANBK',
+  'UNIONBANK',
+  'INDIANB',
+  'MAHABANK',
+  'BANKINDIA',
+  'CENTRALBK',
+  'IOB',
+  'UCOBANK',
+  'PSB',
+  'JKBANK',
+]);
+
+function classifyBankOwnership(ticker?: string, bankName?: string, rawSector?: string): 'Private' | 'PSU' {
+  const sym = (ticker || '').toUpperCase().replace(/\.(NS|BO)$/i, '').trim();
+  if (sym && PSU_BANK_TICKERS.has(sym)) return 'PSU';
+  const blob = `${bankName || ''} ${rawSector || ''}`.toLowerCase();
+  if (
+    /state bank|bank of baroda|punjab national|canara|union bank|indian bank|bank of india|uco bank|central bank|psu|public sector/.test(
+      blob,
+    )
+  ) {
+    return 'PSU';
+  }
+  if (rawSector === 'PSU' || rawSector === 'Private') return rawSector;
+  return 'Private';
+}
 export interface BankMetricRow {
   bankName: string;
   ticker: string;
@@ -69,45 +100,70 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
 
   // Prefer dedicated metric grids when they contain real numbers; else derive from banks[]
   const costOfFundsData = useMemo(() => {
-    if (hasNumericValues(liveData?.costOfFunds)) return liveData!.costOfFunds!;
-    return (liveData?.banks || []).map((b) => ({
-      bankName: b.bankName,
-      ticker: b.ticker,
-      sector: b.sector,
-      values: (b.opmPct || []).map((v, i) => {
-        if (v != null) return Number(v);
-        const rev = b.revenue?.[i];
-        const pat = b.pat?.[i];
-        if (rev && pat != null && Number(rev) !== 0) {
-          return Math.round((Number(pat) / Number(rev)) * 1000) / 10;
-        }
-        return null;
-      }),
+    const rows = hasNumericValues(liveData?.costOfFunds)
+      ? liveData!.costOfFunds!
+      : (liveData?.banks || []).map((b) => ({
+          bankName: b.bankName,
+          ticker: b.ticker,
+          sector: b.sector,
+          values: (b.opmPct || []).map((v, i) => {
+            if (v != null) return Number(v);
+            const rev = b.revenue?.[i];
+            const pat = b.pat?.[i];
+            if (rev && pat != null && Number(rev) !== 0) {
+              return Math.round((Number(pat) / Number(rev)) * 1000) / 10;
+            }
+            return null;
+          }),
+        }));
+    return rows.map((r) => ({
+      ...r,
+      sector: classifyBankOwnership(r.ticker, r.bankName, r.sector),
     }));
   }, [liveData]);
 
   const roaData = useMemo(() => {
-    if (hasNumericValues(liveData?.roa)) return liveData!.roa!;
-    return (liveData?.banks || []).map((b) => ({
-      bankName: b.bankName,
-      ticker: b.ticker,
-      sector: b.sector,
-      values: (b.eps || []).map((v) => (v == null ? null : Number(v))),
+    const rows = hasNumericValues(liveData?.roa)
+      ? liveData!.roa!
+      : (liveData?.banks || []).map((b) => ({
+          bankName: b.bankName,
+          ticker: b.ticker,
+          sector: b.sector,
+          values: (b.eps || []).map((v) => (v == null ? null : Number(v))),
+        }));
+    return rows.map((r) => ({
+      ...r,
+      sector: classifyBankOwnership(r.ticker, r.bankName, r.sector),
     }));
   }, [liveData]);
 
   const depositsData = useMemo(() => {
-    if (hasNumericValues(liveData?.deposits)) return liveData!.deposits!;
-    return (liveData?.banks || []).map((b) => ({
-      bankName: b.bankName,
-      ticker: b.ticker,
-      sector: b.sector,
-      values: (b.revenue || []).map((v) => (v == null ? null : Number(v))),
+    const rows = hasNumericValues(liveData?.deposits)
+      ? liveData!.deposits!
+      : (liveData?.banks || []).map((b) => ({
+          bankName: b.bankName,
+          ticker: b.ticker,
+          sector: b.sector,
+          values: (b.revenue || []).map((v) => (v == null ? null : Number(v))),
+        }));
+    return rows.map((r) => ({
+      ...r,
+      sector: classifyBankOwnership(r.ticker, r.bankName, r.sector),
     }));
   }, [liveData]);
 
   const banks = useMemo(() => {
     return ['All', ...costOfFundsData.map((b) => b.bankName)];
+  }, [costOfFundsData]);
+
+  const ownershipCounts = useMemo(() => {
+    let privateCount = 0;
+    let psuCount = 0;
+    for (const r of costOfFundsData) {
+      if (r.sector === 'PSU') psuCount++;
+      else privateCount++;
+    }
+    return { all: costOfFundsData.length, private: privateCount, psu: psuCount };
   }, [costOfFundsData]);
 
   // NPM % — higher is better
@@ -174,7 +230,8 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
   const filterRows = (rows: BankMetricRow[]) => {
     return rows.filter((r) => {
       if (selectedBank !== 'All' && r.bankName !== selectedBank) return false;
-      if (sectorFilter !== 'All' && r.sector && r.sector !== sectorFilter) return false;
+      const ownership = classifyBankOwnership(r.ticker, r.bankName, r.sector);
+      if (sectorFilter !== 'All' && ownership !== sectorFilter) return false;
       if (bankSearch.trim()) {
         const q = bankSearch.trim().toLowerCase();
         if (!r.bankName.toLowerCase().includes(q) && !r.ticker.toLowerCase().includes(q)) {
@@ -227,7 +284,7 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
 
   const isFiltered =
     bankSearch.trim() !== '' ||
-    selectedProperty !== 'All' ||
+    selectedProperty !== 'Net Profit Margin' ||
     selectedBank !== 'All' ||
     sectorFilter !== 'All';
 
@@ -310,20 +367,31 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
           </div>
 
           {/* Sector Segmented Pills (Mobile 100% width, desktop compact) */}
-          <div className="bank-nbfc-sector-pills">
-            {(['All', 'Private', 'PSU'] as const).map((sec) => (
+          <div className="bank-nbfc-sector-pills" role="group" aria-label="Bank ownership filter">
+            {([
+              { id: 'All' as const, label: `All banks (${ownershipCounts.all})` },
+              { id: 'Private' as const, label: `Private (${ownershipCounts.private})` },
+              { id: 'PSU' as const, label: `PSU (${ownershipCounts.psu})` },
+            ]).map((sec) => (
               <button
-                key={sec}
+                key={sec.id}
                 type="button"
-                onClick={() => setSectorFilter(sec)}
+                onClick={() => setSectorFilter(sec.id)}
+                title={
+                  sec.id === 'All'
+                    ? 'Show all lenders'
+                    : sec.id === 'Private'
+                      ? 'Private-sector banks (HDFC, ICICI, Axis, Kotak…)'
+                      : 'Public-sector banks (SBI, PNB, Bank of Baroda…)'
+                }
                 style={{
-                  background: sectorFilter === sec ? '#0F766E' : 'transparent',
-                  color: sectorFilter === sec ? '#FFFFFF' : '#475569',
-                  fontWeight: sectorFilter === sec ? 700 : 500,
-                  boxShadow: sectorFilter === sec ? '0 1px 3px rgba(15, 118, 110, 0.25)' : 'none',
+                  background: sectorFilter === sec.id ? '#0F766E' : 'transparent',
+                  color: sectorFilter === sec.id ? '#FFFFFF' : '#475569',
+                  fontWeight: sectorFilter === sec.id ? 700 : 500,
+                  boxShadow: sectorFilter === sec.id ? '0 1px 3px rgba(15, 118, 110, 0.25)' : 'none',
                 }}
               >
-                {sec === 'All' ? 'All Lenders' : `${sec} Banks`}
+                {sec.label}
               </button>
             ))}
           </div>
@@ -384,9 +452,13 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
           <div className="bank-nbfc-dropdowns-group">
             {/* Metric Selector */}
             <div className="bank-nbfc-dropdown-col">
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 650, color: '#64748B', marginBottom: '4px' }}>
+                Metric
+              </label>
               <select
                 value={selectedProperty}
                 onChange={(e) => setSelectedProperty(e.target.value)}
+                aria-label="Metric to display"
                 style={{
                   width: '100%',
                   padding: '8px 28px 8px 11px',
@@ -401,7 +473,7 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
                   height: '38px',
                 }}
               >
-                <option value="All">All Metrics (All 3)</option>
+                <option value="All">Show all 3 tables</option>
                 <option value="Net Profit Margin">Net Profit Margin (%)</option>
                 <option value="EPS">EPS (₹)</option>
                 <option value="Interest Income">Interest Income (₹ Cr)</option>
@@ -410,9 +482,13 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
 
             {/* Bank Selector */}
             <div className="bank-nbfc-dropdown-col">
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 650, color: '#64748B', marginBottom: '4px' }}>
+                Bank
+              </label>
               <select
                 value={selectedBank}
                 onChange={(e) => setSelectedBank(e.target.value)}
+                aria-label="Bank to focus"
                 style={{
                   width: '100%',
                   padding: '8px 28px 8px 11px',
@@ -454,10 +530,10 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
                 fontWeight: 650,
                 border: '1px solid #CCFBF1',
               }}>
-                {sectorFilter} Banks
+                {sectorFilter === 'Private' ? 'Private banks' : sectorFilter === 'PSU' ? 'PSU banks' : sectorFilter}
               </span>
             )}
-            {selectedProperty !== 'All' && (
+            {selectedProperty !== 'All' && selectedProperty !== 'Net Profit Margin' && (
               <span style={{
                 fontSize: '11px',
                 padding: '2px 8px',
@@ -730,8 +806,12 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
         <div style={{ padding: '36px 20px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
           <Building2 size={32} style={{ margin: '0 auto 8px', color: '#94A3B8' }} />
           <h4 style={{ fontSize: '15px', fontWeight: 650, color: '#1E293B', marginBottom: '4px' }}>No Banks Found</h4>
-          <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '380px', margin: '0 auto 12px' }}>
-            No lenders match your search query &ldquo;{bankSearch}&rdquo; or the active filter criteria.
+          <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '420px', margin: '0 auto 12px' }}>
+            {sectorFilter !== 'All'
+              ? `No ${sectorFilter === 'PSU' ? 'PSU' : 'private'} banks match the current search. Try “All banks” or clear search.`
+              : bankSearch.trim()
+                ? `No lenders match “${bankSearch.trim()}”. Try another ticker (e.g. HDFC, SBIN).`
+                : 'No lenders match the active filters.'}
           </p>
           <button
             type="button"

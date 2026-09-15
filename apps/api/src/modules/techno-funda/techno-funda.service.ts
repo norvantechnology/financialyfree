@@ -1024,6 +1024,36 @@ export class TechnoFundaService {
     return s.includes('buyback') || s.includes('buy-back') || s.includes('buy back') || s.includes('tender offer');
   }
 
+  /** Screener sector HTML is unreliable — ownership is classified by ticker/name */
+  private classifyBankOwnership(ticker: string, bankName?: string): 'Private' | 'PSU' {
+    const sym = (ticker || '').toUpperCase().replace(/\.(NS|BO)$/i, '').trim();
+    const PSU = new Set([
+      'SBIN',
+      'BANKBARODA',
+      'PNB',
+      'CANBK',
+      'UNIONBANK',
+      'INDIANB',
+      'MAHABANK',
+      'BANKINDIA',
+      'CENTRALBK',
+      'IOB',
+      'UCOBANK',
+      'PSB',
+      'JKBANK',
+    ]);
+    if (PSU.has(sym)) return 'PSU';
+    const name = (bankName || '').toLowerCase();
+    if (
+      /state bank|bank of baroda|punjab national|canara|union bank|indian bank|bank of india|uco bank|central bank/.test(
+        name,
+      )
+    ) {
+      return 'PSU';
+    }
+    return 'Private';
+  }
+
   parseBuybackAction(action: any): {
     id: string;
     symbol: string;
@@ -2779,7 +2809,7 @@ export class TechnoFundaService {
         return {
           bankName: pl.companyName || b.name,
           ticker: b.symbol,
-          sector: /bank|finance|nbfc/i.test(pl.sector || '') ? ( /psu|public|state bank|baroda|punjab|canara|union|indian bank/i.test(pl.companyName || b.name) ? 'PSU' : 'Private') : (pl.sector || 'Bank'),
+          sector: this.classifyBankOwnership(b.symbol, pl.companyName || b.name),
           periods: pl.years.map((y) => y.year),
           revenue: pl.years.map((y) => y.revenue),
           pat: pl.years.map((y) => y.pat),
@@ -2811,7 +2841,7 @@ export class TechnoFundaService {
         return {
           bankName: b.name,
           ticker: b.symbol,
-          sector: 'Bank',
+          sector: this.classifyBankOwnership(b.symbol, b.name),
           periods: ['Live'],
           revenue: [null],
           pat: [null],
