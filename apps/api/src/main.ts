@@ -155,10 +155,11 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  const port = process.env.PORT ?? 3001;
-  await app.listen(port);
-  console.log(`\n🚀 FinanciallyFree API running on http://localhost:${port}/api/v1`);
-  console.log(`📚 Swagger docs at       http://localhost:${port}/api/docs\n`);
+  // Render (and most PaaS) require binding 0.0.0.0 — localhost/:: alone fails health checks
+  const port = Number(process.env.PORT ?? 3001);
+  await app.listen(port, '0.0.0.0');
+  console.log(`\n🚀 FinanciallyFree API running on http://0.0.0.0:${port}/api/v1`);
+  console.log(`📚 Swagger docs at       http://0.0.0.0:${port}/api/docs\n`);
 }
 
 bootstrap().catch(console.error);

@@ -7,18 +7,27 @@ import { WatchlistController } from './watchlist.controller';
 import { WatchlistProcessor } from './watchlist.processor';
 import { TechnoFundaModule } from '../techno-funda/techno-funda.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { isRedisConfigured } from '../../config/redis.config';
+
+const useBull = isRedisConfigured();
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([WatchlistItemEntity]),
-    BullModule.registerQueue({
-      name: 'watchlist-alerts',
-    }),
+    ...(useBull
+      ? [
+          BullModule.registerQueue({
+            name: 'watchlist-alerts',
+          }),
+        ]
+      : []),
     TechnoFundaModule,
     NotificationsModule,
   ],
   controllers: [WatchlistController],
-  providers: [WatchlistService, WatchlistProcessor],
+  providers: useBull
+    ? [WatchlistService, WatchlistProcessor]
+    : [WatchlistService],
   exports: [WatchlistService],
 })
 export class WatchlistModule {}

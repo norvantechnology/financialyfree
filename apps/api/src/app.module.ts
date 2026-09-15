@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AppThrottlerGuard } from './modules/auth/guards/app-throttler.guard';
 import { AppConfigModule } from './config/config.module';
+import { getRedisConnectionOptions, isRedisConfigured } from './config/redis.config';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -21,6 +22,13 @@ import { WatchlistModule } from './modules/watchlist/watchlist.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { SystemConfigModule } from './modules/system-config/system-config.module';
 
+const redisReady = isRedisConfigured();
+if (!redisReady) {
+  new Logger('AppModule').warn(
+    'Redis not configured (placeholder or missing REDIS_HOST/REDIS_URL). BullMQ disabled; watchlist uses in-process fallback.',
+  );
+}
+
 @Module({
   imports: [
     // ── Config ────────────────────────────────────────────────────────
@@ -32,12 +40,13 @@ import { SystemConfigModule } from './modules/system-config/system-config.module
 
     // ── Database & Queue ──────────────────────────────────────────────
     DatabaseModule,
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST ?? 'localhost',
-        port: parseInt(process.env.REDIS_PORT ?? '6379'),
-      },
-    }),
+    ...(redisReady
+      ? [
+          BullModule.forRoot({
+            connection: getRedisConnectionOptions(),
+          }),
+        ]
+      : []),
 
     // ── Security: Global Throttler / Rate Limiting ────────────────────
     ThrottlerModule.forRoot([
