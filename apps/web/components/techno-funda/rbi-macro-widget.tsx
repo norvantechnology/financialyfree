@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Landmark, Calendar, Download, Info } from 'lucide-react';
+import { Landmark, Calendar, Download} from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
 import { TfLoadingState } from './tf-loading-state';
 
@@ -48,7 +48,6 @@ function fmtPct(value: number | null | undefined): string {
 }
 
 export function RbiMacroWidget({ data, isLoading }: RbiMacroWidgetProps) {
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   if (isLoading && !data) {
     return (
@@ -95,25 +94,8 @@ export function RbiMacroWidget({ data, isLoading }: RbiMacroWidgetProps) {
       display: 'flex',
       flexDirection: 'column',
       gap: '16px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-    }}>
-      {/* ── Contextual Methodology Guide ── */}
-      <div className="tf-methodology-card" style={{ margin: 0 }}>
-        <div className="tf-methodology-header" onClick={() => setIsGuideOpen(!isGuideOpen)}>
-          <div className="tf-methodology-title">
-            <Info size={14} />
-            <span>Monetary Transmission, Net Interest Margins &amp; Yield Curve Dynamics</span>
-          </div>
-          <span className="tf-methodology-toggle">{isGuideOpen ? 'Hide Guide' : 'Show Guide'}</span>
-        </div>
-        {isGuideOpen && (
-          <div className="tf-methodology-body">
-            <p><strong>Repo Rate Impact on Equities:</strong> Changes in repo rate directly transmit to external benchmark-linked lending rates (EBLR). Rate cuts lower corporate borrowing costs and expand equity valuation multiples.</p>
-            <p><strong>Bank NIM Sensitivity:</strong> When RBI holds or cuts rates, banks with high CASA deposits witness delayed repricing on liabilities while lending yields adjust faster, impacting Net Interest Margins (NIM).</p>
-            <p><strong>10-Year G-Sec Yield:</strong> Acts as the sovereign hurdle rate for equity risk premiums (ERP). Falling bond yields stimulate institutional liquidity flows toward equities.</p>
-          </div>
-        )}
-      </div>
+      boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+
 
       {data.message && (
         <p style={{ margin: 0, fontSize: '12px', color: '#64748B' }}>{data.message}</p>
@@ -131,16 +113,15 @@ export function RbiMacroWidget({ data, isLoading }: RbiMacroWidgetProps) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flexShrink: 0,
-          }}>
+            flexShrink: 0 }}>
             <Landmark size={18} />
           </div>
           <div>
             <h3 style={{ fontSize: '15px', fontWeight: 750, color: '#0F172A', margin: 0 }}>
-              RBI Monetary Policy &amp; Macro Radar
+              RBI Macro
             </h3>
             <p style={{ fontSize: '11.5px', color: '#64748B', margin: '2px 0 0 0' }}>
-              Policy Repo Rate, MPC meeting calendar, and yield curve telemetry
+              Policy rates &amp; MPC calendar
             </p>
           </div>
         </div>
@@ -167,8 +148,7 @@ export function RbiMacroWidget({ data, isLoading }: RbiMacroWidgetProps) {
             fontSize: '11.5px',
             fontWeight: 700,
             border: '1px solid #C7D2FE',
-            whiteSpace: 'nowrap',
-          }}>
+            whiteSpace: 'nowrap' }}>
             <Calendar size={12} />
             Next MPC: {decisionDate}
           </div>
@@ -237,8 +217,7 @@ export function RbiMacroWidget({ data, isLoading }: RbiMacroWidgetProps) {
         justifyContent: 'space-between',
         alignItems: 'center',
         gap: '8px',
-        fontSize: '12px',
-      }}>
+        fontSize: '12px' }}>
         <div>
           <span style={{ color: '#64748B' }}>Monetary Policy Stance:</span>{' '}
           <strong style={{ color: '#0F172A' }}>{policyStance}</strong>
@@ -269,16 +248,14 @@ export function RbiMacroWidget({ data, isLoading }: RbiMacroWidgetProps) {
                   fontSize: '11.5px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '5px',
-                }}
+                  gap: '5px' }}
               >
                 <span style={{ color: '#64748B' }}>{step.date}:</span>
                 <strong style={{ color: '#0F172A' }}>{fmtPct(step.repoRate)}</strong>
                 <span style={{
                   color: step.direction === 'HIKE' ? '#059669' : '#DC2626',
                   fontWeight: 750,
-                  fontSize: '10.5px',
-                }}>
+                  fontSize: '10.5px' }}>
                   ({step.changeBps >= 0 ? '+' : ''}{step.changeBps} bps)
                 </span>
               </div>

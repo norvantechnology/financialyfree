@@ -1325,6 +1325,9 @@ function TechnoFundaContent() {
           'circuit-breakers',
           'indices',
           'market-mood',
+          'orders',
+          'insider-trading',
+          'news',
         ]);
         if (mode !== 'refresh' && !forceKeys.has(key)) return path;
         const sep = path.includes('?') ? '&' : '?';
@@ -1796,49 +1799,28 @@ function TechnoFundaContent() {
           activeTab={activeTab}
           onTabChange={handleTabChange}
           title={
-            activeTab === 'mmi' ? 'Market Mood Index' :
-            activeTab === 'sector-heatmap' ? 'Sectoral Performance & Rotation Heatmap' :
-            activeTab === '52w-screener' ? '52-Week High & Low Breakout Screener' :
-            activeTab === 'delivery-momentum' ? 'High Delivery % Momentum Screener' :
-            activeTab === 'deals' ? 'NSE & BSE Bulk & Block Deals' :
-            activeTab === 'fno' ? 'F&O Analytics & Open Interest' :
-            activeTab === 'insider' ? 'SEBI PIT Insider Trading Disclosures' :
-            activeTab === 'circuits' ? 'Circuit Breakers Watch (Upper & Lower Limits)' :
-            activeTab === 'ipo' ? 'Mainboard & SME IPO Calendar & Subscription' :
-            activeTab === 'dividends' ? 'Dividend & Corporate Action Calendar' :
+            activeTab === 'mmi' ? 'Market Mood' :
+            activeTab === 'sector-heatmap' ? 'Sector Heatmap' :
+            activeTab === '52w-screener' ? '52W Highs / Lows' :
+            activeTab === 'delivery-momentum' ? 'Delivery Momentum' :
+            activeTab === 'deals' ? 'Bulk & Block Deals' :
+            activeTab === 'fno' ? 'F&O Analytics' :
+            activeTab === 'insider' ? 'Insider Trading' :
+            activeTab === 'circuits' ? 'Circuit Breakers' :
+            activeTab === 'ipo' ? 'IPO Tracker' :
+            activeTab === 'dividends' ? 'Dividends' :
             activeTab === 'master-tracker' ? 'Master Tracker' :
             activeTab === 'pead' ? 'PEAD Screener' :
-            activeTab === 'orders' ? 'Order Tracker Dashboard' :
+            activeTab === 'orders' ? 'Order Tracker' :
             activeTab === 'valuation' ? 'Valuation Lab' :
             activeTab === 'results' ? 'Results Calendar' :
             activeTab === 'news' ? 'News Desk' :
-            activeTab === 'shareholding' ? 'Shareholding Patterns' :
-            activeTab === 'vahan' ? 'Vahan Auto Dashboard' :
-            activeTab === 'bank-nbfc' ? 'Bank / NBFC Dashboard' :
-            'Buybacks & Arbitrage'
+            activeTab === 'shareholding' ? 'Shareholding' :
+            activeTab === 'vahan' ? 'Vahan Auto' :
+            activeTab === 'bank-nbfc' ? 'Bank / NBFC' :
+            'Buybacks'
           }
-          subtitle={
-            activeTab === 'mmi' ? 'Composite indicator measuring market greed vs. fear across 4 factors with macro context.' :
-            activeTab === 'sector-heatmap' ? 'Real-time performance across 11 key NSE sectoral indices with market breadth, rotation cycles, and P/E valuations.' :
-            activeTab === '52w-screener' ? 'Live daily feed of equities hitting 52-week highs and lows with breakout margins, sector classification, and proximity filters.' :
-            activeTab === 'delivery-momentum' ? 'High conviction screeners filtering stocks trading within 10% of their 52-week high backed by institutional delivery volumes (>50%).' :
-            activeTab === 'deals' ? 'Track smart money movements, block trades, and large transactions exceeding 0.5% equity or ₹10 Cr with marquee investor tags.' :
-            activeTab === 'fno' ? 'Options chain intelligence: Put-Call Ratio (PCR), Max Pain strikes, open interest buildup, and expiry rollover dynamics.' :
-            activeTab === 'insider' ? 'Regulatory disclosures under SEBI PIT & SAST regulations detailing promoter and director acquisitions, market buys, and pledges.' :
-            activeTab === 'circuits' ? 'Live monitoring of equities locked in 2%, 5%, 10%, and 20% price bands with pending order book queues and consecutive circuit streaks.' :
-            activeTab === 'ipo' ? 'Upcoming, live bidding, and recently listed initial public offerings with real-time subscription multiples and GMP estimates.' :
-            activeTab === 'dividends' ? 'Upcoming ex-dates and record dates for dividends, bonus issues, stock splits, and rights issues filterable by high yields.' :
-            activeTab === 'master-tracker' ? 'Centralized tracking for winning compounders, key catalysts, and quarterly guidance vs actuals.' :
-            activeTab === 'pead' ? 'Track post-earnings price drift over the 2-day to 20-day window.' :
-            activeTab === 'orders' ? 'Consolidated order wins and contracts tracked as a percentage of annual company revenue.' :
-            activeTab === 'valuation' ? 'Fair value estimates across 9 methods: DCF, peer multiples, Graham, Lynch and more.' :
-            activeTab === 'results' ? 'Upcoming board meetings and recently reported quarterly results.' :
-            activeTab === 'news' ? 'Market headlines, regulatory filings, and corporate updates.' :
-            activeTab === 'shareholding' ? 'Promoter & institutional ownership trends across listed companies.' :
-            activeTab === 'vahan' ? 'Nationwide vehicle registration data tracking automotive sector trends.' :
-            activeTab === 'bank-nbfc' ? 'Historical Cost of Funds heatmaps, ROA benchmarking, and liability profiles across Indian banks.' :
-            'Track active buybacks and calculate tender offer arbitrage returns.'
-          }
+          subtitle=""
         >
 
         {!authStatus.isSubscribed ? (

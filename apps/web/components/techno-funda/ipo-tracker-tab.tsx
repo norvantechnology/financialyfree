@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { RefreshCw, Search, X, Download, Info } from 'lucide-react';
+import { RefreshCw, Search, X, Download} from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
 import { TfLoadingState } from './tf-loading-state';
 
@@ -60,7 +60,6 @@ function normalizeIpoStatus(status: string): IpoItem['status'] {
 export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps) {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'Live Bidding' | 'Upcoming' | 'Listed' | 'Closed'>('ALL');
   const [presetFilter, setPresetFilter] = useState<'ALL' | 'OVER_SUBSCRIBED' | 'HIGH_GMP'>('ALL');
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const ipos = data?.ipos || [];
@@ -132,27 +131,11 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* ── Contextual Methodology Guide ── */}
-      <div className="tf-methodology-card">
-        <div className="tf-methodology-header" onClick={() => setIsGuideOpen(!isGuideOpen)}>
-          <div className="tf-methodology-title">
-            <Info size={14} />
-            <span>IPO Subscription Dynamics, Anchor Lock-in &amp; Listing Gain Strategy</span>
-          </div>
-          <span className="tf-methodology-toggle">{isGuideOpen ? 'Hide Guide' : 'Show Guide'}</span>
-        </div>
-        {isGuideOpen && (
-          <div className="tf-methodology-body">
-            <p><strong>Institutional Confirmation (QIB Multiple):</strong> Retail hype can inflate early bidding, but aggressive Qualified Institutional Buyer (QIB) bids on Day 3 signal robust institutional validation.</p>
-            <p><strong>Anchor Investor Lock-in:</strong> 50% of anchor shares unlock after 30 days and the remaining 50% unlock after 90 days. Check lock-in expiry dates for potential post-listing supply overhang.</p>
-            <p><strong>Grey Market Premium (GMP):</strong> Unofficial forward pricing indicating sentiment. High GMP (&gt;30%) often drives strong listing day pops, but fundamentally weak companies often see rapid post-listing distribution.</p>
-          </div>
-        )}
-      </div>
+
 
       {/* ── Top Header Controls & Filter Card ── */}
       <div className="tf-filter-card">
-        <div className="tf-filter-row-top">
+        <div className="tf-filter-bar">
           {/* Search Box */}
           <div className="tf-search-input-wrap">
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
@@ -161,16 +144,7 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
               placeholder="Search IPO company or symbol..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '7px 30px 7px 32px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '12.5px',
-                outline: 'none',
-                color: '#0F172A',
-                background: '#FFFFFF',
-              }}
+              
             />
             {searchQuery && (
               <button
@@ -184,8 +158,7 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
                   border: 'none',
                   color: '#94A3B8',
                   cursor: 'pointer',
-                  padding: '2px',
-                }}
+                  padding: '2px' }}
               >
                 <X size={13} />
               </button>
@@ -217,15 +190,14 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
                   cursor: 'pointer',
                   boxShadow: statusFilter === status.id ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
                   transition: 'all 0.15s ease',
-                  whiteSpace: 'nowrap',
-                }}
+                  whiteSpace: 'nowrap' }}
               >
                 {status.label}
               </button>
             ))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="tf-filter-actions">
             <button
               type="button"
               onClick={handleExportCsv}
@@ -238,24 +210,13 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
 
             {onRefresh && (
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isLoading}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  background: '#FFFFFF',
-                  color: '#334155',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                className="tf-refresh-btn"
               >
                 <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
-                Refresh
+                <span className="tf-btn-label">Refresh</span>
               </button>
             )}
           </div>
@@ -263,7 +224,7 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
 
         {/* Preset Chips Row */}
         <div className="tf-preset-chips-wrap">
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Presets:</span>
+          <span className="tf-filter-label">Presets</span>
           <button
             type="button"
             onClick={() => setPresetFilter('ALL')}
@@ -306,8 +267,7 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
                 cursor: 'pointer',
                 fontWeight: 650,
                 fontSize: '11.5px',
-                padding: 0,
-              }}
+                padding: 0 }}
             >
               Reset Filters
             </button>
@@ -319,8 +279,7 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))',
-        gap: '14px',
-      }}>
+        gap: '14px' }}>
         {filteredIpos.length === 0 ? (
           <div style={{ gridColumn: '1 / -1', padding: '44px 24px', textAlign: 'center', color: '#94A3B8', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
             No IPOs match the active search and filter criteria.
@@ -340,8 +299,7 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '12px',
-                  boxShadow: isLive ? '0 4px 14px rgba(16, 185, 129, 0.08)' : '0 1px 3px rgba(0,0,0,0.03)',
-                }}
+                  boxShadow: isLive ? '0 4px 14px rgba(16, 185, 129, 0.08)' : '0 1px 3px rgba(0,0,0,0.03)' }}
               >
                 {/* Header: Name & Status */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
@@ -365,8 +323,7 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
                     color: isLive ? '#15803D' : isListed ? '#4338CA' : '#475569',
                     border: isLive ? '1px solid #86EFAC' : isListed ? '1px solid #C7D2FE' : '1px solid #E2E8F0',
                     whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                  }}>
+                    flexShrink: 0 }}>
                     {ipo.status}
                   </span>
                 </div>
@@ -379,8 +336,7 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
                   background: '#F8FAFC',
                   padding: '10px',
                   borderRadius: '8px',
-                  textAlign: 'center',
-                }}>
+                  textAlign: 'center' }}>
                   <div>
                     <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600 }}>Price Band</div>
                     <div style={{ fontSize: '12.5px', fontWeight: 750, color: '#0F172A', marginTop: '2px' }}>
@@ -449,8 +405,7 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
                     alignItems: 'center',
                     paddingTop: '8px',
                     borderTop: '1px solid #F1F5F9',
-                    fontSize: '11.5px',
-                  }}>
+                    fontSize: '11.5px' }}>
                     <span style={{ color: '#64748B' }}>Grey Market Premium (GMP):</span>
                     <span style={{ fontWeight: 800, color: '#059669' }}>
                       {ipo.gmpEstimate}
@@ -465,8 +420,7 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
                     alignItems: 'center',
                     paddingTop: '8px',
                     borderTop: '1px solid #F1F5F9',
-                    fontSize: '11.5px',
-                  }}>
+                    fontSize: '11.5px' }}>
                     <span style={{ color: '#64748B' }}>Listing Day Gain:</span>
                     <span style={{ fontWeight: 800, color: '#059669' }}>
                       +{ipo.listingGainPct.toFixed(1)}% (CMP: ₹{ipo.currentPrice})

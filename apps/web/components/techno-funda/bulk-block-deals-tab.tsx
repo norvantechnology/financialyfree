@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, RefreshCw, ArrowUpRight, ArrowDownRight, X, Download, Info } from 'lucide-react';
+import { Search, RefreshCw, ArrowUpRight, ArrowDownRight, X, Download} from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
 import { TfLoadingState } from './tf-loading-state';
 
@@ -39,7 +39,6 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
   const [marketFilter, setMarketFilter] = useState<'ALL' | 'BULK' | 'BLOCK'>('ALL');
   const [marqueeOnly, setMarqueeOnly] = useState(false);
   const [presetFilter, setPresetFilter] = useState<'ALL' | 'MARQUEE' | 'BUYS_ONLY' | 'OVER_100CR'>('ALL');
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const deals = data?.deals || [];
@@ -105,23 +104,7 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* ── Contextual Methodology Guide ── */}
-      <div className="tf-methodology-card">
-        <div className="tf-methodology-header" onClick={() => setIsGuideOpen(!isGuideOpen)}>
-          <div className="tf-methodology-title">
-            <Info size={14} />
-            <span>How to Track Institutional Smart Money (Bulk vs. Block Deal Mechanics)</span>
-          </div>
-          <span className="tf-methodology-toggle">{isGuideOpen ? 'Hide Guide' : 'Show Guide'}</span>
-        </div>
-        {isGuideOpen && (
-          <div className="tf-methodology-body">
-            <p><strong>Block Deal:</strong> Minimum transaction value of &ge; ₹10 Cr or 0.5% equity, executed during designated 15-minute exchange windows at &plusmn;0.5% price collar.</p>
-            <p><strong>Bulk Deal:</strong> Open market transaction where total quantity bought or sold exceeds 0.5% of total equity shares of the company on the exchange.</p>
-            <p><strong>Smart Money Edge:</strong> Sustained accumulation by marquee FIIs (e.g. GQG, Vanguard) or superstar domestic investors (e.g. Ashish Kacholia, Mukul Agrawal) often signals institutional re-rating.</p>
-          </div>
-        )}
-      </div>
+
 
       {/* ── Summary Statistics ── */}
       <div className="tf-kpi-grid-responsive">
@@ -164,28 +147,19 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
 
       {/* ── Filter Bar ── */}
       <div className="tf-filter-card">
-        {/* Row 1: Search, Type Pills, Market Pills & Actions */}
-        <div className="tf-filter-row-top">
+        <div className="tf-filter-bar">
           <div className="tf-search-input-wrap">
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
             <input
               type="text"
-              placeholder="Search investor (e.g. Ashish Kacholia, GQG), symbol..."
+              placeholder="Search investor or symbol..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '7px 30px 7px 32px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '12.5px',
-                outline: 'none',
-                color: '#0F172A',
-                background: '#FFFFFF',
-              }}
+              aria-label="Search deals"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery('')}
                 style={{
                   position: 'absolute',
@@ -196,54 +170,42 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
                   border: 'none',
                   color: '#94A3B8',
                   cursor: 'pointer',
-                  padding: '2px',
-                }}
+                  padding: '2px' }}
+                aria-label="Clear search"
               >
                 <X size={13} />
               </button>
             )}
           </div>
 
-          {/* Deal Type Pills */}
           <div className="tf-segmented-pills">
             {(['ALL', 'BUY', 'SELL'] as const).map((t) => (
               <button
                 key={t}
+                type="button"
                 onClick={() => setDealTypeFilter(t)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '5px',
-                  border: 'none',
-                  background: dealTypeFilter === t ? '#FFFFFF' : 'transparent',
-                  color: dealTypeFilter === t ? (t === 'BUY' ? '#059669' : t === 'SELL' ? '#DC2626' : '#0F172A') : '#64748B',
-                  fontWeight: 700,
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  boxShadow: dealTypeFilter === t ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                }}
+                className={dealTypeFilter === t ? 'is-active' : undefined}
+                style={
+                  dealTypeFilter === t
+                    ? {
+                        color: t === 'BUY' ? '#059669' : t === 'SELL' ? '#DC2626' : '#0F172A',
+                        background: '#FFFFFF',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
+                    : undefined
+                }
               >
                 {t === 'ALL' ? 'All Types' : t}
               </button>
             ))}
           </div>
 
-          {/* Market Pills */}
           <div className="tf-segmented-pills">
             {(['ALL', 'BULK', 'BLOCK'] as const).map((m) => (
               <button
                 key={m}
+                type="button"
                 onClick={() => setMarketFilter(m)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '5px',
-                  border: 'none',
-                  background: marketFilter === m ? '#FFFFFF' : 'transparent',
-                  color: marketFilter === m ? '#0F172A' : '#64748B',
-                  fontWeight: 700,
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  boxShadow: marketFilter === m ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                }}
+                className={marketFilter === m ? 'is-active' : undefined}
               >
                 {m === 'ALL' ? 'Bulk & Block' : `${m} Only`}
               </button>
@@ -251,9 +213,8 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
           </div>
         </div>
 
-        {/* Preset Chips Row */}
         <div className="tf-preset-chips-wrap">
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Presets:</span>
+          <span className="tf-filter-label">Presets</span>
           <button
             type="button"
             onClick={() => setPresetFilter('ALL')}
@@ -284,9 +245,8 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
           </button>
         </div>
 
-        {/* Row 2: Marquee Toggle, Counter & Refresh */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px', paddingTop: '4px', borderTop: '1px solid #F1F5F9' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+        <div className="tf-filter-meta">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 650, color: '#334155', cursor: 'pointer' }}>
               <input
                 type="checkbox"
@@ -301,41 +261,31 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
                 color: marqueeOnly ? '#B45309' : '#64748B',
                 padding: '2px 6px',
                 borderRadius: '4px',
-                border: marqueeOnly ? '1px solid #FDE68A' : '1px solid #E2E8F0',
-              }}>
+                border: marqueeOnly ? '1px solid #FDE68A' : '1px solid #E2E8F0' }}>
                 MARQUEE
               </span>
               Investors Only
             </label>
-
-            <span style={{ fontSize: '11.5px', color: '#64748B' }}>
+            <span>
               Showing <strong>{filteredDeals.length}</strong> of {deals.length} deals
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="tf-filter-actions" style={{ marginLeft: 0 }}>
             {(searchQuery || dealTypeFilter !== 'ALL' || marketFilter !== 'ALL' || marqueeOnly) && (
               <button
+                type="button"
+                className="tf-filter-reset"
                 onClick={() => {
                   setSearchQuery('');
                   setDealTypeFilter('ALL');
                   setMarketFilter('ALL');
                   setMarqueeOnly(false);
                 }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#0F766E',
-                  cursor: 'pointer',
-                  fontWeight: 650,
-                  fontSize: '11.5px',
-                  padding: 0,
-                }}
               >
-                Reset Filters
+                Reset
               </button>
             )}
-
             <button
               type="button"
               onClick={handleExportCsv}
@@ -345,27 +295,15 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
               <Download size={12} />
               <span>Export CSV</span>
             </button>
-
             {onRefresh && (
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isLoading}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  background: '#FFFFFF',
-                  color: '#334155',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                className="tf-refresh-btn"
               >
                 <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
-                Refresh
+                <span className="tf-btn-label">Refresh</span>
               </button>
             )}
           </div>
@@ -383,8 +321,7 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
           border: '1px solid #E2E8F0',
           borderRadius: '12px',
           overflow: 'hidden',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
               <thead>
@@ -435,8 +372,7 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
                             background: deal.dealMarket === 'BLOCK' ? '#EEF2FF' : '#F1F5F9',
                             color: deal.dealMarket === 'BLOCK' ? '#4338CA' : '#475569',
                             border: deal.dealMarket === 'BLOCK' ? '1px solid #C7D2FE' : '1px solid #E2E8F0',
-                            whiteSpace: 'nowrap',
-                          }}>
+                            whiteSpace: 'nowrap' }}>
                             {deal.dealMarket}
                           </span>
                         </td>
@@ -451,8 +387,7 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
                             fontWeight: 750,
                             background: isBuy ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
                             color: isBuy ? '#059669' : '#DC2626',
-                            whiteSpace: 'nowrap',
-                          }}>
+                            whiteSpace: 'nowrap' }}>
                             {isBuy ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
                             {deal.dealType}
                           </span>

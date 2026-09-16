@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, RefreshCw, ArrowUpRight, ArrowDownRight, X, Download, Info } from 'lucide-react';
+import { Search, RefreshCw, ArrowUpRight, ArrowDownRight, X, Download} from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
 import { TfLoadingState } from './tf-loading-state';
 
@@ -37,7 +37,6 @@ interface InsiderTradingTabProps {
 export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTradingTabProps) {
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'BUY' | 'SELL' | 'PLEDGE'>('ALL');
   const [presetFilter, setPresetFilter] = useState<'ALL' | 'PROMOTER_BUYS' | 'PLEDGES' | 'MARKET_ONLY'>('ALL');
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const transactions = data?.transactions || [];
@@ -106,23 +105,7 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* ── Contextual Methodology Guide ── */}
-      <div className="tf-methodology-card">
-        <div className="tf-methodology-header" onClick={() => setIsGuideOpen(!isGuideOpen)}>
-          <div className="tf-methodology-title">
-            <Info size={14} />
-            <span>Understanding SEBI PIT Insider Trading Disclosures (Skin-in-the-Game Edge)</span>
-          </div>
-          <span className="tf-methodology-toggle">{isGuideOpen ? 'Hide Guide' : 'Show Guide'}</span>
-        </div>
-        {isGuideOpen && (
-          <div className="tf-methodology-body">
-            <p><strong>Regulatory Context:</strong> SEBI (Prohibition of Insider Trading) Regulations mandate disclosure within 2 trading days when promoters, key management, or directors trade &gt; ₹10 Lakh in value.</p>
-            <p><strong>High-Conviction Signals:</strong> Open market purchases by founders and promoters indicate strong conviction in business prospects. Distinguish these from routine employee ESOP allotments.</p>
-            <p><strong>Pledge Watch:</strong> Creation of promoter share pledges can indicate working capital stress, while pledge revocation/release is a major balance-sheet catalyst.</p>
-          </div>
-        )}
-      </div>
+
 
       {/* ── Summary Statistics ── */}
       <div className="tf-kpi-grid-responsive">
@@ -165,7 +148,7 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
 
       {/* ── Search & Filter Controls ── */}
       <div className="tf-filter-card">
-        <div className="tf-filter-row-top">
+        <div className="tf-filter-bar">
           <div className="tf-search-input-wrap">
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
             <input
@@ -173,19 +156,11 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
               placeholder="Search promoter, director, or symbol..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '7px 30px 7px 32px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '12.5px',
-                outline: 'none',
-                color: '#0F172A',
-                background: '#FFFFFF',
-              }}
+              aria-label="Search insider filings"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery('')}
                 style={{
                   position: 'absolute',
@@ -196,8 +171,8 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
                   border: 'none',
                   color: '#94A3B8',
                   cursor: 'pointer',
-                  padding: '2px',
-                }}
+                  padding: '2px' }}
+                aria-label="Clear search"
               >
                 <X size={13} />
               </button>
@@ -208,25 +183,16 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
             {(['ALL', 'BUY', 'SELL', 'PLEDGE'] as const).map((mode) => (
               <button
                 key={mode}
+                type="button"
                 onClick={() => setTypeFilter(mode)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '5px',
-                  border: 'none',
-                  background: typeFilter === mode ? '#FFFFFF' : 'transparent',
-                  color: typeFilter === mode ? '#0F172A' : '#64748B',
-                  fontWeight: 700,
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  boxShadow: typeFilter === mode ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                }}
+                className={typeFilter === mode ? 'is-active' : undefined}
               >
-                {mode === 'ALL' ? 'All Disclosures' : mode === 'BUY' ? 'Insider Buys' : mode === 'SELL' ? 'Insider Sells' : 'Pledges'}
+                {mode === 'ALL' ? 'All' : mode === 'BUY' ? 'Buys' : mode === 'SELL' ? 'Sells' : 'Pledges'}
               </button>
             ))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="tf-filter-actions">
             <button
               type="button"
               onClick={handleExportCsv}
@@ -236,35 +202,22 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
               <Download size={12} />
               <span>Export CSV</span>
             </button>
-
             {onRefresh && (
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isLoading}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  background: '#FFFFFF',
-                  color: '#334155',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                className="tf-refresh-btn"
               >
                 <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
-                Refresh
+                <span className="tf-btn-label">Refresh</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Preset Chips Row */}
         <div className="tf-preset-chips-wrap">
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Presets:</span>
+          <span className="tf-filter-label">Presets</span>
           <button
             type="button"
             onClick={() => setPresetFilter('ALL')}
@@ -277,7 +230,7 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
             onClick={() => setPresetFilter('PROMOTER_BUYS')}
             className={`tf-preset-chip ${presetFilter === 'PROMOTER_BUYS' ? 'tf-preset-chip-active' : ''}`}
           >
-            Promoter Buys Only
+            Promoter Buys
           </button>
           <button
             type="button"
@@ -291,28 +244,22 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
             onClick={() => setPresetFilter('MARKET_ONLY')}
             className={`tf-preset-chip ${presetFilter === 'MARKET_ONLY' ? 'tf-preset-chip-active' : ''}`}
           >
-            Open Market Trades
+            Open Market
           </button>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', color: '#64748B', paddingTop: '2px' }}>
+        <div className="tf-filter-meta">
           <span>
             Showing <strong>{filteredTransactions.length}</strong> of {transactions.length} filings
           </span>
-          {(searchQuery || typeFilter !== 'ALL') && (
+          {(searchQuery || typeFilter !== 'ALL' || presetFilter !== 'ALL') && (
             <button
+              type="button"
+              className="tf-filter-reset"
               onClick={() => {
                 setSearchQuery('');
                 setTypeFilter('ALL');
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#0F766E',
-                cursor: 'pointer',
-                fontWeight: 650,
-                fontSize: '11.5px',
-                padding: 0,
+                setPresetFilter('ALL');
               }}
             >
               Reset Filters
@@ -332,8 +279,7 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
           border: '1px solid #E2E8F0',
           borderRadius: '12px',
           overflow: 'hidden',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
               <thead>
@@ -351,7 +297,9 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
                 {filteredTransactions.length === 0 ? (
                   <tr>
                     <td colSpan={7} style={{ padding: '44px 24px', textAlign: 'center', color: '#94A3B8' }}>
-                      No insider transactions found for the selected filter.
+                      {transactions.length === 0
+                        ? ((data as any)?.message || 'No insider filings available from NSE PIT right now. Try Refresh.')
+                        : 'No filings match the selected filters.'}
                     </td>
                   </tr>
                 ) : (
@@ -377,8 +325,7 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
                             fontWeight: 650,
                             background: '#F1F5F9',
                             color: '#334155',
-                            whiteSpace: 'nowrap',
-                          }}>
+                            whiteSpace: 'nowrap' }}>
                             {tx.personCategory}
                           </span>
                         </td>
@@ -393,8 +340,7 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
                             fontWeight: 750,
                             background: isBuy ? 'rgba(16, 185, 129, 0.12)' : isPledge ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
                             color: isBuy ? '#059669' : isPledge ? '#D97706' : '#DC2626',
-                            whiteSpace: 'nowrap',
-                          }}>
+                            whiteSpace: 'nowrap' }}>
                             {isBuy ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
                             {tx.transactionType}
                           </span>

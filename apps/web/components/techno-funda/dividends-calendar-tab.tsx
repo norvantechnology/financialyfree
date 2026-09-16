@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, RefreshCw, X, Download, Info } from 'lucide-react';
+import { Search, RefreshCw, X, Download} from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
 import { TfLoadingState } from './tf-loading-state';
 
@@ -34,7 +34,6 @@ interface DividendsCalendarTabProps {
 export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCalendarTabProps) {
   const [actionTypeFilter, setActionTypeFilter] = useState<'ALL' | 'Dividend' | 'Bonus Issue' | 'Stock Split'>('ALL');
   const [presetFilter, setPresetFilter] = useState<'ALL' | 'HIGH_YIELD' | 'SPLITS_BONUSES'>('ALL');
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [highYieldOnly, setHighYieldOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -95,23 +94,7 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* ── Contextual Methodology Guide ── */}
-      <div className="tf-methodology-card">
-        <div className="tf-methodology-header" onClick={() => setIsGuideOpen(!isGuideOpen)}>
-          <div className="tf-methodology-title">
-            <Info size={14} />
-            <span>Ex-Date vs Record Date &amp; Corporate Action Mechanics</span>
-          </div>
-          <span className="tf-methodology-toggle">{isGuideOpen ? 'Hide Guide' : 'Show Guide'}</span>
-        </div>
-        {isGuideOpen && (
-          <div className="tf-methodology-body">
-            <p><strong>T+1 Settlement &amp; Ex-Date:</strong> Under Indian T+1 rolling settlement, you must purchase the share at least one trading day BEFORE the Ex-Date to be eligible for dividends, bonus shares, or stock splits.</p>
-            <p><strong>Ex-Date Price Adjustment:</strong> On the morning of the Ex-Date, the exchange automatically adjusts the opening price downward by the exact dividend per share amount.</p>
-            <p><strong>Yield Traps:</strong> Very high dividend yields (&gt;8%) are often one-off special dividends from asset divestments or PSU dividend spikes. Verify recurring operational payout ratios.</p>
-          </div>
-        )}
-      </div>
+
 
       {/* ── Summary Statistics ── */}
       <div className="tf-kpi-grid-responsive">
@@ -154,7 +137,7 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
 
       {/* ── Search & Filter Controls ── */}
       <div className="tf-filter-card">
-        <div className="tf-filter-row-top">
+        <div className="tf-filter-bar">
           <div className="tf-search-input-wrap">
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
             <input
@@ -162,16 +145,7 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
               placeholder="Search company, symbol, or details..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '7px 30px 7px 32px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '12.5px',
-                outline: 'none',
-                color: '#0F172A',
-                background: '#FFFFFF',
-              }}
+              
             />
             {searchQuery && (
               <button
@@ -185,8 +159,7 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
                   border: 'none',
                   color: '#94A3B8',
                   cursor: 'pointer',
-                  padding: '2px',
-                }}
+                  padding: '2px' }}
               >
                 <X size={13} />
               </button>
@@ -207,15 +180,14 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
                   fontWeight: 700,
                   fontSize: '12px',
                   cursor: 'pointer',
-                  boxShadow: actionTypeFilter === type ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                }}
+                  boxShadow: actionTypeFilter === type ? '0 1px 3px rgba(0,0,0,0.06)' : 'none' }}
               >
                 {type === 'ALL' ? 'All Actions' : type}
               </button>
             ))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="tf-filter-actions">
             <button
               type="button"
               onClick={handleExportCsv}
@@ -228,24 +200,13 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
 
             {onRefresh && (
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isLoading}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  background: '#FFFFFF',
-                  color: '#334155',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                className="tf-refresh-btn"
               >
                 <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
-                Refresh
+                <span className="tf-btn-label">Refresh</span>
               </button>
             )}
           </div>
@@ -253,7 +214,7 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
 
         {/* Preset Chips Row */}
         <div className="tf-preset-chips-wrap">
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Presets:</span>
+          <span className="tf-filter-label">Presets</span>
           <button
             type="button"
             onClick={() => setPresetFilter('ALL')}
@@ -310,8 +271,7 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
                   cursor: 'pointer',
                   fontWeight: 650,
                   fontSize: '11.5px',
-                  padding: 0,
-                }}
+                  padding: 0 }}
               >
                 Reset Filters
               </button>
@@ -331,8 +291,7 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
           border: '1px solid #E2E8F0',
           borderRadius: '12px',
           overflow: 'hidden',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
               <thead>
@@ -373,8 +332,7 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
                             background: isDividend ? '#DCFCE7' : isBonus ? '#EEF2FF' : '#FEF3C7',
                             color: isDividend ? '#15803D' : isBonus ? '#4338CA' : '#B45309',
                             border: isDividend ? '1px solid #86EFAC' : isBonus ? '1px solid #C7D2FE' : '1px solid #FDE68A',
-                            whiteSpace: 'nowrap',
-                          }}>
+                            whiteSpace: 'nowrap' }}>
                             {act.actionType}
                           </span>
                         </td>

@@ -6,7 +6,6 @@ import {
   ArrowDownRight,
   RefreshCw,
   Download,
-  Info,
   Compass,
   LayoutGrid,
   Table as TableIcon,
@@ -77,7 +76,6 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
   const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M'>('1M');
   const [quadrantFilter, setQuadrantFilter] = useState<'ALL' | 'Leading' | 'Weakening' | 'Lagging' | 'Improving'>('ALL');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   const rawSectors = data?.sectors || [];
 
@@ -97,8 +95,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
         return1W: ret1W,
         return1M: ret1M,
         quadrant,
-        compositeScore: s.compositeScore ?? (Math.round((0.2 * (s.rs1D || 0) + 0.3 * (s.rs1W || 0) + 0.5 * (s.rs1M || 0)) * 100) / 100),
-      };
+        compositeScore: s.compositeScore ?? (Math.round((0.2 * (s.rs1D || 0) + 0.3 * (s.rs1W || 0) + 0.5 * (s.rs1M || 0)) * 100) / 100) };
     });
   }, [rawSectors]);
 
@@ -114,8 +111,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
     currentPrice: 0,
     return1D: 0,
     return1W: 0,
-    return1M: 0,
-  };
+    return1M: 0 };
 
   const handleExportCsv = () => {
     const headers = [
@@ -200,8 +196,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '16px',
-          boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)',
-        }}
+          boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
@@ -213,8 +208,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
               color: '#FFFFFF',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-            }}
+              justifyContent: 'center' }}
           >
             <Compass size={22} />
           </div>
@@ -261,108 +255,51 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
         </div>
       </div>
 
-      {/* ── Contextual Methodology Guide ── */}
-      <div className="tf-methodology-card">
-        <div className="tf-methodology-header" onClick={() => setIsGuideOpen(!isGuideOpen)}>
-          <div className="tf-methodology-title">
-            <Info size={14} />
-            <span>Relative Rotation Graph (RRG) &amp; Multi-Timeframe Relative Strength Mechanics</span>
-          </div>
-          <span className="tf-methodology-toggle">{isGuideOpen ? 'Hide Guide' : 'Show Guide'}</span>
-        </div>
-        {isGuideOpen && (
-          <div className="tf-methodology-body">
-            <p>
-              <strong>Relative Strength Formula:</strong> Relative Strength is computed as Sector Return minus NIFTY 50 Benchmark Return across 1-Day, 1-Week (5 trading sessions), and 1-Month (21 trading sessions).
-            </p>
-            <p>
-              <strong>RRG 4 Quadrants:</strong>
-              <br />• <strong>Leading (Green):</strong> Positive 1M relative strength with positive 1W momentum (RS(1M) &gt; 0 &amp; RS(1W) &ge; 0). Strongest institutional tailwind.
-              <br />• <strong>Weakening (Amber):</strong> Positive intermediate 1M return, but short-term momentum is slowing down (RS(1M) &gt; 0 &amp; RS(1W) &lt; 0).
-              <br />• <strong>Lagging (Red):</strong> Sustained underperformance across both intermediate and short-term horizons (RS(1M) &le; 0 &amp; RS(1W) &lt; 0).
-              <br />• <strong>Improving (Cyan):</strong> Intermediate lagging sector displaying nascent short-term rebound momentum (RS(1M) &le; 0 &amp; RS(1W) &ge; 0).
-            </p>
-          </div>
-        )}
-      </div>
 
       {/* ── Header Controls & Quadrant Filters ── */}
       <div className="tf-filter-card">
-        <div className="tf-filter-row-top">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', flex: 1 }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Timeframe:
-            </span>
+        <div className="tf-filter-bar">
+          <div className="tf-filter-group">
+            <span className="tf-filter-label">Timeframe</span>
             <div className="tf-segmented-pills">
               {(['1D', '1W', '1M'] as const).map((tf) => (
                 <button
                   key={tf}
+                  type="button"
                   onClick={() => setTimeframe(tf)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '5px',
-                    border: 'none',
-                    background: timeframe === tf ? '#0F172A' : 'transparent',
-                    color: timeframe === tf ? '#FFFFFF' : '#64748B',
-                    fontWeight: 700,
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    boxShadow: timeframe === tf ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                  }}
+                  className={timeframe === tf ? 'is-active' : undefined}
+                  style={
+                    timeframe === tf
+                      ? { background: '#0F172A', color: '#FFFFFF', boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }
+                      : undefined
+                  }
                 >
                   {tf}
                 </button>
               ))}
             </div>
-
-            {/* View Mode Toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#F1F5F9', padding: '2px', borderRadius: '6px' }}>
-              <button
-                type="button"
-                onClick={() => setViewMode('grid')}
-                style={{
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  border: 'none',
-                  background: viewMode === 'grid' ? '#FFFFFF' : 'transparent',
-                  color: viewMode === 'grid' ? '#0F172A' : '#64748B',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '11.5px',
-                  fontWeight: 650,
-                  boxShadow: viewMode === 'grid' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-                }}
-              >
-                <LayoutGrid size={13} />
-                <span>Heatmap</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('table')}
-                style={{
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  border: 'none',
-                  background: viewMode === 'table' ? '#FFFFFF' : 'transparent',
-                  color: viewMode === 'table' ? '#0F172A' : '#64748B',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '11.5px',
-                  fontWeight: 650,
-                  boxShadow: viewMode === 'table' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-                }}
-              >
-                <TableIcon size={13} />
-                <span>RRG Table</span>
-              </button>
-            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="tf-segmented-pills">
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={viewMode === 'grid' ? 'is-active' : undefined}
+            >
+              <LayoutGrid size={13} />
+              <span>Heatmap</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={viewMode === 'table' ? 'is-active' : undefined}
+            >
+              <TableIcon size={13} />
+              <span>RRG Table</span>
+            </button>
+          </div>
+
+          <div className="tf-filter-actions">
             <button
               type="button"
               onClick={handleExportCsv}
@@ -375,46 +312,32 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
 
             {onRefresh && (
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isLoading}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  background: '#FFFFFF',
-                  color: '#334155',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                className="tf-refresh-btn"
               >
                 <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
-                Refresh
+                <span className="tf-btn-label">Refresh</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Quadrant Filter Pills */}
-        <div className="tf-preset-chips-wrap" style={{ marginTop: '8px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
-            Quadrants:
-          </span>
+        <div className="tf-preset-chips-wrap">
+          <span className="tf-filter-label">Quadrants</span>
           <button
             type="button"
             onClick={() => setQuadrantFilter('ALL')}
             className={`tf-preset-chip ${quadrantFilter === 'ALL' ? 'tf-preset-chip-active' : ''}`}
           >
-            All Sectors ({sectors.length})
+            All ({sectors.length})
           </button>
           <button
             type="button"
             onClick={() => setQuadrantFilter('Leading')}
             className={`tf-preset-chip ${quadrantFilter === 'Leading' ? 'tf-preset-chip-active' : ''}`}
-            style={{ color: quadrantFilter === 'Leading' ? '#FFFFFF' : '#15803D' }}
+            style={{ color: quadrantFilter === 'Leading' ? undefined : '#15803D' }}
           >
             Leading ({sectors.filter((s) => s.quadrant === 'Leading').length})
           </button>
@@ -422,7 +345,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
             type="button"
             onClick={() => setQuadrantFilter('Improving')}
             className={`tf-preset-chip ${quadrantFilter === 'Improving' ? 'tf-preset-chip-active' : ''}`}
-            style={{ color: quadrantFilter === 'Improving' ? '#FFFFFF' : '#0369A1' }}
+            style={{ color: quadrantFilter === 'Improving' ? undefined : '#0369A1' }}
           >
             Improving ({sectors.filter((s) => s.quadrant === 'Improving').length})
           </button>
@@ -430,7 +353,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
             type="button"
             onClick={() => setQuadrantFilter('Weakening')}
             className={`tf-preset-chip ${quadrantFilter === 'Weakening' ? 'tf-preset-chip-active' : ''}`}
-            style={{ color: quadrantFilter === 'Weakening' ? '#FFFFFF' : '#B45309' }}
+            style={{ color: quadrantFilter === 'Weakening' ? undefined : '#B45309' }}
           >
             Weakening ({sectors.filter((s) => s.quadrant === 'Weakening').length})
           </button>
@@ -438,7 +361,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
             type="button"
             onClick={() => setQuadrantFilter('Lagging')}
             className={`tf-preset-chip ${quadrantFilter === 'Lagging' ? 'tf-preset-chip-active' : ''}`}
-            style={{ color: quadrantFilter === 'Lagging' ? '#FFFFFF' : '#B91C1C' }}
+            style={{ color: quadrantFilter === 'Lagging' ? undefined : '#B91C1C' }}
           >
             Lagging ({sectors.filter((s) => s.quadrant === 'Lagging').length})
           </button>
@@ -451,8 +374,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
-            gap: '14px',
-          }}
+            gap: '14px' }}
         >
           {filteredSectors.map((sector) => {
             const changeVal =
@@ -471,8 +393,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '10px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-                }}
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
               >
                 {/* Header: Name & Rotation Badge */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
@@ -501,8 +422,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
                       background: rot.bg,
                       color: rot.text,
                       border: `1px solid ${rot.border}`,
-                      whiteSpace: 'nowrap',
-                    }}
+                      whiteSpace: 'nowrap' }}
                   >
                     {sector.quadrant}
                   </span>
@@ -521,8 +441,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
                         gap: '2px',
                         fontSize: '15px',
                         fontWeight: 800,
-                        color: isUp ? '#059669' : '#DC2626',
-                      }}
+                        color: isUp ? '#059669' : '#DC2626' }}
                     >
                       {isUp ? <ArrowUpRight size={15} /> : <ArrowDownRight size={15} />}
                       {isUp ? `+${changeVal.toFixed(2)}%` : `${changeVal.toFixed(2)}%`}
@@ -540,8 +459,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
                     gridTemplateColumns: 'repeat(3, 1fr)',
                     gap: '6px',
                     paddingTop: '8px',
-                    borderTop: '1px solid rgba(0,0,0,0.06)',
-                  }}
+                    borderTop: '1px solid rgba(0,0,0,0.06)' }}
                 >
                   <div style={{ background: 'rgba(255, 255, 255, 0.7)', padding: '4px 6px', borderRadius: '6px', textAlign: 'center' }}>
                     <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>RS 1D</div>
@@ -571,8 +489,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
                     alignItems: 'center',
                     fontSize: '11px',
                     color: '#64748B',
-                    paddingTop: '4px',
-                  }}
+                    paddingTop: '4px' }}
                 >
                   <span>Composite RS Score:</span>
                   <strong style={{ color: (sector.compositeScore || 0) >= 0 ? '#059669' : '#DC2626', fontSize: '12px' }}>
@@ -641,8 +558,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
                           borderRadius: '4px',
                           background: rot.bg,
                           color: rot.text,
-                          border: `1px solid ${rot.border}`,
-                        }}
+                          border: `1px solid ${rot.border}` }}
                       >
                         {sec.quadrant}
                       </span>

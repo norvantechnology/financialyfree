@@ -439,9 +439,6 @@ export function MasterTrackerTab({
               <span style={{ fontSize: '9.5px', fontWeight: 700, background: '#E2E8F0', color: '#475569', padding: '1px 3px', borderRadius: '3px', letterSpacing: '0.02em' }}>1D</span>
             </span>
           </div>
-          <p className="tf-kpi-desc tf-desktop-only">
-            High-conviction growth compounders
-          </p>
         </div>
 
         {/* Card 2: Day Gainers (live quote field — always available) */}
@@ -470,9 +467,6 @@ export function MasterTrackerTab({
               {summaryStats.total > 0 ? Math.round((summaryStats.gainersCount / summaryStats.total) * 100) : 0}% of list
             </span>
           </div>
-          <p className="tf-kpi-desc tf-desktop-only">
-            Positive day change from live quotes
-          </p>
         </div>
 
         {/* Card 3: Near 52W High */}
@@ -501,9 +495,6 @@ export function MasterTrackerTab({
               Breakout Zone
             </span>
           </div>
-          <p className="tf-kpi-desc tf-desktop-only">
-            Within 12% of 52-week peak
-          </p>
         </div>
       </div>
 
@@ -769,9 +760,6 @@ export function MasterTrackerTab({
           <div className="mt-results-meta">
             <span>
               {sortedFilteredStocks.length} of {stocks.length} stocks
-            </span>
-            <span className="tf-mobile-only" style={{ fontWeight: 500, color: '#94A3B8' }}>
-              Expand cards for catalysts &amp; quarters
             </span>
           </div>
 

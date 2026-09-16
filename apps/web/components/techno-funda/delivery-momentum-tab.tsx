@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, RefreshCw, X, Download, Info } from 'lucide-react';
+import { Search, RefreshCw, X, Download} from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
 import { TfLoadingState } from './tf-loading-state';
 
@@ -35,7 +35,6 @@ interface DeliveryMomentumTabProps {
 export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMomentumTabProps) {
   const [minDeliveryPct, setMinDeliveryPct] = useState<number>(0);
   const [presetFilter, setPresetFilter] = useState<'ALL' | 'HIGH_DELIVERY_70' | 'NEAR_52W_HIGH'>('ALL');
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const stocks = data?.stocks || [];
@@ -95,62 +94,11 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* ── Contextual Methodology Guide ── */}
-      <div className="tf-methodology-card">
-        <div className="tf-methodology-header" onClick={() => setIsGuideOpen(!isGuideOpen)}>
-          <div className="tf-methodology-title">
-            <Info size={14} />
-            <span>High Delivery Volume Accumulation (Smart Money Footprint)</span>
-          </div>
-          <span className="tf-methodology-toggle">{isGuideOpen ? 'Hide Guide' : 'Show Guide'}</span>
-        </div>
-        {isGuideOpen && (
-          <div className="tf-methodology-body">
-            <p><strong>Delivery % vs Intraday Churn:</strong> High delivery percentage (&gt;65%) indicates actual physical transfer of shares to Demat accounts rather than intraday noise/scalping.</p>
-            <p><strong>Volume Spike Ratio:</strong> Ratio &ge; 2.0x vs 30-day average delivery confirms institutional accumulation pockets before major fundamental expansions or quarterly results.</p>
-            <p><strong>Breakout Conviction:</strong> When a stock approaches 52-week highs (&lt;5% away) coupled with delivery &gt;70%, it signals strong institutional backing for the breakout.</p>
-          </div>
-        )}
-      </div>
 
-      {/* ── Educational Explainer Banner ── */}
-      <div style={{
-        background: '#FFFFFF',
-        border: '1px solid #E2E8F0',
-        borderRadius: '12px',
-        padding: '16px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{
-            fontSize: '10.5px',
-            fontWeight: 800,
-            background: '#EEF2FF',
-            color: '#4338CA',
-            padding: '2px 7px',
-            borderRadius: '4px',
-            border: '1px solid #C7D2FE',
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-            whiteSpace: 'nowrap',
-          }}>
-            Institutional Delivery Radar
-          </span>
-          <h4 style={{ fontSize: '13.5px', fontWeight: 750, color: '#0F172A', margin: 0 }}>
-            High Delivery % Momentum Filter
-          </h4>
-        </div>
-        <p style={{ fontSize: '12px', color: '#475569', margin: 0, lineHeight: 1.5 }}>
-          Filters for stocks trading within 5% of their 52-Week High where <strong>delivery volume exceeds 50–70%</strong>. This separates genuine long-term institutional accumulation (investors taking physical custody into Demat accounts) from speculative intraday churn.
-        </p>
-      </div>
 
       {/* ── Filter & Search Controls ── */}
       <div className="tf-filter-card">
-        <div className="tf-filter-row-top">
+        <div className="tf-filter-bar">
           <div className="tf-search-input-wrap">
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
             <input
@@ -158,19 +106,11 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
               placeholder="Search symbol, company, or sector..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '7px 30px 7px 32px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '12.5px',
-                outline: 'none',
-                color: '#0F172A',
-                background: '#FFFFFF',
-              }}
+              aria-label="Search delivery stocks"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery('')}
                 style={{
                   position: 'absolute',
@@ -183,33 +123,27 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
                   cursor: 'pointer',
                   padding: '2px',
                 }}
+                aria-label="Clear search"
               >
                 <X size={13} />
               </button>
             )}
           </div>
 
-          {/* Min Delivery Threshold */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Min Delivery:
-            </span>
+          <div className="tf-filter-group">
+            <span className="tf-filter-label">Min delivery</span>
             <div className="tf-segmented-pills">
               {[0, 50, 60, 65, 70].map((pct) => (
                 <button
                   key={pct}
+                  type="button"
                   onClick={() => setMinDeliveryPct(pct)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '5px',
-                    border: 'none',
-                    background: minDeliveryPct === pct ? '#0F172A' : 'transparent',
-                    color: minDeliveryPct === pct ? '#FFFFFF' : '#64748B',
-                    fontWeight: 700,
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    boxShadow: minDeliveryPct === pct ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                  }}
+                  className={minDeliveryPct === pct ? 'is-active' : undefined}
+                  style={
+                    minDeliveryPct === pct
+                      ? { background: '#0F172A', color: '#FFFFFF', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+                      : undefined
+                  }
                 >
                   {pct === 0 ? 'All' : <>&ge;{pct}%</>}
                 </button>
@@ -217,7 +151,7 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="tf-filter-actions">
             <button
               type="button"
               onClick={handleExportCsv}
@@ -230,32 +164,20 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
 
             {onRefresh && (
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isLoading}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  background: '#FFFFFF',
-                  color: '#334155',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                className="tf-refresh-btn"
               >
                 <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
-                Refresh
+                <span className="tf-btn-label">Refresh</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Preset Chips Row */}
         <div className="tf-preset-chips-wrap">
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Presets:</span>
+          <span className="tf-filter-label">Presets</span>
           <button
             type="button"
             onClick={() => setPresetFilter('ALL')}
@@ -268,7 +190,7 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
             onClick={() => setPresetFilter('HIGH_DELIVERY_70')}
             className={`tf-preset-chip ${presetFilter === 'HIGH_DELIVERY_70' ? 'tf-preset-chip-active' : ''}`}
           >
-            Ultra High Delivery (&ge;70%)
+            Ultra High (&ge;70%)
           </button>
           <button
             type="button"
@@ -279,25 +201,17 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
           </button>
         </div>
 
-        {/* Counter */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', color: '#64748B', paddingTop: '2px' }}>
+        <div className="tf-filter-meta">
           <span>
             Showing <strong>{filteredStocks.length}</strong> of {stocks.length} high-delivery stocks
           </span>
           {(searchQuery || minDeliveryPct !== 0) && (
             <button
+              type="button"
+              className="tf-filter-reset"
               onClick={() => {
                 setSearchQuery('');
                 setMinDeliveryPct(60);
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#0F766E',
-                cursor: 'pointer',
-                fontWeight: 650,
-                fontSize: '11.5px',
-                padding: 0,
               }}
             >
               Reset Filters
@@ -317,8 +231,7 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
           border: '1px solid #E2E8F0',
           borderRadius: '12px',
           overflow: 'hidden',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
               <thead>
@@ -388,8 +301,7 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
                             background: (stock.verdict || '').includes('Breakout') ? '#DCFCE7' : '#EEF2FF',
                             color: (stock.verdict || '').includes('Breakout') ? '#15803D' : '#4338CA',
                             border: (stock.verdict || '').includes('Breakout') ? '1px solid #86EFAC' : '1px solid #C7D2FE',
-                            whiteSpace: 'nowrap',
-                          }}>
+                            whiteSpace: 'nowrap' }}>
                             {stock.verdict || 'Live'}
                           </span>
                         </td>

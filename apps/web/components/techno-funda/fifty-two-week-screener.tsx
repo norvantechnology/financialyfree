@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp, TrendingDown, Search, RefreshCw, ArrowUpRight, ArrowDownRight, X, Download, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, Search, RefreshCw, ArrowUpRight, ArrowDownRight, X, Download} from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
 import { TfLoadingState } from './tf-loading-state';
 
@@ -40,7 +40,6 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
   const [selectedSector, setSelectedSector] = useState('ALL');
   const [proximityFilter, setProximityFilter] = useState<'ALL' | 'WITHIN_2' | 'WITHIN_5'>('ALL');
   const [presetFilter, setPresetFilter] = useState<'ALL' | 'NEAR_ATH' | 'FRESH_BREAKOUT' | 'HEAVY_VOLUME'>('ALL');
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   const items = activeSubTab === 'highs' ? data?.highs || [] : data?.lows || [];
 
@@ -131,22 +130,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* ── Contextual Methodology Guide ── */}
-      <div className="tf-methodology-card">
-        <div className="tf-methodology-header" onClick={() => setIsGuideOpen(!isGuideOpen)}>
-          <div className="tf-methodology-title">
-            <Info size={14} />
-            <span>How to Trade 52-Week Highs &amp; Lows (Minervini / Weinstein Momentum Edge)</span>
-          </div>
-          <span className="tf-methodology-toggle">{isGuideOpen ? 'Hide Guide' : 'Show Guide'}</span>
-        </div>
-        {isGuideOpen && (
-          <div className="tf-methodology-body">
-            <p><strong>Stage 2 Breakout Edge:</strong> Equities breaking out to fresh 52-week highs with heavy institutional volume historically experience multi-week momentum drift. Look for stocks within 2% of highs with volume above 500k.</p>
-            <p><strong>Breakdown Risk:</strong> Equities making new 52-week lows tend to remain in persistent downtrends (Stage 4 decline). Avoid bottom-fishing until accumulation patterns confirm a base.</p>
-          </div>
-        )}
-      </div>
+
 
       {/* ── Top Header Metrics Summary ── */}
       <div className="tf-kpi-grid-responsive">
@@ -162,8 +146,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
             alignItems: 'center',
             cursor: 'pointer',
             boxShadow: activeSubTab === 'highs' ? '0 4px 14px rgba(16, 185, 129, 0.15)' : 'none',
-            transition: 'all 0.15s ease',
-          }}
+            transition: 'all 0.15s ease' }}
         >
           <div>
             <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -185,8 +168,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
             alignItems: 'center',
             justifyContent: 'center',
             color: '#059669',
-            flexShrink: 0,
-          }}>
+            flexShrink: 0 }}>
             <TrendingUp size={20} />
           </div>
         </div>
@@ -203,8 +185,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
             alignItems: 'center',
             cursor: 'pointer',
             boxShadow: activeSubTab === 'lows' ? '0 4px 14px rgba(239, 68, 68, 0.15)' : 'none',
-            transition: 'all 0.15s ease',
-          }}
+            transition: 'all 0.15s ease' }}
         >
           <div>
             <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -226,8 +207,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
             alignItems: 'center',
             justifyContent: 'center',
             color: '#DC2626',
-            flexShrink: 0,
-          }}>
+            flexShrink: 0 }}>
             <TrendingDown size={20} />
           </div>
         </div>
@@ -235,46 +215,35 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
 
       {/* ── Filters & Controls Tray ── */}
       <div className="tf-filter-card">
-        {/* Row 1: Sub-Tabs + Presets + Actions */}
-        <div className="tf-filter-row-top">
+        <div className="tf-filter-bar">
           <div className="tf-segmented-pills">
             <button
+              type="button"
               onClick={() => setActiveSubTab('highs')}
-              style={{
-                padding: '7px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                fontSize: '12.5px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                background: activeSubTab === 'highs' ? '#FFFFFF' : 'transparent',
-                color: activeSubTab === 'highs' ? '#059669' : '#64748B',
-                boxShadow: activeSubTab === 'highs' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
+              className={activeSubTab === 'highs' ? 'is-active' : undefined}
+              style={
+                activeSubTab === 'highs'
+                  ? { color: '#059669', background: '#FFFFFF', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+                  : undefined
+              }
             >
               52W Highs ({data?.totalHighs ?? 0})
             </button>
             <button
+              type="button"
               onClick={() => setActiveSubTab('lows')}
-              style={{
-                padding: '7px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                fontSize: '12.5px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                background: activeSubTab === 'lows' ? '#FFFFFF' : 'transparent',
-                color: activeSubTab === 'lows' ? '#DC2626' : '#64748B',
-                boxShadow: activeSubTab === 'lows' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
+              className={activeSubTab === 'lows' ? 'is-active' : undefined}
+              style={
+                activeSubTab === 'lows'
+                  ? { color: '#DC2626', background: '#FFFFFF', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+                  : undefined
+              }
             >
               52W Lows ({data?.totalLows ?? 0})
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="tf-filter-actions">
             <button
               type="button"
               onClick={handleExportCsv}
@@ -287,32 +256,20 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
 
             {onRefresh && (
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isLoading}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  background: '#FFFFFF',
-                  color: '#334155',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                className="tf-refresh-btn"
               >
                 <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
-                Refresh
+                <span className="tf-btn-label">Refresh</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Preset Chips Row */}
         <div className="tf-preset-chips-wrap">
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Presets:</span>
+          <span className="tf-filter-label">Presets</span>
           <button
             type="button"
             onClick={() => setPresetFilter('ALL')}
@@ -343,9 +300,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
           </button>
         </div>
 
-        {/* Row 2: Search, Sector Select, and Proximity Toggle */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-          {/* Search Box with Clear X */}
+        <div className="tf-filter-bar">
           <div className="tf-search-input-wrap">
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
             <input
@@ -353,19 +308,11 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
               placeholder="Search symbol or company..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '7px 30px 7px 32px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '12.5px',
-                outline: 'none',
-                color: '#0F172A',
-                background: '#FFFFFF',
-              }}
+              aria-label="Search 52W stocks"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery('')}
                 style={{
                   position: 'absolute',
@@ -376,110 +323,79 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
                   border: 'none',
                   color: '#94A3B8',
                   cursor: 'pointer',
-                  padding: '2px',
-                }}
+                  padding: '2px' }}
+                aria-label="Clear search"
               >
                 <X size={13} />
               </button>
             )}
           </div>
 
-          {/* Sector & Proximity controls in 2-col or inline */}
-          <div className="tf-mobile-2col-grid" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <select
-              value={selectedSector}
-              onChange={(e) => setSelectedSector(e.target.value)}
-              aria-label="Filter by sector"
-              style={{
-                padding: '7px 12px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '12px',
-                fontWeight: 550,
-                background: '#FFFFFF',
-                color: '#334155',
-                outline: 'none',
-                cursor: 'pointer',
-                minWidth: '130px',
-              }}
-            >
-              {sectors.map((sec) => (
-                <option key={sec} value={sec}>
-                  {sec === 'ALL' ? 'All Sectors' : sec}
-                </option>
-              ))}
-            </select>
+          <select
+            value={selectedSector}
+            onChange={(e) => setSelectedSector(e.target.value)}
+            aria-label="Filter by sector"
+            className="tf-filter-select"
+          >
+            {sectors.map((sec) => (
+              <option key={sec} value={sec}>
+                {sec === 'ALL' ? 'All Sectors' : sec}
+              </option>
+            ))}
+          </select>
 
-            <div style={{ display: 'flex', gap: '3px', background: '#F8FAFC', padding: '2px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-              <button
-                onClick={() => setProximityFilter('ALL')}
-                style={{
-                  padding: '5px 10px',
-                  fontSize: '11.5px',
-                  borderRadius: '4px',
-                  border: 'none',
-                  background: proximityFilter === 'ALL' ? '#0F172A' : 'transparent',
-                  color: proximityFilter === 'ALL' ? '#FFFFFF' : '#64748B',
-                  cursor: 'pointer',
-                  fontWeight: 650,
-                }}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setProximityFilter('WITHIN_2')}
-                style={{
-                  padding: '5px 9px',
-                  fontSize: '11.5px',
-                  borderRadius: '4px',
-                  border: 'none',
-                  background: proximityFilter === 'WITHIN_2' ? '#0F172A' : 'transparent',
-                  color: proximityFilter === 'WITHIN_2' ? '#FFFFFF' : '#64748B',
-                  cursor: 'pointer',
-                  fontWeight: 650,
-                }}
-              >
-                Within 2%
-              </button>
-              <button
-                onClick={() => setProximityFilter('WITHIN_5')}
-                style={{
-                  padding: '5px 9px',
-                  fontSize: '11.5px',
-                  borderRadius: '4px',
-                  border: 'none',
-                  background: proximityFilter === 'WITHIN_5' ? '#0F172A' : 'transparent',
-                  color: proximityFilter === 'WITHIN_5' ? '#FFFFFF' : '#64748B',
-                  cursor: 'pointer',
-                  fontWeight: 650,
-                }}
-              >
-                Within 5%
-              </button>
-            </div>
+          <div className="tf-segmented-pills">
+            <button
+              type="button"
+              onClick={() => setProximityFilter('ALL')}
+              className={proximityFilter === 'ALL' ? 'is-active' : undefined}
+              style={
+                proximityFilter === 'ALL'
+                  ? { background: '#0F172A', color: '#FFFFFF' }
+                  : undefined
+              }
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setProximityFilter('WITHIN_2')}
+              className={proximityFilter === 'WITHIN_2' ? 'is-active' : undefined}
+              style={
+                proximityFilter === 'WITHIN_2'
+                  ? { background: '#0F172A', color: '#FFFFFF' }
+                  : undefined
+              }
+            >
+              Within 2%
+            </button>
+            <button
+              type="button"
+              onClick={() => setProximityFilter('WITHIN_5')}
+              className={proximityFilter === 'WITHIN_5' ? 'is-active' : undefined}
+              style={
+                proximityFilter === 'WITHIN_5'
+                  ? { background: '#0F172A', color: '#FFFFFF' }
+                  : undefined
+              }
+            >
+              Within 5%
+            </button>
           </div>
         </div>
 
-        {/* Results Counter Sub-Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', color: '#64748B', paddingTop: '2px' }}>
+        <div className="tf-filter-meta">
           <span>
             Showing <strong>{filteredItems.length}</strong> of {items.length} stocks
           </span>
           {(searchQuery || selectedSector !== 'ALL' || proximityFilter !== 'ALL') && (
             <button
+              type="button"
+              className="tf-filter-reset"
               onClick={() => {
                 setSearchQuery('');
                 setSelectedSector('ALL');
                 setProximityFilter('ALL');
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#0F766E',
-                cursor: 'pointer',
-                fontWeight: 650,
-                fontSize: '11.5px',
-                padding: 0,
               }}
             >
               Reset Filters
@@ -499,8 +415,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
           border: '1px solid #E2E8F0',
           borderRadius: '12px',
           overflow: 'hidden',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
               <thead>
@@ -580,8 +495,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
                             background: dist !== undefined && dist <= 2 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(241, 245, 249, 0.8)',
                             color: dist !== undefined && dist <= 2 ? '#059669' : '#334155',
                             fontSize: '11.5px',
-                            whiteSpace: 'nowrap',
-                          }}>
+                            whiteSpace: 'nowrap' }}>
                             {dist !== undefined ? `${dist.toFixed(2)}%` : '-'}
                           </span>
                         </td>
@@ -596,8 +510,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
                               borderRadius: '5px',
                               fontSize: '11px',
                               fontWeight: 700,
-                              border: stock.isNewAllTimeHigh ? '1px solid #86EFAC' : '1px solid #E2E8F0',
-                            }}>
+                              border: stock.isNewAllTimeHigh ? '1px solid #86EFAC' : '1px solid #E2E8F0' }}>
                               {stock.isNewAllTimeHigh ? 'Fresh ATH' : '52W High'}
                             </span>
                           ) : (
@@ -610,8 +523,7 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
                               borderRadius: '5px',
                               fontSize: '11px',
                               fontWeight: 700,
-                              border: '1px solid #FECACA',
-                            }}>
+                              border: '1px solid #FECACA' }}>
                               52W Low
                             </span>
                           )}

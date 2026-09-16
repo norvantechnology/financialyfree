@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { RefreshCw, ArrowUpRight, ArrowDownRight, Download, Info } from 'lucide-react';
+import { RefreshCw, ArrowUpRight, ArrowDownRight, Download} from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
 import { TfLoadingState } from './tf-loading-state';
 
@@ -52,7 +52,6 @@ interface FnoAnalyticsTabProps {
 
 export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabProps) {
   const [selectedIndex, setSelectedIndex] = useState<'NIFTY' | 'BANKNIFTY'>('NIFTY');
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   const currentIndex = data?.indices.find((i) => i.symbol === selectedIndex) || data?.indices[0];
 
@@ -84,74 +83,42 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* ── Contextual Options & PCR Methodology Guide ── */}
-      <div className="tf-methodology-card">
-        <div className="tf-methodology-header" onClick={() => setIsGuideOpen(!isGuideOpen)}>
-          <div className="tf-methodology-title">
-            <Info size={14} />
-            <span>Options Sentiment &amp; Derivatives Edge Guide</span>
-          </div>
-          <span className="tf-methodology-toggle">{isGuideOpen ? 'Hide Guide' : 'Show Guide'}</span>
-        </div>
-        {isGuideOpen && (
-          <div className="tf-methodology-body">
-            <p><strong>Put-Call Ratio (PCR):</strong> PCR &gt; 1.15 indicates heavy Put writing (bullish market floor). PCR &lt; 0.75 signals heavy Call writing overhead (bearish supply ceiling).</p>
-            <p><strong>Max Pain Strike:</strong> The strike price at which option buyers lose the maximum premium at expiry, acting as a gravitational price magnet.</p>
-            <p><strong>Derivative Signals:</strong> <em>Long Buildup</em> = Price &uarr; + OI &uarr; (Fresh Accumulation). <em>Short Covering</em> = Price &uarr; + OI &darr; (Bear Capitulation). <em>Short Buildup</em> = Price &darr; + OI &uarr; (Bearish Pressure).</p>
-          </div>
-        )}
-      </div>
+
 
       {/* ── Top Index Selector & Refresh Bar ── */}
-      <div className="tf-filter-card" style={{ padding: '12px 16px' }}>
-        <div className="tf-filter-row-top">
+      <div className="tf-filter-card">
+        <div className="tf-filter-bar">
           <div className="tf-segmented-pills">
             {(['NIFTY', 'BANKNIFTY'] as const).map((idx) => (
               <button
                 key={idx}
+                type="button"
                 onClick={() => setSelectedIndex(idx)}
-                style={{
-                  padding: '7px 18px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  background: selectedIndex === idx ? '#0F172A' : 'transparent',
-                  color: selectedIndex === idx ? '#FFFFFF' : '#64748B',
-                  boxShadow: selectedIndex === idx ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
-                  transition: 'all 0.15s ease',
-                }}
+                className={selectedIndex === idx ? 'is-active' : undefined}
+                style={
+                  selectedIndex === idx
+                    ? { background: '#0F172A', color: '#FFFFFF', boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }
+                    : undefined
+                }
               >
                 {idx === 'NIFTY' ? 'Nifty 50 F&O' : 'Bank Nifty F&O'}
               </button>
             ))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '12px', color: '#64748B' }}>
+          <div className="tf-filter-actions">
+            <span style={{ fontSize: '12px', color: '#64748B', whiteSpace: 'nowrap' }}>
               Expiry: <strong style={{ color: '#0F172A' }}>{currentIndex?.expiryDate || 'Near Monthly'}</strong>
             </span>
             {onRefresh && (
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isLoading}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  background: '#FFFFFF',
-                  color: '#334155',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                className="tf-refresh-btn"
               >
                 <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
-                Refresh
+                <span className="tf-btn-label">Refresh</span>
               </button>
             )}
           </div>
@@ -172,8 +139,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
               padding: '2px 6px',
               borderRadius: '4px',
               background: (currentIndex?.pcr ?? 1) >= 1.0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-              color: (currentIndex?.pcr ?? 1) >= 1.0 ? '#059669' : '#DC2626',
-            }}>
+              color: (currentIndex?.pcr ?? 1) >= 1.0 ? '#059669' : '#DC2626' }}>
               {currentIndex?.pcrSentiment}
             </span>
           </div>
@@ -234,8 +200,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
         background: '#FFFFFF',
         border: '1px solid #E2E8F0',
         borderRadius: '12px',
-        padding: '16px 20px',
-      }}>
+        padding: '16px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
           <div>
             <h3 style={{ fontSize: '14px', fontWeight: 750, color: '#0F172A', margin: 0 }}>
@@ -284,8 +249,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
                   padding: '3px 4px',
                   borderRadius: '5px',
                   border: isAtMaxPain ? '1px solid #C7D2FE' : '1px solid #E2E8F0',
-                  whiteSpace: 'nowrap',
-                }}>
+                  whiteSpace: 'nowrap' }}>
                   {s.strikePrice}
                 </div>
 
@@ -315,8 +279,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
           border: '1px solid #E2E8F0',
           borderRadius: '12px',
           overflow: 'hidden',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <h3 style={{ fontSize: '13.5px', fontWeight: 750, color: '#0F172A', margin: 0 }}>
@@ -395,8 +358,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
                           fontWeight: 750,
                           background: bg,
                           color: color,
-                          border: `1px solid ${border}`,
-                        }}>
+                          border: `1px solid ${border}` }}>
                           {stock.interpretation}
                         </span>
                       </td>

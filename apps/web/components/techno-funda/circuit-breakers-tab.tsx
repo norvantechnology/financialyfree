@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, RefreshCw, X, Download, Info } from 'lucide-react';
+import { Search, RefreshCw, X, Download} from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
 import { TfLoadingState } from './tf-loading-state';
 
@@ -35,7 +35,6 @@ interface CircuitBreakersTabProps {
 export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreakersTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<'upper' | 'lower'>('upper');
   const [presetFilter, setPresetFilter] = useState<'ALL' | 'BAND_20' | 'MULTI_DAY'>('ALL');
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const rawStocks = activeSubTab === 'upper' ? data?.upperCircuits || [] : data?.lowerCircuits || [];
@@ -93,23 +92,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* ── Contextual Methodology Guide ── */}
-      <div className="tf-methodology-card">
-        <div className="tf-methodology-header" onClick={() => setIsGuideOpen(!isGuideOpen)}>
-          <div className="tf-methodology-title">
-            <Info size={14} />
-            <span>Exchange Circuit Filter &amp; Price Band Mechanics</span>
-          </div>
-          <span className="tf-methodology-toggle">{isGuideOpen ? 'Hide Guide' : 'Show Guide'}</span>
-        </div>
-        {isGuideOpen && (
-          <div className="tf-methodology-body">
-            <p><strong>Circuit Bands:</strong> SEBI/NSE applies daily price bands of 2%, 5%, 10%, or 20% to prevent excessive intraday volatility. F&amp;O stocks do not have fixed circuit limits (only dynamic flexed bands).</p>
-            <p><strong>Upper Circuit (Locked):</strong> Buyers only with 0 active sellers. High pending buy quantities reflect aggressive institutional or retail demand.</p>
-            <p><strong>Surveillance Warning:</strong> Consecutive circuit locks (3+ days) trigger regulatory surveillance frameworks (ASM / ESM stages) with 100% margin requirements.</p>
-          </div>
-        )}
-      </div>
+
 
       {/* ── Summary Counters ── */}
       <div className="tf-kpi-grid-responsive">
@@ -125,8 +108,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
             alignItems: 'center',
             cursor: 'pointer',
             boxShadow: activeSubTab === 'upper' ? '0 4px 14px rgba(16, 185, 129, 0.12)' : 'none',
-            transition: 'all 0.15s ease',
-          }}
+            transition: 'all 0.15s ease' }}
         >
           <div>
             <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -147,8 +129,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
             padding: '3px 8px',
             borderRadius: '4px',
             border: '1px solid #86EFAC',
-            whiteSpace: 'nowrap',
-          }}>
+            whiteSpace: 'nowrap' }}>
             LOCKED
           </span>
         </div>
@@ -165,8 +146,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
             alignItems: 'center',
             cursor: 'pointer',
             boxShadow: activeSubTab === 'lower' ? '0 4px 14px rgba(239, 68, 68, 0.12)' : 'none',
-            transition: 'all 0.15s ease',
-          }}
+            transition: 'all 0.15s ease' }}
         >
           <div>
             <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -187,8 +167,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
             padding: '3px 8px',
             borderRadius: '4px',
             border: '1px solid #FECACA',
-            whiteSpace: 'nowrap',
-          }}>
+            whiteSpace: 'nowrap' }}>
             LOCKED
           </span>
         </div>
@@ -196,7 +175,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
 
       {/* ── Filter Bar ── */}
       <div className="tf-filter-card">
-        <div className="tf-filter-row-top">
+        <div className="tf-filter-bar">
           {/* Search Input */}
           <div className="tf-search-input-wrap">
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
@@ -205,16 +184,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
               placeholder="Search locked symbol or company..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '7px 30px 7px 32px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '12.5px',
-                outline: 'none',
-                color: '#0F172A',
-                background: '#FFFFFF',
-              }}
+              
             />
             {searchQuery && (
               <button
@@ -228,8 +198,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
                   border: 'none',
                   color: '#94A3B8',
                   cursor: 'pointer',
-                  padding: '2px',
-                }}
+                  padding: '2px' }}
               >
                 <X size={13} />
               </button>
@@ -249,8 +218,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
                 fontSize: '12.5px',
                 cursor: 'pointer',
                 boxShadow: activeSubTab === 'upper' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
+                transition: 'all 0.15s ease' }}
             >
               Upper Circuits ({data?.upperCircuitsCount ?? 0})
             </button>
@@ -266,14 +234,13 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
                 fontSize: '12.5px',
                 cursor: 'pointer',
                 boxShadow: activeSubTab === 'lower' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
+                transition: 'all 0.15s ease' }}
             >
               Lower Circuits ({data?.lowerCircuitsCount ?? 0})
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="tf-filter-actions">
             <button
               type="button"
               onClick={handleExportCsv}
@@ -286,24 +253,13 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
 
             {onRefresh && (
               <button
+                type="button"
                 onClick={onRefresh}
                 disabled={isLoading}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  background: '#FFFFFF',
-                  color: '#334155',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                className="tf-refresh-btn"
               >
                 <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
-                Refresh
+                <span className="tf-btn-label">Refresh</span>
               </button>
             )}
           </div>
@@ -311,7 +267,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
 
         {/* Preset Chips Row */}
         <div className="tf-preset-chips-wrap">
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Presets:</span>
+          <span className="tf-filter-label">Presets</span>
           <button
             type="button"
             onClick={() => setPresetFilter('ALL')}
@@ -350,8 +306,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
                 cursor: 'pointer',
                 fontWeight: 650,
                 fontSize: '11.5px',
-                padding: 0,
-              }}
+                padding: 0 }}
             >
               Reset Search
             </button>
@@ -370,8 +325,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
           border: '1px solid #E2E8F0',
           borderRadius: '12px',
           overflow: 'hidden',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
               <thead>
@@ -416,8 +370,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
                             background: '#F1F5F9',
                             color: '#334155',
                             border: '1px solid #E2E8F0',
-                            whiteSpace: 'nowrap',
-                          }}>
+                            whiteSpace: 'nowrap' }}>
                             {stock.circuitBandPct}% Band
                           </span>
                         </td>
@@ -438,8 +391,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
                             background: stock.consecutiveDays >= 2 ? '#FEF3C7' : '#F1F5F9',
                             color: stock.consecutiveDays >= 2 ? '#B45309' : '#475569',
                             border: stock.consecutiveDays >= 2 ? '1px solid #FDE68A' : '1px solid #E2E8F0',
-                            whiteSpace: 'nowrap',
-                          }}>
+                            whiteSpace: 'nowrap' }}>
                             {stock.consecutiveDays} Day{stock.consecutiveDays > 1 ? 's' : ''}
                           </span>
                         </td>

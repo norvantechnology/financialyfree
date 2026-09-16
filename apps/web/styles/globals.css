@@ -3257,11 +3257,16 @@ input:checked + .toggle-slider:before {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .tf-preset-chip {
-  padding: 4px 10px;
-  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
   border: 1px solid #E2E8F0;
   background: #FFFFFF;
   color: #475569;
@@ -3270,6 +3275,9 @@ input:checked + .toggle-slider:before {
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .tf-preset-chip:hover {
@@ -3287,12 +3295,15 @@ input:checked + .toggle-slider:before {
 }
 
 /* ── Universal 1-Click Export CSV Button ─────────────────────────── */
-.tf-export-btn {
+.tf-export-btn,
+.tf-refresh-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  padding: 6px 11px;
-  border-radius: 6px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 7px;
   border: 1px solid #CBD5E1;
   background: #FFFFFF;
   color: #334155;
@@ -3301,12 +3312,20 @@ input:checked + .toggle-slider:before {
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
-.tf-export-btn:hover {
+.tf-export-btn:hover,
+.tf-refresh-btn:hover {
   background: #F8FAFC;
   border-color: #94A3B8;
   color: #0F172A;
+}
+
+.tf-refresh-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* ── Mobile Floating Top Navigation Button ────────────────────────── */
@@ -6507,28 +6526,35 @@ input:checked + .toggle-slider:before {
 /* ── Techno-Funda Global Responsive Classes for All Tabs ── */
 .tf-kpi-grid-responsive {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .tf-kpi-grid-responsive {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
 }
 
 @media (max-width: 640px) {
   .tf-kpi-grid-responsive {
     grid-template-columns: 1fr 1fr !important;
-    gap: 10px !important;
+    gap: 8px !important;
   }
 
   .tf-kpi-grid-responsive > div {
-    padding: 12px 14px !important;
+    padding: 10px 12px !important;
     border-radius: 10px !important;
   }
 
   .tf-kpi-grid-responsive .tf-kpi-val {
-    font-size: 20px !important;
+    font-size: 18px !important;
     margin-top: 2px !important;
   }
 
   .tf-kpi-grid-responsive .tf-kpi-sub {
-    font-size: 10.5px !important;
+    font-size: 10px !important;
   }
 }
 
@@ -6536,33 +6562,161 @@ input:checked + .toggle-slider:before {
   background: #FFFFFF;
   border: 1px solid #E2E8F0;
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
-.tf-filter-row-top {
+.tf-filter-row-top,
+.tf-filter-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tf-filter-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.tf-filter-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tf-filter-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.tf-filter-meta {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: #64748B;
+  padding-top: 2px;
+  border-top: 1px solid #F1F5F9;
+}
+
+.tf-filter-meta strong {
+  color: #334155;
+}
+
+.tf-filter-reset {
+  background: none;
+  border: none;
+  color: #0F766E;
+  cursor: pointer;
+  font-weight: 650;
+  font-size: 11.5px;
+  padding: 0;
 }
 
 .tf-search-input-wrap {
   position: relative;
-  flex: 1 1 240px;
-  min-width: 200px;
+  flex: 1 1 200px;
+  min-width: min(100%, 180px);
+  max-width: 340px;
+}
+
+.tf-search-input-wrap input,
+.tf-filter-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 30px 0 32px;
+  border-radius: 7px;
+  border: 1px solid #CBD5E1;
+  font-size: 12.5px;
+  font-weight: 500;
+  outline: none;
+  color: #0F172A;
+  background: #FFFFFF;
+  box-sizing: border-box;
+}
+
+.tf-search-input-wrap input:focus,
+.tf-filter-input:focus {
+  border-color: #0F766E;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+}
+
+.tf-filter-select {
+  height: 32px;
+  padding: 0 28px 0 10px;
+  border-radius: 7px;
+  border: 1px solid #CBD5E1;
+  font-size: 12px;
+  font-weight: 600;
+  background: #FFFFFF;
+  color: #334155;
+  outline: none;
+  cursor: pointer;
+  min-width: 120px;
+  box-sizing: border-box;
 }
 
 .tf-segmented-pills {
-  display: flex;
+  display: inline-flex;
   background: #F1F5F9;
   padding: 3px;
   border-radius: 8px;
-  gap: 4px;
+  gap: 2px;
   align-items: center;
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tf-segmented-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.tf-segmented-pills > button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px;
+  height: 28px !important;
+  padding: 0 10px !important;
+  border-radius: 6px !important;
+  border: none !important;
+  background: transparent;
+  color: #64748B;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  cursor: pointer;
+  white-space: nowrap !important;
+  flex-shrink: 0;
+  box-sizing: border-box !important;
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.tf-segmented-pills > button.is-active,
+.tf-segmented-pills > button[data-active='true'] {
+  background: #FFFFFF;
+  color: #0F172A;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
 .tf-mobile-scroll-hint {
@@ -6593,38 +6747,65 @@ tr:hover .tf-sticky-symbol-cell {
   background: #F8FAFC !important;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .tf-filter-card {
-    padding: 12px !important;
-    gap: 10px !important;
+    padding: 10px !important;
+    gap: 8px !important;
     border-radius: 10px !important;
   }
 
-  .tf-filter-row-top {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 10px !important;
+  .tf-filter-row-top,
+  .tf-filter-bar {
+    gap: 8px !important;
+  }
+
+  .tf-filter-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .tf-filter-actions .tf-export-btn,
+  .tf-filter-actions .tf-refresh-btn {
+    flex: 1 1 auto;
   }
 
   .tf-search-input-wrap {
     flex: 1 1 100% !important;
     width: 100% !important;
+    max-width: none !important;
     min-width: 0 !important;
   }
 
-  .tf-segmented-pills {
-    width: 100% !important;
-    display: flex !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
+  .tf-filter-group {
+    width: 100%;
   }
 
-  .tf-segmented-pills button {
-    flex: 1 1 0 !important;
-    text-align: center !important;
-    white-space: nowrap !important;
-    padding: 7px 6px !important;
-    font-size: 11.5px !important;
+  .tf-filter-group .tf-segmented-pills {
+    flex: 1 1 auto;
+  }
+
+  .tf-preset-chips-wrap {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .tf-preset-chips-wrap::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tf-segmented-pills {
+    width: 100%;
+  }
+
+  .tf-segmented-pills > button {
+    flex: 1 1 auto;
+    min-width: max-content;
+    height: 30px;
+    padding: 0 8px;
+    font-size: 11.5px;
   }
 
   .tf-mobile-scroll-hint {
@@ -6642,6 +6823,17 @@ tr:hover .tf-sticky-symbol-cell {
     grid-template-columns: 1fr 1fr !important;
     gap: 8px !important;
     width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .tf-export-btn span,
+  .tf-refresh-btn .tf-btn-label {
+    display: none;
+  }
+
+  .tf-filter-label {
+    width: 100%;
   }
 }
 

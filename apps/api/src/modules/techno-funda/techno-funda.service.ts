@@ -1717,6 +1717,15 @@ export class TechnoFundaService {
   }
 
   detectOrderWin(text: string, subcat = ''): boolean {
+    const raw = `${text || ''} ${subcat || ''}`;
+    // Exclude common false positives (office shifts, court/ROC orders, volume spurts)
+    if (
+      /registered\s+office|shifting\s+of\s+(?:the\s+)?registered|order\s+of\s+approving|order[\s-]?in[\s-]?appeal|appellate|registrar\s+of\s+companies|court\s+order|nclt|tribunal\s+order|winding[\s-]?up|scheme\s+of\s+arrangement|spurt\s+in\s+volume|in\s+the\s+order\s+of|order\s+of\s+preference|postal\s+ballot|scrutinizer/i.test(
+        raw,
+      )
+    ) {
+      return false;
+    }
     if (/order\s*(\/|&)\s*receipt|award\s*of\s*order|receipt\s*of\s*order/i.test(subcat)) return true;
     const clean = (text || '').replace(/\bin order to\b/gi, '');
     return (
@@ -1731,7 +1740,10 @@ export class TechnoFundaService {
 
   extractOrderValue(text: string): string | undefined {
     if (!text) return undefined;
-    const inrMatch = text.match(/(?:(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d+)?)\s*(?:cr(?:ore)?s?|lakhs?|mn|billion)?)|(?:([\d,]+(?:\.\d+)?)\s*(?:cr(?:ore)?s?)\b)/i);
+    // Common BSE phrasing: "Approximate Rs. 226 Crores" / "Rs.226 Crores"
+    const inrMatch = text.match(
+      /(?:(?:approx(?:imate(?:ly)?)?|about|around)?\s*)?(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d+)?)\s*(?:cr(?:ore)?s?|lakhs?|mn|billion)?|(?:([\d,]+(?:\.\d+)?)\s*(?:cr(?:ore)?s?)\b)/i,
+    );
     if (inrMatch) {
       const val = inrMatch[1] || inrMatch[2];
       const isCrore = /cr/i.test(inrMatch[0]);
@@ -1742,9 +1754,31 @@ export class TechnoFundaService {
     }
     const usdMatch = text.match(/(?:\$|usd)\s*([\d,]+(?:\.\d+)?)\s*(m(?:illion)?|b(?:illion)?)?/i);
     if (usdMatch) {
+      const raw = parseFloat(usdMatch[1].replace(/,/g, ''));
+      // Absolute USD amounts (e.g. 23663860) → convert to ₹ Cr when no million/billion suffix
+      if (!usdMatch[2] && raw >= 100000) {
+        const cr = Math.round(((raw * 83) / 1e7) * 100) / 100;
+        return `₹${cr} Cr`;
+      }
       return `$${usdMatch[1]}${usdMatch[2] ? usdMatch[2][0].toUpperCase() : 'M'}`;
     }
     return undefined;
+  }
+
+  /** Parse announcement order-value strings into ₹ Cr (0 if undisclosed / unparseable). */
+  parseOrderValueCr(orderValue?: string | null): number {
+    if (!orderValue) return 0;
+    const numMatch = String(orderValue).match(/([\d,]+(?:\.\d+)?)/);
+    if (!numMatch) return 0;
+    let n = parseFloat(numMatch[1].replace(/,/g, ''));
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    if (/lakh/i.test(orderValue)) n = n / 100;
+    else if (/\$|usd/i.test(orderValue)) {
+      // Rough USD → INR Cr (≈ ₹83/$); million vs billion
+      if (/\bb/i.test(orderValue)) n = (n * 1000 * 83) / 10;
+      else n = (n * 83) / 10;
+    }
+    return Math.round(n * 100) / 100;
   }
 
   classifyAnnouncementCategory(title: string, desc: string, subcat = ''): string {
@@ -1779,30 +1813,62 @@ export class TechnoFundaService {
     category?: string;
   }>> {
     try {
-      const now = new Date();
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const yyyymmdd = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
-      const urlP1 = `https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate=${yyyymmdd}&strScrip=&strSearch=P&strToDate=${yyyymmdd}&strType=C`;
-      const urlP2 = `https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=2&strCat=-1&strPrevDate=${yyyymmdd}&strScrip=&strSearch=P&strToDate=${yyyymmdd}&strType=C`;
-
+      // BSE AnnSubCategoryGetData only returns rows when strPrevDate === strToDate (single day).
+      // Walk recent calendar days and merge.
       const headers = {
         'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
         Referer: 'https://www.bseindia.com/',
+        Origin: 'https://www.bseindia.com',
         Accept: 'application/json, text/plain, */*',
       };
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const yyyymmdd = (d: Date) =>
+        `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
 
-      const [res1, res2] = await Promise.allSettled([
-        fetch(urlP1, { headers, signal: AbortSignal.timeout(8000) }),
-        fetch(urlP2, { headers, signal: AbortSignal.timeout(8000) }),
-      ]);
+      const dayCount = 14;
+      const pageCount = 2;
+      const fetchJobs: Array<Promise<any[]>> = [];
 
-      const items1 = res1.status === 'fulfilled' && res1.value.ok ? (((await res1.value.json()) as any)?.Table || []) : [];
-      const items2 = res2.status === 'fulfilled' && res2.value.ok ? (((await res2.value.json()) as any)?.Table || []) : [];
-      const list = [...items1, ...items2];
-      if (!Array.isArray(list) || list.length === 0) return [];
+      for (let dayOffset = 0; dayOffset < dayCount; dayOffset++) {
+        const day = new Date();
+        day.setDate(day.getDate() - dayOffset);
+        const d = yyyymmdd(day);
+        for (let page = 1; page <= pageCount; page++) {
+          const url = `https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=${page}&strCat=-1&strPrevDate=${d}&strScrip=&strSearch=P&strToDate=${d}&strType=C`;
+          fetchJobs.push(
+            fetch(url, { headers, signal: AbortSignal.timeout(10000) })
+              .then(async (res) => {
+                if (!res.ok) return [];
+                const json = (await res.json()) as any;
+                return Array.isArray(json?.Table) ? json.Table : [];
+              })
+              .catch(() => []),
+          );
+        }
+      }
 
-      return list.slice(0, 80).map((item: any) => {
+      const settled = await Promise.all(fetchJobs);
+      const seen = new Set<string>();
+      const list: any[] = [];
+      for (const batch of settled) {
+        for (const item of batch) {
+          const key = `${item.SCRIP_CD || ''}|${item.NEWSID || item.ATTACHMENTNAME || item.DT_TM || ''}|${item.HEADLINE || item.SUBCATNAME || ''}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          list.push(item);
+        }
+      }
+      if (list.length === 0) return [];
+
+      // Prefer order-win subcategory rows first so Order Tracker sees them even if we slice
+      list.sort((a, b) => {
+        const as = /award of order|receipt of order/i.test(String(a.SUBCATNAME || '')) ? 1 : 0;
+        const bs = /award of order|receipt of order/i.test(String(b.SUBCATNAME || '')) ? 1 : 0;
+        return bs - as;
+      });
+
+      return list.slice(0, 250).map((item: any) => {
         const company = item.SLONGNAME || item.NEWSSUB || `BSE:${item.SCRIP_CD}`;
         const headline =
           item.HEADLINE || item.SUBCATNAME || item.CATEGORYNAME || 'Corporate Announcement';
@@ -2716,12 +2782,22 @@ export class TechnoFundaService {
 
     // Pull real announcements feed to extract live order wins
     const newsFeed = await this.getNewsFeed(forceRefresh);
-    const orderAnnouncements = newsFeed.headlines.filter((h) => h.isOrderWin).slice(0, 12);
+    const allWins = (newsFeed.headlines || []).filter((h) => h.isOrderWin);
+    // Prefer filings that already disclose a contract value, then take a wider slice
+    const ranked = [...allWins].sort((a, b) => {
+      const av = a.orderValue ? 1 : 0;
+      const bv = b.orderValue ? 1 : 0;
+      return bv - av;
+    });
+    const orderAnnouncements = ranked.slice(0, 40);
     const universe = await this.loadNseEquityUniverse(80);
 
     // Resolve live announcements into orders using dynamic financial metrics
     const liveOrderPromises = orderAnnouncements.map(async (ann, idx) => {
       let sym = (ann.symbol || '').toUpperCase().trim();
+      // Ignore pure BSE numeric scrip codes for Screener lookups
+      if (/^\d+$/.test(sym)) sym = '';
+
       if (!sym || sym === 'COMPANY') {
         const text = `${ann.company || ''} ${ann.title || ''} ${ann.description || ''}`.toUpperCase();
         for (const item of universe) {
@@ -2745,34 +2821,36 @@ export class TechnoFundaService {
 
       const fin = await this.getCompanyFinancialSummary(sym, ann.company);
 
-      // Extract contract value in Cr
-      let valCr = 0;
-      if (ann.orderValue) {
-        const numMatch = ann.orderValue.match(/([\d,]+(?:\.\d+)?)/);
-        if (numMatch) valCr = parseFloat(numMatch[1].replace(/,/g, ''));
-      }
-      if (valCr <= 0) {
-        return null; // never invent contract values
-      }
+      const valCr = this.parseOrderValueCr(ann.orderValue);
+      const hasValue = valCr > 0;
 
       const durationMonths: number | null = null;
       const annualValueCr = null;
-      const orderSizePct = fin.revenueCr > 0 ? Math.round((valCr / fin.revenueCr) * 1000) / 10 : 0;
+      const orderSizePct = hasValue && fin.revenueCr > 0
+        ? Math.round((valCr / fin.revenueCr) * 1000) / 10
+        : 0;
 
       const d = new Date(ann.pubDate);
       const dateStr = !isNaN(d.getTime())
         ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
         : new Date().toISOString().split('T')[0];
 
+      // Try to pull counterparty from title/description (e.g. "from XYZ Ltd")
+      const blob = `${ann.title || ''} ${ann.description || ''}`;
+      const fromMatch = blob.match(/\bfrom\s+([A-Z][A-Za-z0-9 &.,-]{2,60}?)(?:\s+for|\s+worth|\s+valued|\s*\(|$)/);
+      const customer = fromMatch?.[1]?.trim() || 'Counterparty undisclosed in filing';
+
       return {
         id: `ord-live-${idx + 1}`,
         companyName: fin.companyName || ann.company || sym,
         symbol: fin.symbol || sym,
-        customer: ann.company || 'Counterparty undisclosed in filing',
+        customer,
         orderType: ann.description?.includes('L1') ? 'L1 Tender Winner' : 'Purchase Order / Contract',
         date: dateStr,
         contractValueCr: valCr,
-        contractValueFormatted: `₹${valCr.toLocaleString('en-IN')} Cr`,
+        contractValueFormatted: hasValue
+          ? `₹${valCr.toLocaleString('en-IN')} Cr`
+          : 'Undisclosed',
         durationMonths,
         durationText: null,
         annualValueCr,
@@ -2826,7 +2904,9 @@ export class TechnoFundaService {
           companyName: c.companyName,
           symbol: c.symbol,
           totalOrderValueCr: Math.round(c.totalOrderValueCr * 10) / 10,
-          totalOrderValueFormatted: `₹${Math.round(c.totalOrderValueCr).toLocaleString('en-IN')} Cr`,
+          totalOrderValueFormatted: c.totalOrderValueCr > 0
+            ? `₹${Math.round(c.totalOrderValueCr).toLocaleString('en-IN')} Cr`
+            : 'Undisclosed',
           orderCount: c.orders.length,
           ordersAsRevenuePct,
           companyRevenueCr: c.companyRevenueCr,
@@ -2836,7 +2916,7 @@ export class TechnoFundaService {
           orders: c.orders,
         };
       })
-      .sort((a, b) => b.totalOrderValueCr - a.totalOrderValueCr);
+      .sort((a, b) => b.totalOrderValueCr - a.totalOrderValueCr || b.orderCount - a.orderCount);
 
     const result = {
       source: 'LIVE_EXCHANGE_FEED',
@@ -2848,10 +2928,18 @@ export class TechnoFundaService {
       lastUpdated: new Date().toISOString(),
     };
 
-    this.orderTrackerCache = {
-      timestamp: Date.now(),
-      data: result,
-    };
+    // Avoid caching empty poison for a full TTL
+    if (allOrders.length > 0) {
+      this.orderTrackerCache = {
+        timestamp: Date.now(),
+        data: result,
+      };
+    } else {
+      this.orderTrackerCache = {
+        timestamp: Date.now() - 15 * 60 * 1000 + 60_000,
+        data: result,
+      };
+    }
 
     return result;
   }
@@ -3494,33 +3582,53 @@ export class TechnoFundaService {
       return this.insiderTradingCache.data;
     }
 
+    const toNum = (v: any) => {
+      if (v === null || v === undefined || v === '' || v === '-') return 0;
+      const n = Number(String(v).replace(/,/g, ''));
+      return Number.isFinite(n) ? n : 0;
+    };
+
     const mapPitRows = (rows: any[]) =>
-      rows.map((t: any, idx: number) => ({
-        id: `pit-live-${t.symbol || idx}-${idx}`,
-        date: t.date || t.acqDate || t.broadcastDate || t.anexDate || new Date().toISOString().split('T')[0],
-        symbol: t.symbol,
-        companyName: t.company || t.companyName || t.symbol,
-        personName: t.acqName || t.acquirerName || t.personName || 'Promoter / Key Person',
-        personCategory: t.personCategory || t.category || t.buyerCategory || 'Promoter',
-        transactionType: t.tdpTransactionType || t.acqMode || t.typeOfSecurity || t.transactionType || 'Market Purchase',
-        sharesTraded: Number(t.secAcq || t.secVal || t.noOfShares || t.quantity || 0),
-        valueLakh: Math.round((Number(t.valAcq || t.val || t.value || 0) / 100000) * 100) / 100,
-        postHoldingPct: Number(t.afterAcqSharesPer || t.postHoldingPct || 0),
-        modeOfAcquisition: t.modeOfAcquisition || t.acquisitionMode || t.acqMode || 'Open Market',
-      }));
+      rows.map((t: any, idx: number) => {
+        // NSE PIT: secVal is transaction value in INR; buyValue/sellValue are fallbacks
+        const valueInr = toNum(t.secVal ?? t.buyValue ?? t.sellValue ?? t.valAcq ?? t.val ?? t.value);
+        return {
+          id: `pit-live-${t.symbol || idx}-${idx}`,
+          date: t.date || t.intimDt || t.acqtoDt || t.acqfromDt || t.acqDate || t.broadcastDate || t.anexDate || new Date().toISOString().split('T')[0],
+          symbol: t.symbol,
+          companyName: t.company || t.companyName || t.symbol,
+          personName: t.acqName || t.acquirerName || t.personName || 'Promoter / Key Person',
+          personCategory: t.personCategory || t.category || t.buyerCategory || 'Promoter',
+          transactionType: t.tdpTransactionType || t.transactionType || t.typeOfSecurity || 'Unknown',
+          sharesTraded: toNum(t.secAcq ?? t.buyQuantity ?? t.sellQuantity ?? t.noOfShares ?? t.quantity),
+          valueLakh: Math.round((valueInr / 100000) * 100) / 100,
+          postHoldingPct: toNum(t.afterAcqSharesPer ?? t.postHoldingPct),
+          modeOfAcquisition: t.acqMode || t.modeOfAcquisition || t.acquisitionMode || '—',
+        };
+      });
 
     try {
-      const to = new Date();
-      const from30 = new Date();
-      from30.setDate(from30.getDate() - 30);
-      const from90 = new Date();
-      from90.setDate(from90.getDate() - 90);
+      const buildEndpointsForAnchor = (anchor: Date) => {
+        const to = new Date(anchor);
+        const from30 = new Date(anchor);
+        from30.setDate(from30.getDate() - 30);
+        const from90 = new Date(anchor);
+        from90.setDate(from90.getDate() - 90);
+        return [
+          `/api/corporates-pit?index=equities&from_date=${this.formatNseApiDate(from30)}&to_date=${this.formatNseApiDate(to)}`,
+          `/api/corporates-pit?index=equities&from_date=${this.formatNseApiDate(from90)}&to_date=${this.formatNseApiDate(to)}`,
+        ];
+      };
 
-      const endpoints = [
-        `/api/corporates-pit?index=equities&from_date=${this.formatNseApiDate(from30)}&to_date=${this.formatNseApiDate(to)}`,
-        `/api/corporates-pit?index=equities&from_date=${this.formatNseApiDate(from90)}&to_date=${this.formatNseApiDate(to)}`,
-        '/api/corporates-pit?index=equities',
-      ];
+      // NSE PIT often lags / has no rows for future-skewed host clocks — walk back calendar years
+      const endpoints: string[] = [];
+      const now = new Date();
+      for (const yearsBack of [0, 1, 2]) {
+        const anchor = new Date(now);
+        anchor.setFullYear(anchor.getFullYear() - yearsBack);
+        endpoints.push(...buildEndpointsForAnchor(anchor));
+      }
+      endpoints.push('/api/corporates-pit?index=equities');
 
       let rows: any[] = [];
       for (const endpoint of endpoints) {
@@ -3536,6 +3644,7 @@ export class TechnoFundaService {
               : [];
           if (candidate.length > 0) {
             rows = candidate;
+            this.logger.log(`Insider PIT hit ${candidate.length} rows via ${endpoint}`);
             break;
           }
         } catch (err: any) {

@@ -487,7 +487,7 @@ describe('TechnoFundaService (Sprint 8 & Dynamic Public Feeds)', () => {
         expect(unknownFin.companyName).toBe('Unknown Org');
       }, 30000);
 
-      it('getOrderTracker skips announcements without live contract values', async () => {
+      it('getOrderTracker keeps valued order wins and maps contract ₹ Cr', async () => {
         jest.spyOn(service, 'getNewsFeed').mockResolvedValue({
           headlines: [
             {
@@ -499,6 +499,16 @@ describe('TechnoFundaService (Sprint 8 & Dynamic Public Feeds)', () => {
               orderValue: '₹500 Cr',
               pubDate: new Date().toISOString(),
               link: 'https://example.com',
+            },
+            {
+              isOrderWin: true,
+              symbol: 'LT',
+              company: 'Larsen & Toubro',
+              title: 'Order win undisclosed',
+              description: 'Award of Order',
+              orderValue: undefined,
+              pubDate: new Date().toISOString(),
+              link: 'https://example.com/2',
             },
           ],
         } as any);
@@ -513,7 +523,8 @@ describe('TechnoFundaService (Sprint 8 & Dynamic Public Feeds)', () => {
         });
         const tracker = await service.getOrderTracker(true);
         expect(tracker.orders.length).toBeGreaterThanOrEqual(1);
-        expect(tracker.orders.every((o: any) => o.contractValueCr > 0)).toBe(true);
+        expect(tracker.orders.some((o: any) => o.contractValueCr === 500)).toBe(true);
+        expect(tracker.orders.some((o: any) => o.contractValueFormatted === 'Undisclosed')).toBe(true);
       }, 30000);
     });
   });
