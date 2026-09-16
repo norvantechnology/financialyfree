@@ -1738,21 +1738,61 @@ export class TechnoFundaService {
     );
   }
 
+  /** Collapse PDF/OCR spacing so "Rs.   69   Crores" matches cleanly. */
+  normalizeFilingText(text: string): string {
+    return String(text || '')
+      .replace(/[\u00A0\u202F\u2007]/g, ' ')
+      .replace(/[‐‑‒–—―]/g, '-')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
+   * Extract disclosed contract size from headline / annexure text.
+   * Prefers LODR "broad commercial consideration / size of the order" blocks
+   * (amounts often appear only in the attached PDF, not the BSE headline).
+   */
   extractOrderValue(text: string): string | undefined {
     if (!text) return undefined;
-    // Common BSE phrasing: "Approximate Rs. 226 Crores" / "Rs.226 Crores"
-    const inrMatch = text.match(
-      /(?:(?:approx(?:imate(?:ly)?)?|about|around)?\s*)?(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d+)?)\s*(?:cr(?:ore)?s?|lakhs?|mn|billion)?|(?:([\d,]+(?:\.\d+)?)\s*(?:cr(?:ore)?s?)\b)/i,
-    );
-    if (inrMatch) {
-      const val = inrMatch[1] || inrMatch[2];
-      const isCrore = /cr/i.test(inrMatch[0]);
-      const isLakh = /lakh/i.test(inrMatch[0]);
-      if (isCrore) return `₹${val} Cr`;
-      if (isLakh) return `₹${val} Lakh`;
-      return `₹${val}`;
+    const compact = this.normalizeFilingText(text);
+
+    // Do not use [^.]* here — decimals like "29.34 Crore" would truncate at the point.
+    const consideration =
+      compact.match(
+        /(?:broad\s+commercial\s+consideration|broad\s+consideration\s+or\s+size|size\s+of\s+the\s+order(?:\s*\(\s*s\s*\))??(?:\s*\/\s*contract(?:\s*\(\s*s\s*\))?)?)\s*[:.\-]?\s*(.{0,180}?)(?=\s+Whether\b|\s+promoter\b|\s+Excluding\b|\s+Only\b|$)/i,
+      )?.[1] || '';
+
+    const searchBlobs = [consideration, compact].filter((b) => b && b.length > 0);
+
+    const tryInr = (blob: string): string | undefined => {
+      const patterns: RegExp[] = [
+        /(?:~|approx(?:imate(?:ly)?)?|about|around)?\s*(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d+)?)\s*(crores?|cr\.?|lakhs?|lacs?)\b/i,
+        /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d+)?)\s*(?:\/\s*-)?/i,
+        /([\d,]+(?:\.\d+)?)\s*(crores?|cr\.?)\b/i,
+      ];
+      for (const re of patterns) {
+        const m = blob.match(re);
+        if (!m) continue;
+        const val = m[1];
+        const unit = (m[2] || '').toLowerCase();
+        const raw = parseFloat(val.replace(/,/g, ''));
+        if (!Number.isFinite(raw) || raw <= 0) continue;
+        // Skip tiny bare INR figures that are clearly not contract sizes (e.g. page numbers)
+        if (!unit && !/cr|lakh|lac/i.test(m[0]) && raw < 1) continue;
+        if (/lakh|lac/.test(unit) || /lakh|lac/i.test(m[0])) return `₹${val} Lakh`;
+        if (/cr/.test(unit) || /cr/i.test(m[0])) return `₹${val} Cr`;
+        // Bare Rs/INR near consideration / size wording → treat as ₹ Cr (LODR annexure convention)
+        if (/rs\.?|inr|₹/i.test(m[0]) && raw >= 1) return `₹${val} Cr`;
+      }
+      return undefined;
+    };
+
+    for (const blob of searchBlobs) {
+      const hit = tryInr(blob);
+      if (hit) return hit;
     }
-    const usdMatch = text.match(/(?:\$|usd)\s*([\d,]+(?:\.\d+)?)\s*(m(?:illion)?|b(?:illion)?)?/i);
+
+    const usdMatch = compact.match(/(?:\$|usd)\s*([\d,]+(?:\.\d+)?)\s*(m(?:illion)?|b(?:illion)?)?/i);
     if (usdMatch) {
       const raw = parseFloat(usdMatch[1].replace(/,/g, ''));
       // Absolute USD amounts (e.g. 23663860) → convert to ₹ Cr when no million/billion suffix
@@ -1768,17 +1808,175 @@ export class TechnoFundaService {
   /** Parse announcement order-value strings into ₹ Cr (0 if undisclosed / unparseable). */
   parseOrderValueCr(orderValue?: string | null): number {
     if (!orderValue) return 0;
-    const numMatch = String(orderValue).match(/([\d,]+(?:\.\d+)?)/);
+    const normalized = this.normalizeFilingText(orderValue);
+    const numMatch = normalized.match(/([\d,]+(?:\.\d+)?)/);
     if (!numMatch) return 0;
     let n = parseFloat(numMatch[1].replace(/,/g, ''));
     if (!Number.isFinite(n) || n <= 0) return 0;
-    if (/lakh/i.test(orderValue)) n = n / 100;
-    else if (/\$|usd/i.test(orderValue)) {
+    if (/lakh|lac/i.test(normalized)) n = n / 100;
+    else if (/\$|usd/i.test(normalized)) {
       // Rough USD → INR Cr (≈ ₹83/$); million vs billion
-      if (/\bb/i.test(orderValue)) n = (n * 1000 * 83) / 10;
+      if (/\bb(?:illion)?\b/i.test(normalized)) n = (n * 1000 * 83) / 10;
+      else if (/\bm(?:illion)?\b/i.test(normalized) || /\$[\d,.]+\s*M\b/i.test(normalized)) n = (n * 83) / 10;
+      else if (n >= 100000) n = (n * 83) / 1e7;
       else n = (n * 83) / 10;
     }
     return Math.round(n * 100) / 100;
+  }
+
+  /** Resolve BSE AttachLive/AttachHis PDF URLs (live folder rotates to history). */
+  resolveAnnouncementPdfUrls(link?: string | null): string[] {
+    if (!link) return [];
+    const urls = [link];
+    if (/\/AttachLive\//i.test(link)) {
+      urls.push(link.replace(/\/AttachLive\//i, '/AttachHis/'));
+    } else if (/\/AttachHis\//i.test(link)) {
+      urls.push(link.replace(/\/AttachHis\//i, '/AttachLive/'));
+    }
+    return [...new Set(urls)];
+  }
+
+  private async extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
+    // Prefer poppler when present (Render/local Linux); silent fallback to pdf.js
+    try {
+      const { spawnSync } = await import('child_process');
+      const { mkdtempSync, writeFileSync, unlinkSync, rmdirSync } = await import('fs');
+      const { join } = await import('path');
+      const { tmpdir } = await import('os');
+      const dir = mkdtempSync(join(tmpdir(), 'ff-ord-pdf-'));
+      const pdfPath = join(dir, 'filing.pdf');
+      writeFileSync(pdfPath, buffer);
+      const result = spawnSync('pdftotext', ['-layout', '-enc', 'UTF-8', pdfPath, '-'], {
+        encoding: 'utf8',
+        maxBuffer: 8 * 1024 * 1024,
+        timeout: 20000,
+      });
+      try {
+        unlinkSync(pdfPath);
+        rmdirSync(dir);
+      } catch {
+        /* ignore cleanup */
+      }
+      if (result.status === 0 && result.stdout && String(result.stdout).trim().length > 40) {
+        return String(result.stdout);
+      }
+    } catch {
+      /* fall through to pdf.js */
+    }
+
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const doc = await pdfjs.getDocument({
+      data: new Uint8Array(buffer),
+      useSystemFonts: true,
+      isEvalSupported: false,
+    }).promise;
+    const parts: string[] = [];
+    const maxPages = Math.min(doc.numPages, 8);
+    for (let pageNo = 1; pageNo <= maxPages; pageNo++) {
+      const page = await doc.getPage(pageNo);
+      const content = await page.getTextContent();
+      parts.push(
+        content.items
+          .map((item: any) => (typeof item?.str === 'string' ? item.str : ''))
+          .join(' '),
+      );
+    }
+    return parts.join('\n');
+  }
+
+  async fetchAnnouncementPdfText(link?: string | null): Promise<string> {
+    const urls = this.resolveAnnouncementPdfUrls(link);
+    if (!urls.length) return '';
+    const headers = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
+      Referer: 'https://www.bseindia.com/',
+      Accept: 'application/pdf,*/*',
+    };
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
+        if (!res.ok) continue;
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length < 200) continue;
+        const text = await this.extractTextFromPdfBuffer(buf);
+        if (text && text.trim().length > 40) return text;
+      } catch (err: any) {
+        this.logger.debug?.(`PDF extract failed for ${url}: ${err?.message || err}`);
+      }
+    }
+    return '';
+  }
+
+  extractCounterpartyFromFiling(text: string): string | undefined {
+    const compact = this.normalizeFilingText(text);
+    const patterns = [
+      /(?:name\s+of\s+the\s+(?:entity|organisation|organization)\s+awarding[^A-Z]{0,40})([A-Z][A-Za-z0-9 &./-]{2,70}?)(?=\s+(?:Significant|2\.|Whether|Nature|Time\s+period)\b|$)/i,
+      /(?:awarded|issued|placed)\s+by\s+(?:m\/s\.?\s*)?([A-Z][A-Za-z0-9 &./-]{2,70}?)(?=\s*\.|\s+The\s+details|\s+Further|\s+Significant|$)/i,
+      /(?:letter of intent|loa|order|contract)\s+by\s+(?:m\/s\.?\s*)?([A-Z][A-Za-z0-9 &./-]{2,70}?)(?=\s*\.|\s+The\s+details|\s+Further|$)/i,
+      /\bfrom\s+(?:m\/s\.?\s*)?([A-Z][A-Za-z0-9 &.,-]{2,60}?)(?:\s+for|\s+worth|\s+valued|\s*\(|$)/,
+    ];
+    for (const re of patterns) {
+      const m = compact.match(re);
+      let name = m?.[1]?.replace(/\s+/g, ' ').trim();
+      if (!name) continue;
+      name = name.replace(/\s+The details.*$/i, '').replace(/[.,;]+$/g, '').trim();
+      if (
+        name.length >= 3 &&
+        name.length <= 80 &&
+        !/domestic|international|entity|particulars|details of order|enclosed/i.test(name)
+      ) {
+        return name;
+      }
+    }
+    return undefined;
+  }
+
+  /** When headline omits ₹ Cr, pull amount (+ counterparty) from attached LODR PDF. */
+  async enrichOrderAnnouncementsFromPdfs<
+    T extends {
+      isOrderWin?: boolean;
+      orderValue?: string;
+      link?: string;
+      title?: string;
+      description?: string;
+      customer?: string;
+    },
+  >(announcements: T[]): Promise<T[]> {
+    const needEnrich = announcements.filter(
+      (a) =>
+        a.isOrderWin &&
+        this.parseOrderValueCr(a.orderValue) <= 0 &&
+        !!a.link &&
+        /\.pdf($|\?)/i.test(a.link),
+    );
+    if (!needEnrich.length) return announcements;
+
+    const concurrency = 4;
+    for (let i = 0; i < needEnrich.length; i += concurrency) {
+      const batch = needEnrich.slice(i, i + concurrency);
+      await Promise.all(
+        batch.map(async (ann) => {
+          const pdfText = await this.fetchAnnouncementPdfText(ann.link);
+          if (!pdfText) return;
+          const combined = `${ann.title || ''} ${ann.description || ''} ${pdfText}`;
+          const value = this.extractOrderValue(combined);
+          if (value && this.parseOrderValueCr(value) > 0) {
+            ann.orderValue = value;
+          }
+          const customer = this.extractCounterpartyFromFiling(pdfText);
+          if (customer) {
+            (ann as any).customer = customer;
+          }
+          // Keep a short annexure hint on description for UI when headline had no amount
+          if (!ann.description || ann.description.length < 40) {
+            const snippet = this.normalizeFilingText(pdfText).slice(0, 280);
+            if (snippet) ann.description = snippet;
+          }
+        }),
+      );
+    }
+    return announcements;
   }
 
   classifyAnnouncementCategory(title: string, desc: string, subcat = ''): string {
@@ -2785,11 +2983,19 @@ export class TechnoFundaService {
     const allWins = (newsFeed.headlines || []).filter((h) => h.isOrderWin);
     // Prefer filings that already disclose a contract value, then take a wider slice
     const ranked = [...allWins].sort((a, b) => {
-      const av = a.orderValue ? 1 : 0;
-      const bv = b.orderValue ? 1 : 0;
+      const av = this.parseOrderValueCr(a.orderValue) > 0 ? 1 : 0;
+      const bv = this.parseOrderValueCr(b.orderValue) > 0 ? 1 : 0;
       return bv - av;
     });
-    const orderAnnouncements = ranked.slice(0, 40);
+    // Cap PDF enrichment work — amounts often live only in annexure PDFs
+    const candidateWins = ranked.slice(0, 40);
+    const orderAnnouncements = await this.enrichOrderAnnouncementsFromPdfs(candidateWins);
+    // Re-rank after PDF enrichment so valued contracts surface first
+    orderAnnouncements.sort((a, b) => {
+      const av = this.parseOrderValueCr(a.orderValue) > 0 ? 1 : 0;
+      const bv = this.parseOrderValueCr(b.orderValue) > 0 ? 1 : 0;
+      return bv - av;
+    });
     const universe = await this.loadNseEquityUniverse(80);
 
     // Resolve live announcements into orders using dynamic financial metrics
@@ -2821,7 +3027,11 @@ export class TechnoFundaService {
 
       const fin = await this.getCompanyFinancialSummary(sym, ann.company);
 
-      const valCr = this.parseOrderValueCr(ann.orderValue);
+      // Re-parse from title/description in case cached headline omitted ₹ Cr
+      const blendedValue =
+        ann.orderValue ||
+        this.extractOrderValue(`${ann.title || ''} ${ann.description || ''}`);
+      const valCr = this.parseOrderValueCr(blendedValue);
       const hasValue = valCr > 0;
 
       const durationMonths: number | null = null;
@@ -2835,17 +3045,24 @@ export class TechnoFundaService {
         ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
         : new Date().toISOString().split('T')[0];
 
-      // Try to pull counterparty from title/description (e.g. "from XYZ Ltd")
+      // Counterparty: PDF annexure → title/description "from …"
       const blob = `${ann.title || ''} ${ann.description || ''}`;
       const fromMatch = blob.match(/\bfrom\s+([A-Z][A-Za-z0-9 &.,-]{2,60}?)(?:\s+for|\s+worth|\s+valued|\s*\(|$)/);
-      const customer = fromMatch?.[1]?.trim() || 'Counterparty undisclosed in filing';
+      const customer =
+        (ann as any).customer ||
+        fromMatch?.[1]?.trim() ||
+        this.extractCounterpartyFromFiling(blob) ||
+        'Counterparty undisclosed in filing';
 
+      const pdfUrls = this.resolveAnnouncementPdfUrls(ann.link);
       return {
         id: `ord-live-${idx + 1}`,
         companyName: fin.companyName || ann.company || sym,
         symbol: fin.symbol || sym,
         customer,
-        orderType: ann.description?.includes('L1') ? 'L1 Tender Winner' : 'Purchase Order / Contract',
+        orderType: /l-?1|letter of intent|\bloa\b|epc/i.test(blob)
+          ? (/l-?1/i.test(blob) ? 'L1 Tender Winner' : /letter of intent|\bloa\b/i.test(blob) ? 'Letter of Intent' : 'EPC / Contract')
+          : 'Purchase Order / Contract',
         date: dateStr,
         contractValueCr: valCr,
         contractValueFormatted: hasValue
@@ -2858,7 +3075,7 @@ export class TechnoFundaService {
         orderSizePct,
         companyRevenueCr: fin.revenueCr,
         companyRevenueFormatted: fin.revenueCr > 0 ? `₹${fin.revenueCr.toLocaleString('en-IN')} Cr (${fin.fiscalYear})` : 'N/A',
-        pdfUrl: ann.link || null,
+        pdfUrl: pdfUrls[0] || ann.link || null,
       };
     });
 
@@ -2920,7 +3137,7 @@ export class TechnoFundaService {
 
     const result = {
       source: 'LIVE_EXCHANGE_FEED',
-      dataSource: 'BSE India & NSE India Official Corporate Filings (SEBI LODR Reg 30)',
+      dataSource: 'BSE/NSE corporate filings (SEBI LODR Reg 30) + PDF annexure amount extraction',
       totalOrdersCount: allOrders.length,
       totalOrderValueCr: Math.round(consolidated.reduce((acc, c) => acc + c.totalOrderValueCr, 0)),
       consolidated,

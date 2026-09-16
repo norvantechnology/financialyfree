@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Bookmark, Check, Loader2 } from 'lucide-react';
+import { Star, Loader2 } from 'lucide-react';
 import { getStoredAccessToken, getApiBaseUrl } from '../lib/auth-client';
 import { useRouter } from 'next/navigation';
 
@@ -14,11 +14,15 @@ export interface WatchlistButtonProps {
   onWatchlistToggled?: (isWatchlisted: boolean) => void;
 }
 
+/**
+ * Compact, high-contrast watchlist control for light Market Tracker tables.
+ * Icon-only by default — no heavy fills or colorful accents.
+ */
 export function WatchlistButton({
   symbol,
   companyName,
   size = 'sm',
-  variant = 'pill',
+  variant = 'icon',
   initialWatchlisted = false,
   onWatchlistToggled,
 }: WatchlistButtonProps) {
@@ -28,8 +32,9 @@ export function WatchlistButton({
   const [loading, setLoading] = useState<boolean>(false);
 
   const cleanSymbol = (symbol || '').trim().toUpperCase().replace(/\.(NS|BO)$/i, '');
+  const iconPx = size === 'sm' ? 15 : 17;
+  const boxPx = size === 'sm' ? 28 : 32;
 
-  // Check initial state from backend if user is authenticated
   const checkStatus = useCallback(async () => {
     const token = getStoredAccessToken();
     if (!token || !cleanSymbol) return;
@@ -53,7 +58,6 @@ export function WatchlistButton({
     checkStatus();
   }, [checkStatus]);
 
-  // Synchronize with external events from other buttons on the page
   useEffect(() => {
     const handleSync = (e: any) => {
       if (e.detail?.symbol === cleanSymbol) {
@@ -71,7 +75,6 @@ export function WatchlistButton({
 
     const token = getStoredAccessToken();
     if (!token) {
-      // Direct guest user to login preserving current route
       const currentUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/';
       router.push(`/auth/login?redirect=${encodeURIComponent(currentUrl)}`);
       return;
@@ -82,8 +85,6 @@ export function WatchlistButton({
 
     try {
       if (isWatchlisted) {
-        // Remove from watchlist
-        // If itemId is unknown, fetch it or query
         let idToDelete = itemId;
         if (!idToDelete) {
           const checkRes = await fetch(`${baseUrl}/api/v1/watchlist/check/${encodeURIComponent(cleanSymbol)}`, {
@@ -112,7 +113,6 @@ export function WatchlistButton({
           }
         }
       } else {
-        // Add to watchlist
         const res = await fetch(`${baseUrl}/api/v1/watchlist`, {
           method: 'POST',
           headers: {
@@ -143,32 +143,44 @@ export function WatchlistButton({
     }
   };
 
+  const label = isWatchlisted
+    ? `Remove ${cleanSymbol} from Watchlist`
+    : `Add ${cleanSymbol} to Watchlist`;
+
   if (variant === 'icon') {
     return (
       <button
         type="button"
         onClick={handleToggle}
         disabled={loading}
-        title={isWatchlisted ? `Remove ${cleanSymbol} from Watchlist` : `Add ${cleanSymbol} to Watchlist`}
-        aria-label={isWatchlisted ? `Remove ${cleanSymbol} from Watchlist` : `Add ${cleanSymbol} to Watchlist`}
+        title={label}
+        aria-label={label}
+        aria-pressed={isWatchlisted}
+        className="ff-watchlist-icon-btn"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: size === 'sm' ? '28px' : '34px',
-          height: size === 'sm' ? '28px' : '34px',
+          width: boxPx,
+          height: boxPx,
+          padding: 0,
           borderRadius: '6px',
-          border: isWatchlisted ? '1px solid #D97706' : '1px solid #334155',
-          background: isWatchlisted ? 'rgba(245, 158, 11, 0.12)' : 'rgba(30, 41, 59, 0.6)',
-          color: isWatchlisted ? '#F59E0B' : '#94A3B8',
+          border: '1px solid transparent',
+          background: 'transparent',
+          color: isWatchlisted ? '#0F766E' : '#64748B',
           cursor: loading ? 'wait' : 'pointer',
-          transition: 'all 0.15s ease',
+          transition: 'color 0.12s ease, background 0.12s ease, border-color 0.12s ease',
+          flexShrink: 0,
         }}
       >
         {loading ? (
-          <Loader2 size={size === 'sm' ? 13 : 16} className="animate-spin" />
+          <Loader2 size={iconPx} strokeWidth={2} className="animate-spin" />
         ) : (
-          <Bookmark size={size === 'sm' ? 13 : 16} fill={isWatchlisted ? '#F59E0B' : 'none'} />
+          <Star
+            size={iconPx}
+            strokeWidth={2}
+            fill={isWatchlisted ? 'currentColor' : 'none'}
+          />
         )}
       </button>
     );
@@ -179,37 +191,36 @@ export function WatchlistButton({
       type="button"
       onClick={handleToggle}
       disabled={loading}
-      title={isWatchlisted ? `In your Watchlist (${cleanSymbol})` : `Add ${cleanSymbol} to Watchlist`}
+      title={label}
+      aria-label={label}
+      aria-pressed={isWatchlisted}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: '5px',
-        padding: size === 'sm' ? '3px 9px' : '6px 12px',
+        height: size === 'sm' ? '28px' : '32px',
+        padding: size === 'sm' ? '0 10px' : '0 12px',
         borderRadius: '6px',
-        fontSize: size === 'sm' ? '11px' : '12px',
-        fontWeight: 600,
-        fontFamily: 'Inter, sans-serif',
-        border: isWatchlisted ? '1px solid #F59E0B' : '1px solid #334155',
-        background: isWatchlisted ? 'rgba(245, 158, 11, 0.15)' : 'rgba(15, 23, 42, 0.7)',
-        color: isWatchlisted ? '#F59E0B' : '#94A3B8',
+        fontSize: size === 'sm' ? '12px' : '12.5px',
+        fontWeight: 650,
+        border: isWatchlisted ? '1px solid #99F6E4' : '1px solid #CBD5E1',
+        background: isWatchlisted ? '#F0FDFA' : '#FFFFFF',
+        color: isWatchlisted ? '#0F766E' : '#334155',
         cursor: loading ? 'wait' : 'pointer',
-        transition: 'all 0.15s ease',
+        transition: 'all 0.12s ease',
         whiteSpace: 'nowrap',
       }}
     >
       {loading ? (
-        <Loader2 size={12} className="animate-spin" />
-      ) : isWatchlisted ? (
-        <>
-          <Check size={12} strokeWidth={2.5} />
-          <span>Watching</span>
-        </>
+        <Loader2 size={13} strokeWidth={2} className="animate-spin" />
       ) : (
-        <>
-          <Bookmark size={12} />
-          <span>+ Watchlist</span>
-        </>
+        <Star
+          size={13}
+          strokeWidth={2}
+          fill={isWatchlisted ? 'currentColor' : 'none'}
+        />
       )}
+      <span>{isWatchlisted ? 'Watching' : 'Watchlist'}</span>
     </button>
   );
 }

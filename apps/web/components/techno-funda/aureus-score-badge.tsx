@@ -38,34 +38,44 @@ export function AureusScoreBadge({
   const getTierBg = () => {
     switch (tier) {
       case 'EXCEPTIONAL':
-        return 'rgba(16, 185, 129, 0.12)';
       case 'STRONG':
-        return 'rgba(6, 182, 212, 0.12)';
+        return '#F0FDFA';
       case 'MODERATE':
-        return 'rgba(245, 158, 11, 0.12)';
+        return '#F8FAFC';
       case 'CAUTION':
-        return 'rgba(249, 115, 22, 0.12)';
       case 'HIGH_RISK':
-        return 'rgba(239, 68, 68, 0.12)';
+        return '#F8FAFC';
       default:
-        return 'rgba(148, 163, 184, 0.12)';
+        return '#F8FAFC';
     }
   };
 
   const getTierBorder = () => {
     switch (tier) {
       case 'EXCEPTIONAL':
-        return 'rgba(16, 185, 129, 0.35)';
       case 'STRONG':
-        return 'rgba(6, 182, 212, 0.35)';
+        return '#99F6E4';
       case 'MODERATE':
-        return 'rgba(245, 158, 11, 0.35)';
       case 'CAUTION':
-        return 'rgba(249, 115, 22, 0.35)';
       case 'HIGH_RISK':
-        return 'rgba(239, 68, 68, 0.35)';
+        return '#E2E8F0';
       default:
-        return 'rgba(148, 163, 184, 0.35)';
+        return '#E2E8F0';
+    }
+  };
+
+  const getTierText = () => {
+    switch (tier) {
+      case 'EXCEPTIONAL':
+      case 'STRONG':
+        return '#0F766E';
+      case 'MODERATE':
+        return '#334155';
+      case 'CAUTION':
+      case 'HIGH_RISK':
+        return '#475569';
+      default:
+        return '#64748B';
     }
   };
 
@@ -87,10 +97,10 @@ export function AureusScoreBadge({
           alignItems: 'center',
           gap: '5px',
           padding: pillPadding,
-          borderRadius: '9999px',
+          borderRadius: '6px',
           background: getTierBg(),
           border: `1px solid ${getTierBorder()}`,
-          color: tierColor,
+          color: getTierText(),
           fontSize,
           fontWeight: 700,
           cursor: showDetailsModal ? 'pointer' : 'default',
@@ -100,29 +110,21 @@ export function AureusScoreBadge({
         }}
         className="hover:shadow-sm"
       >
-        <span
-          style={{
-            width: size === 'sm' ? '6px' : '8px',
-            height: size === 'sm' ? '6px' : '8px',
-            borderRadius: '50%',
-            background: tierColor,
-          }}
-        />
         <span>Aureus {score !== null ? score : '—'}</span>
         {isPartial && !isInsufficient && (
           <span
             style={{
               fontSize: '9px',
-              fontWeight: 800,
-              letterSpacing: '0.4px',
+              fontWeight: 700,
+              letterSpacing: '0.3px',
               padding: '1px 4px',
               borderRadius: '4px',
-              background: 'rgba(245, 158, 11, 0.2)',
-              color: '#B45309',
+              background: '#F1F5F9',
+              color: '#64748B',
               textTransform: 'uppercase',
             }}
           >
-            PARTIAL
+            Partial
           </span>
         )}
       </button>

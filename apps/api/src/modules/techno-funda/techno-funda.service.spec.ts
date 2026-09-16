@@ -512,6 +512,7 @@ describe('TechnoFundaService (Sprint 8 & Dynamic Public Feeds)', () => {
             },
           ],
         } as any);
+        jest.spyOn(service, 'enrichOrderAnnouncementsFromPdfs').mockImplementation(async (rows) => rows);
         jest.spyOn(service, 'getCompanyFinancialSummary').mockResolvedValue({
           companyName: 'Bharat Electronics',
           symbol: 'BEL',
@@ -526,6 +527,21 @@ describe('TechnoFundaService (Sprint 8 & Dynamic Public Feeds)', () => {
         expect(tracker.orders.some((o: any) => o.contractValueCr === 500)).toBe(true);
         expect(tracker.orders.some((o: any) => o.contractValueFormatted === 'Undisclosed')).toBe(true);
       }, 30000);
+
+      it('extractOrderValue reads annexure PDF phrasing with spaced tokens', () => {
+        const pdfLike =
+          'Broad   commercial   consideration   or   size   of   the   order(s)/contract(s)  Rs.   69   Crores Only / -  (Rupees Sixty-Nine Crores Only)';
+        expect(service.extractOrderValue(pdfLike)).toBe('₹69 Cr');
+        expect(service.parseOrderValueCr(service.extractOrderValue(pdfLike))).toBe(69);
+        expect(
+          service.extractOrderValue(
+            'Order of USD 23663860 (Approximate Rs. 226 Crores) received by the Company',
+          ),
+        ).toBe('₹226 Cr');
+        expect(service.extractOrderValue('broad consideration or size of the order ~ INR 29.34 Crore')).toBe(
+          '₹29.34 Cr',
+        );
+      });
     });
   });
 });

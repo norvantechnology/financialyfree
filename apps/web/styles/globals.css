@@ -3294,6 +3294,24 @@ input:checked + .toggle-slider:before {
   box-shadow: 0 1px 2px rgba(15, 118, 110, 0.12) !important;
 }
 
+/* Compact watchlist star — light UI, high contrast, no heavy box */
+.ff-watchlist-icon-btn:hover:not(:disabled) {
+  background: #F1F5F9 !important;
+  border-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+.ff-watchlist-icon-btn[aria-pressed='true']:hover:not(:disabled) {
+  background: #F0FDFA !important;
+  border-color: #99F6E4 !important;
+  color: #0F766E !important;
+}
+
+.ff-watchlist-icon-btn:focus-visible {
+  outline: 2px solid rgba(15, 118, 110, 0.35);
+  outline-offset: 1px;
+}
+
 /* ── Universal 1-Click Export CSV Button ─────────────────────────── */
 .tf-export-btn,
 .tf-refresh-btn {

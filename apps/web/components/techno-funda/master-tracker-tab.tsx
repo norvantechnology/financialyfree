@@ -15,7 +15,7 @@ import {
   LayoutGrid,
   List,
   ShieldCheck,
-  Bookmark,
+  Star,
 } from 'lucide-react';
 import { WatchlistButton } from '../watchlist-button';
 import { AureusScoreBadge } from './aureus-score-badge';
@@ -746,7 +746,7 @@ export function MasterTrackerTab({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {sig.id === 'watchlist' && <Bookmark size={11} />}
+                {sig.id === 'watchlist' && <Star size={11} strokeWidth={2} />}
                 <span>{sig.label}</span>
               </button>
             );
@@ -848,6 +848,8 @@ export function MasterTrackerTab({
                       <WatchlistButton
                         symbol={stock.symbol}
                         companyName={stock.name}
+                        variant="icon"
+                        size="sm"
                         initialWatchlisted={stock.isWatchlisted}
                       />
                       <AureusScoreBadge

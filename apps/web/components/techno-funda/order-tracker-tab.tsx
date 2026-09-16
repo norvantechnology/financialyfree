@@ -184,11 +184,17 @@ export function OrderTrackerTab({
         const totalOrderValueCr = matchingOrders.reduce((sum, o) => sum + (o.contractValueCr || 0), 0);
         const rev = item.companyRevenueCr || 1;
         const pct = (totalOrderValueCr / rev) * 100;
+        const rounded = Math.round(totalOrderValueCr * 10) / 10;
 
         return {
           ...item,
-          totalOrderValueCr: Math.round(totalOrderValueCr * 10) / 10,
-          totalOrderValueFormatted: `₹${Math.round(totalOrderValueCr).toLocaleString('en-IN')} Cr`,
+          totalOrderValueCr: rounded,
+          totalOrderValueFormatted:
+            rounded > 0
+              ? `₹${Math.round(rounded).toLocaleString('en-IN')} Cr`
+              : matchingOrders.some((o) => (o.contractValueCr || 0) <= 0)
+                ? 'Undisclosed'
+                : `₹0 Cr`,
           orderCount: matchingOrders.length,
           ordersAsRevenuePct: parseFloat(pct.toFixed(2)),
           orders: matchingOrders,
@@ -222,10 +228,16 @@ export function OrderTrackerTab({
       sourceList = Object.values(map).map((item) => {
         const rev = item.companyRevenueCr || 1;
         const pct = (item.totalOrderValueCr / rev) * 100;
+        const rounded = Math.round(item.totalOrderValueCr * 10) / 10;
         return {
           ...item,
-          totalOrderValueCr: Math.round(item.totalOrderValueCr * 10) / 10,
-          totalOrderValueFormatted: `₹${Math.round(item.totalOrderValueCr).toLocaleString('en-IN')} Cr`,
+          totalOrderValueCr: rounded,
+          totalOrderValueFormatted:
+            rounded > 0
+              ? `₹${Math.round(rounded).toLocaleString('en-IN')} Cr`
+              : item.orders.some((o) => (o.contractValueCr || 0) <= 0)
+                ? 'Undisclosed'
+                : `₹0 Cr`,
           ordersAsRevenuePct: parseFloat(pct.toFixed(2)),
         };
       });

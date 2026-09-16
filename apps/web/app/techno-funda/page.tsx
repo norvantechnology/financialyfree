@@ -134,17 +134,34 @@ function detectOrderWinClient(text: string): boolean {
 
 function extractOrderValueClient(text: string): string | undefined {
   if (!text) return undefined;
-  const inrMatch = text.match(/(?:(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d+)?)\s*(?:cr(?:ore)?s?|lakhs?|mn|billion)?)|(?:([\d,]+(?:\.\d+)?)\s*(?:cr(?:ore)?s?)\b)/i);
-  if (inrMatch) {
-    const val = inrMatch[1] || inrMatch[2];
-    const isCrore = /cr/i.test(inrMatch[0]);
-    const isLakh = /lakh/i.test(inrMatch[0]);
-    if (isCrore) return `₹${val} Cr`;
-    if (isLakh) return `₹${val} Lakh`;
-    return `₹${val}`;
+  const compact = String(text)
+    .replace(/[\u00A0\u202F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const consideration =
+    compact.match(
+      /(?:broad\s+commercial\s+consideration|broad\s+consideration\s+or\s+size|size\s+of\s+the\s+order)\s*[:.\-]?\s*(.{0,180}?)(?=\s+Whether\b|\s+promoter\b|\s+Excluding\b|\s+Only\b|$)/i,
+    )?.[1] || '';
+  const blobs = [consideration, compact].filter(Boolean);
+  for (const blob of blobs) {
+    const inrMatch = blob.match(
+      /(?:~|approx(?:imate(?:ly)?)?|about|around)?\s*(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d+)?)\s*(crores?|cr\.?|lakhs?|lacs?)?\b|(?:([\d,]+(?:\.\d+)?)\s*(crores?|cr\.?)\b)/i,
+    );
+    if (inrMatch) {
+      const val = inrMatch[1] || inrMatch[3];
+      const unit = `${inrMatch[2] || ''} ${inrMatch[4] || ''} ${inrMatch[0]}`;
+      if (/lakh|lac/i.test(unit)) return `₹${val} Lakh`;
+      if (/cr/i.test(unit) || /rs\.?|inr|₹/i.test(inrMatch[0])) return `₹${val} Cr`;
+      return `₹${val}`;
+    }
   }
-  const usdMatch = text.match(/(?:\$|usd)\s*([\d,]+(?:\.\d+)?)\s*(m(?:illion)?|b(?:illion)?)?/i);
+  const usdMatch = compact.match(/(?:\$|usd)\s*([\d,]+(?:\.\d+)?)\s*(m(?:illion)?|b(?:illion)?)?/i);
   if (usdMatch) {
+    const raw = parseFloat(usdMatch[1].replace(/,/g, ''));
+    if (!usdMatch[2] && raw >= 100000) {
+      const cr = Math.round(((raw * 83) / 1e7) * 100) / 100;
+      return `₹${cr} Cr`;
+    }
     return `$${usdMatch[1]}${usdMatch[2] ? usdMatch[2][0].toUpperCase() : 'M'}`;
   }
   return undefined;
@@ -2034,7 +2051,7 @@ function TechnoFundaContent() {
                         >
                           {sectorName}
                         </span>
-                        <WatchlistButton symbol={sym} companyName={cleanCompanyName} size="sm" />
+                        <WatchlistButton symbol={sym} companyName={cleanCompanyName} size="sm" variant="icon" />
                         <AureusScoreBadge
                           scoreResult={(valuationData as any).aureusScore || (liveStock as any)?.aureusScore}
                           inputs={(liveStock as any)?.fundamentals ? { symbol: sym, companyName: cleanCompanyName, ...(liveStock as any).fundamentals } : undefined}
