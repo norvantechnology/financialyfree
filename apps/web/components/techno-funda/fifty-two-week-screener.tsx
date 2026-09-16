@@ -524,7 +524,9 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
                   </tr>
                 ) : (
                   filteredItems.map((stock) => {
-                    const isPositive = stock.dayChangePct >= 0;
+                    const dayChg = Number(stock.dayChangePct);
+                    const hasDayChg = Number.isFinite(dayChg);
+                    const isPositive = !hasDayChg || dayChg >= 0;
                     const dist = activeSubTab === 'highs' ? stock.distFromHighPct : stock.distFromLowPct;
                     return (
                       <tr key={stock.symbol} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.15s ease' }}>
@@ -543,23 +545,33 @@ export function FiftyTwoWeekScreener({ data, isLoading, onRefresh }: FiftyTwoWee
                         </td>
                         <td style={{ padding: '12px 14px', color: '#475569', whiteSpace: 'nowrap' }}>
                           <span style={{ background: '#F1F5F9', padding: '3px 7px', borderRadius: '4px', fontSize: '11.5px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                            {stock.sector}
+                            {stock.sector || '—'}
                           </span>
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 750, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                          ₹{(stock.cmp ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          {stock.cmp != null
+                            ? `₹${Number(stock.cmp).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+                            : '—'}
                         </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: isPositive ? '#16A34A' : '#DC2626', whiteSpace: 'nowrap' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', whiteSpace: 'nowrap' }}>
-                            {isPositive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-                            {isPositive ? `+${stock.dayChangePct.toFixed(2)}%` : `${stock.dayChangePct.toFixed(2)}%`}
-                          </span>
+                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: hasDayChg ? (isPositive ? '#16A34A' : '#DC2626') : '#94A3B8', whiteSpace: 'nowrap' }}>
+                          {hasDayChg ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', whiteSpace: 'nowrap' }}>
+                              {isPositive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+                              {`${dayChg >= 0 ? '+' : ''}${dayChg.toFixed(2)}%`}
+                            </span>
+                          ) : (
+                            '—'
+                          )}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', color: '#334155', fontWeight: 650, whiteSpace: 'nowrap' }}>
-                          ₹{(stock.week52High ?? 0).toLocaleString('en-IN')}
+                          {stock.week52High != null
+                            ? `₹${Number(stock.week52High).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+                            : '—'}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', color: '#64748B', whiteSpace: 'nowrap' }}>
-                          ₹{(stock.week52Low ?? 0).toLocaleString('en-IN')}
+                          {stock.week52Low != null
+                            ? `₹${Number(stock.week52Low).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+                            : '—'}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>
                           <span style={{

@@ -2519,7 +2519,7 @@ export class TechnoFundaService {
             const prevClose =
               validCloses.length > 1
                 ? validCloses[validCloses.length - 2]
-                : meta?.chartPreviousClose || meta?.previousClose || currentPrice;
+                : meta?.regularMarketPreviousClose || currentPrice;
             const dailyRet =
               prevClose > 0
                 ? Math.round(((currentPrice - prevClose) / prevClose) * 10000) / 100
@@ -3118,7 +3118,8 @@ export class TechnoFundaService {
     previousClose: number;
   } | null> {
     try {
-      // 5d gives session price + enough closes to recover 52W if meta fields are missing
+      // 1y supplies fiftyTwoWeek* meta + daily closes; do NOT use chartPreviousClose for day %
+      // (Yahoo chartPreviousClose is the close at the start of the requested range, ~1y ago).
       const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y`;
       const resp = await fetch(url, {
         headers: {
@@ -3134,15 +3135,35 @@ export class TechnoFundaService {
       const meta = result?.meta;
       if (!meta || meta.regularMarketPrice === undefined) return null;
       const cmp = Math.round(Number(meta.regularMarketPrice) * 100) / 100;
-      const prevClose = Number(meta.chartPreviousClose || meta.previousClose || cmp);
-      const dayChangePct =
-        prevClose > 0 ? Math.round(((cmp - prevClose) / prevClose) * 10000) / 100 : 0;
 
-      let week52High = Number(meta.fiftyTwoWeekHigh || 0);
-      let week52Low = Number(meta.fiftyTwoWeekLow || 0);
       const closes: number[] = (result?.indicators?.quote?.[0]?.close || []).filter(
         (c: any) => typeof c === 'number' && !isNaN(c) && c > 0,
       );
+      const volumes: number[] = (result?.indicators?.quote?.[0]?.volume || []).filter(
+        (v: any) => typeof v === 'number' && !isNaN(v) && v > 0,
+      );
+
+      // Session day change: prefer Yahoo's live %; else last two daily closes.
+      // Never use meta.chartPreviousClose here — that is range-start close on long charts.
+      let prevClose = Number(
+        meta.regularMarketPreviousClose ||
+          (closes.length >= 2 ? closes[closes.length - 2] : 0) ||
+          0,
+      );
+      let dayChangePct: number | null = null;
+      const liveChg = meta.regularMarketChangePercent ?? meta.fulldayChangePercent;
+      if (liveChg != null && Number.isFinite(Number(liveChg))) {
+        dayChangePct = Math.round(Number(liveChg) * 100) / 100;
+        if (!prevClose && closes.length >= 2) prevClose = closes[closes.length - 2];
+      } else if (prevClose > 0) {
+        dayChangePct = Math.round(((cmp - prevClose) / prevClose) * 10000) / 100;
+      } else {
+        dayChangePct = 0;
+      }
+      if (!prevClose) prevClose = cmp;
+
+      let week52High = Number(meta.fiftyTwoWeekHigh || 0);
+      let week52Low = Number(meta.fiftyTwoWeekLow || 0);
       // Never fall back 52W high/low to CMP (that falsely marks every name as near-high)
       if ((!week52High || !week52Low) && closes.length > 0) {
         week52High = week52High || Math.max(...closes);
@@ -3150,14 +3171,14 @@ export class TechnoFundaService {
       }
       if (!week52High || !week52Low) return null;
 
-      const volume = Number(meta.regularMarketVolume || 0);
+      const volume = Number(meta.regularMarketVolume || volumes[volumes.length - 1] || 0);
       return {
         cmp,
         week52High: Math.round(week52High * 100) / 100,
         week52Low: Math.round(week52Low * 100) / 100,
         dayChangePct,
         volume,
-        previousClose: prevClose,
+        previousClose: Math.round(prevClose * 100) / 100,
       };
     } catch {
       return null;
@@ -3932,10 +3953,17 @@ export class TechnoFundaService {
             (c: any) => typeof c === 'number' && !isNaN(c),
           );
           if (closes.length > 0) {
+            const lastClose = closes[closes.length - 1];
+            const priorClose = closes.length >= 2 ? closes[closes.length - 2] : undefined;
             candlesMap[idx.ticker] = {
               closes,
-              currentPrice: meta?.regularMarketPrice || closes[closes.length - 1],
-              previousClose: meta?.chartPreviousClose || meta?.previousClose,
+              currentPrice: meta?.regularMarketPrice || lastClose,
+              // Prefer prior daily close — chartPreviousClose on 3mo charts is range-start (~3m ago)
+              previousClose:
+                meta?.regularMarketPreviousClose ||
+                priorClose ||
+                meta?.previousClose ||
+                lastClose,
             };
           }
         } catch {}
