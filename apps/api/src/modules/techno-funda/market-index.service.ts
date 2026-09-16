@@ -57,7 +57,7 @@ export class MarketIndexService {
   private cache: CacheEntry | null = null;
   private overviewInFlight: Promise<MarketOverviewData> | null = null;
   private tataMotorsPriceCache: { data: TataMotorsPriceResult; expiresAt: number } | null = null;
-  private readonly CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes — shared by /indices and /market-mood
+  private readonly CACHE_TTL_MS = 60 * 1000; // 1 minute — fresher Nifty/Sensex/Bank day-change on the top bar
 
   private readonly INDICES = [
     { ticker: '^NSEI', symbol: 'NIFTY 50', name: 'Nifty 50 Index' },
@@ -190,7 +190,8 @@ export class MarketIndexService {
     name: string,
   ): Promise<IndexSnapshot | null> {
     const encoded = encodeURIComponent(ticker);
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1d&range=1d`;
+    // 5d supplies prior daily closes; range=1d often has a misleading chartPreviousClose for indices
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1d&range=5d`;
 
     const resp = await fetch(url, {
       headers: {
@@ -206,19 +207,41 @@ export class MarketIndexService {
     }
 
     const json = (await resp.json()) as any;
-    const meta = json?.chart?.result?.[0]?.meta;
+    const result = json?.chart?.result?.[0];
+    const meta = result?.meta;
     if (!meta || meta.regularMarketPrice === undefined) {
       throw new Error(`Invalid payload for ${ticker}`);
     }
 
     const current = Math.round(Number(meta.regularMarketPrice) * 100) / 100;
-    const previousClose =
-      meta.chartPreviousClose !== undefined
-        ? Math.round(Number(meta.chartPreviousClose) * 100) / 100
-        : current;
+    const closes: number[] = (result?.indicators?.quote?.[0]?.close || []).filter(
+      (c: any) => typeof c === 'number' && !isNaN(c) && c > 0,
+    );
+
+    // Prefer Yahoo's live session % — chartPreviousClose is unreliable across ranges.
+    let changePct: number;
+    let previousClose: number;
+    const liveChg = meta.regularMarketChangePercent ?? meta.fulldayChangePercent;
+    if (liveChg != null && Number.isFinite(Number(liveChg))) {
+      changePct = Math.round(Number(liveChg) * 100) / 100;
+      previousClose =
+        changePct !== -100
+          ? Math.round((current / (1 + changePct / 100)) * 100) / 100
+          : current;
+    } else {
+      previousClose = Math.round(
+        Number(
+          meta.regularMarketPreviousClose ||
+            (closes.length >= 2 ? closes[closes.length - 2] : 0) ||
+            current,
+        ) * 100,
+      ) / 100;
+      changePct =
+        previousClose > 0
+          ? Math.round(((current - previousClose) / previousClose) * 10000) / 100
+          : 0;
+    }
     const change = Math.round((current - previousClose) * 100) / 100;
-    const changePct =
-      previousClose > 0 ? Math.round(((current - previousClose) / previousClose) * 10000) / 100 : 0;
     const dayHigh = meta.regularMarketDayHigh ? Number(meta.regularMarketDayHigh) : current;
     const dayLow = meta.regularMarketDayLow ? Number(meta.regularMarketDayLow) : current;
     const timeSec = meta.regularMarketTime || Math.floor(Date.now() / 1000);
@@ -369,7 +392,7 @@ export class MarketIndexService {
       await Promise.all(
         symbols.map(async (ticker) => {
           try {
-            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
             const resp = await fetch(url, {
               headers: {
                 'User-Agent':
@@ -380,12 +403,27 @@ export class MarketIndexService {
             });
             if (!resp.ok) return;
             const json = (await resp.json()) as any;
-            const meta = json?.chart?.result?.[0]?.meta;
+            const result = json?.chart?.result?.[0];
+            const meta = result?.meta;
             if (!meta?.regularMarketPrice) return;
             const current = Number(meta.regularMarketPrice);
-            const prev = Number(meta.chartPreviousClose || meta.previousClose || current);
-            if (prev <= 0) return;
-            if (current >= prev) advances += 1;
+            const liveChg = meta.regularMarketChangePercent ?? meta.fulldayChangePercent;
+            let up: boolean;
+            if (liveChg != null && Number.isFinite(Number(liveChg))) {
+              up = Number(liveChg) >= 0;
+            } else {
+              const closes: number[] = (result?.indicators?.quote?.[0]?.close || []).filter(
+                (c: any) => typeof c === 'number' && !isNaN(c) && c > 0,
+              );
+              const prev = Number(
+                meta.regularMarketPreviousClose ||
+                  (closes.length >= 2 ? closes[closes.length - 2] : 0) ||
+                  current,
+              );
+              if (prev <= 0) return;
+              up = current >= prev;
+            }
+            if (up) advances += 1;
             else declines += 1;
           } catch {}
         }),
