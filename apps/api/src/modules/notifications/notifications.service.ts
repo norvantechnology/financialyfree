@@ -239,6 +239,7 @@ export class NotificationsService {
     return this.sendNotification(
       userId,
       {
+        userId,
         title,
         message,
         type: category as any,
