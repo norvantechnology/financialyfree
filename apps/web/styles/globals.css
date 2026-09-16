@@ -7384,3 +7384,495 @@ tr:hover .tf-sticky-symbol-cell {
 }
 
 
+/* ── Master Tracker responsive layout ── */
+.mt-dash {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mt-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mt-kpi-grid .tf-kpi-card {
+  min-height: 88px;
+}
+
+.mt-toolbar {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mt-toolbar-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.mt-search {
+  position: relative;
+  flex: 1 1 220px;
+  min-width: min(100%, 180px);
+}
+
+.mt-search input {
+  width: 100%;
+  height: 36px;
+  padding: 0 32px 0 34px;
+  border-radius: 8px;
+  border: 1px solid #CBD5E1;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0F172A;
+  background: #FFFFFF;
+  outline: none;
+}
+
+.mt-search input:focus {
+  border-color: #0F766E;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+}
+
+.mt-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94A3B8;
+  pointer-events: none;
+}
+
+.mt-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mt-pill-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.mt-pill-row::-webkit-scrollbar { display: none; }
+
+.mt-pill-label {
+  font-size: 11.5px;
+  color: #64748B;
+  font-weight: 650;
+  flex-shrink: 0;
+}
+
+.mt-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .mt-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .mt-cards-grid.mt-cards-grid-dense {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.mt-stock-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.mt-stock-card:hover {
+  box-shadow: 0 6px 18px rgba(15, 118, 110, 0.08);
+  transform: translateY(-1px);
+}
+
+.mt-stock-accent {
+  height: 3px;
+}
+
+.mt-stock-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mt-stock-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mt-stock-id {
+  flex: 1;
+  min-width: 0;
+}
+
+.mt-stock-sym {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.01em;
+}
+
+.mt-stock-name {
+  font-size: 12px;
+  color: #64748B;
+  font-weight: 500;
+  line-height: 1.35;
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mt-stock-sector {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 10.5px;
+  font-weight: 650;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #F1F5F9;
+  color: #475569;
+  border: 1px solid #E2E8F0;
+}
+
+.mt-stock-price-block {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.mt-stock-price {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-stock-chg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  justify-content: flex-end;
+}
+
+.mt-stock-chg-badge {
+  font-size: 12px;
+  font-weight: 750;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-stock-chg-badge.is-up {
+  color: #15803D;
+  background: #DCFCE7;
+}
+
+.mt-stock-chg-badge.is-down {
+  color: #B91C1C;
+  background: #FEE2E2;
+}
+
+.mt-stock-cap {
+  font-size: 11px;
+  color: #94A3B8;
+  margin-top: 3px;
+}
+
+.mt-metric-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mt-metric-cell {
+  background: #F8FAFC;
+  border: 1px solid #F1F5F9;
+  border-radius: 8px;
+  padding: 7px 8px;
+  min-width: 0;
+}
+
+.mt-metric-cell span {
+  display: block;
+  font-size: 10px;
+  font-weight: 650;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.mt-metric-cell strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  font-weight: 750;
+  color: #0F172A;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mt-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mt-actions-spacer {
+  flex: 1;
+  min-width: 4px;
+}
+
+.mt-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.mt-action-btn-dcf {
+  border-color: #CCFBF1;
+  background: #F0FDFA;
+  color: #0F766E;
+}
+
+.mt-action-btn-pulse {
+  border-color: #BFDBFE;
+  background: #EFF6FF;
+  color: #1E40AF;
+}
+
+.mt-trigger-box {
+  padding: 8px 10px;
+  background: #F0FDFA;
+  border-radius: 8px;
+  border: 1px solid #CCFBF1;
+}
+
+.mt-trigger-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #0F766E;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+}
+
+.mt-trigger-text {
+  margin: 0;
+  font-size: 12.5px;
+  color: #0F172A;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.mt-q-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.mt-q-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 2px;
+  min-height: 42px;
+  border-radius: 7px;
+  border: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  box-sizing: border-box;
+}
+
+.mt-q-cell.is-beat {
+  background: #ECFDF5;
+  border-color: #A7F3D0;
+}
+
+.mt-q-cell.is-miss {
+  background: #FEF2F2;
+  border-color: #FECACA;
+}
+
+.mt-range-track {
+  height: 6px;
+  background: #E2E8F0;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mt-range-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #0F766E, #14B8A6);
+  border-radius: 4px;
+}
+
+.mt-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: #94A3B8;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .mt-dash {
+    gap: 10px;
+  }
+
+  .mt-kpi-grid {
+    gap: 6px;
+  }
+
+  .mt-kpi-grid .tf-kpi-card {
+    min-height: 72px;
+    padding: 8px !important;
+  }
+
+  .mt-kpi-grid .tf-kpi-title {
+    font-size: 9.5px !important;
+    letter-spacing: 0.02em;
+  }
+
+  .mt-kpi-grid .tf-kpi-val {
+    font-size: 16px !important;
+  }
+
+  .mt-kpi-grid .tf-kpi-subval {
+    font-size: 10px !important;
+  }
+
+  .mt-toolbar {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .mt-toolbar-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mt-toolbar-controls {
+    width: 100%;
+  }
+
+  .mt-toolbar-controls > * {
+    flex: 1 1 auto;
+  }
+
+  .mt-stock-body {
+    padding: 11px;
+    gap: 9px;
+  }
+
+  .mt-stock-sym {
+    font-size: 14.5px;
+  }
+
+  .mt-stock-price {
+    font-size: 15px;
+  }
+
+  .mt-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .mt-actions-spacer {
+    display: none;
+  }
+
+  .mt-actions .watchlist-btn,
+  .mt-actions > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .mt-action-btn {
+    width: 100%;
+    min-height: 34px;
+  }
+
+  .mt-q-grid {
+    gap: 4px;
+  }
+
+  .mt-q-cell {
+    min-height: 40px;
+    padding: 5px 1px;
+  }
+
+  .mt-metric-strip {
+    gap: 5px;
+  }
+
+  .mt-metric-cell {
+    padding: 6px 6px;
+  }
+
+  .mt-metric-cell strong {
+    font-size: 11.5px;
+  }
+}
+
+@media (max-width: 380px) {
+  .mt-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mt-metric-strip {
+    grid-template-columns: 1fr;
+  }
+}
+

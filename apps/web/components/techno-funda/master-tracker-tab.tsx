@@ -143,6 +143,17 @@ export function MasterTrackerTab({
     }
   }, [liveStocks]);
 
+  // Prefer cards on small screens — table stays available when user switches
+  React.useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const apply = () => {
+      if (mq.matches) setViewMode('cards');
+    };
+    apply();
+    mq.addEventListener?.('change', apply);
+    return () => mq.removeEventListener?.('change', apply);
+  }, []);
+
   React.useEffect(() => {
     const handleSync = (e: any) => {
       if (e.detail?.symbol) {
@@ -386,9 +397,9 @@ export function MasterTrackerTab({
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="mt-dash">
       {/* ── 1. Executive Summary & Quick-Sort Metric Cards ─────────────────── */}
-      <div className="tf-kpi-grid">
+      <div className="mt-kpi-grid">
         {/* Card 1: Total Universe */}
         <div
           onClick={() => {
@@ -497,29 +508,18 @@ export function MasterTrackerTab({
       </div>
 
       {/* ── 2. Smart Fast-Finder Toolbar ──────────────────────────────────── */}
-      <div className="card" style={{ background: '#FFFFFF' }}>
+      <div className="mt-toolbar">
         {/* Top Controls Row */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+        <div className="mt-toolbar-top">
           {/* Always Visible Search Bar */}
-          <div style={{ position: 'relative', flex: '1 1 260px', minWidth: 'min(100%, 240px)' }}>
-            <Search size={15} color="#94A3B8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+          <div className="mt-search">
+            <Search size={15} className="mt-search-icon" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search stock, company, sector, or catalyst..."
-              style={{
-                width: '100%',
-                height: '34px',
-                padding: '0 28px 0 32px',
-                borderRadius: '7px',
-                border: '1px solid #CBD5E1',
-                fontSize: '13px',
-                fontWeight: 500,
-                color: '#0F172A',
-                background: '#FFFFFF',
-                outline: 'none',
-              }}
+              placeholder="Search stock, company, or sector…"
+              aria-label="Search Master Tracker"
             />
             {search && (
               <button
@@ -544,17 +544,19 @@ export function MasterTrackerTab({
           </div>
 
           {/* Right Controls: Sort + View Mode Switcher */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="mt-toolbar-controls">
             {/* Sort Selector */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ color: '#64748B', fontWeight: 600, fontSize: '12.5px' }}>Sort:</span>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flex: '1 1 auto' }}>
+              <span className="mt-pill-label">Sort</span>
               <select
                 value={sortColumn}
                 onChange={(e) => handleSort(e.target.value as MasterSortCol)}
                 style={{
-                  height: '34px',
+                  height: '36px',
+                  flex: 1,
+                  minWidth: 0,
                   padding: '0 28px 0 10px',
-                  borderRadius: '7px',
+                  borderRadius: '8px',
                   border: '1px solid #CBD5E1',
                   background: '#FFFFFF',
                   color: '#0F172A',
@@ -576,12 +578,12 @@ export function MasterTrackerTab({
                 onClick={() => setSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'))}
                 title={`Order: ${sortDirection === 'asc' ? 'Ascending' : 'Descending'}`}
                 style={{
-                  height: '34px',
+                  height: '36px',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px',
                   padding: '0 10px',
-                  borderRadius: '7px',
+                  borderRadius: '8px',
                   border: '1px solid #CBD5E1',
                   background: '#FFFFFF',
                   color: '#0F766E',
@@ -595,18 +597,19 @@ export function MasterTrackerTab({
               </button>
             </div>
 
-            {/* View Mode Switcher (Desktop & Laptop) */}
-            <div className="tf-desktop-only" style={{ display: 'inline-flex', alignItems: 'center', background: '#F1F5F9', height: '34px', padding: '2px', borderRadius: '7px', border: '1px solid #CBD5E1' }}>
+            {/* View Mode Switcher — available on mobile too */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', background: '#F1F5F9', height: '36px', padding: '3px', borderRadius: '8px', border: '1px solid #CBD5E1' }}>
               <button
                 type="button"
                 onClick={() => setViewMode('table')}
+                className="tf-desktop-only"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px',
-                  height: '28px',
-                  padding: '0 8px',
-                  borderRadius: '5px',
+                  height: '30px',
+                  padding: '0 10px',
+                  borderRadius: '6px',
                   border: 'none',
                   background: viewMode === 'table' ? '#FFFFFF' : 'transparent',
                   color: viewMode === 'table' ? '#0F766E' : '#64748B',
@@ -626,9 +629,9 @@ export function MasterTrackerTab({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px',
-                  height: '28px',
-                  padding: '0 8px',
-                  borderRadius: '5px',
+                  height: '30px',
+                  padding: '0 10px',
+                  borderRadius: '6px',
                   border: 'none',
                   background: viewMode === 'cards' ? '#FFFFFF' : 'transparent',
                   color: viewMode === 'cards' ? '#0F766E' : '#64748B',
@@ -656,11 +659,11 @@ export function MasterTrackerTab({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px',
-                  height: '34px',
+                  height: '36px',
                   padding: '0 10px',
-                  borderRadius: '7px',
-                  border: '1px solid #CBD5E1',
-                  background: '#FFFFFF',
+                  borderRadius: '8px',
+                  border: '1px solid #FECACA',
+                  background: '#FEF2F2',
                   color: '#DC2626',
                   fontSize: '12.5px',
                   fontWeight: 650,
@@ -674,24 +677,9 @@ export function MasterTrackerTab({
           </div>
         </div>
 
-        {/* Horizontal Scrolling Sector Pills (1-Tap Fast Filter) */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            overflowX: 'auto',
-            whiteSpace: 'nowrap',
-            scrollbarWidth: 'none',
-            padding: '3px 0 4px',
-            borderTop: '1px solid #F1F5F9',
-            marginTop: '4px',
-            paddingTop: '6px',
-          }}
-        >
-          <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, marginRight: '2px', flexShrink: 0 }}>
-            Sector:
-          </span>
+        {/* Horizontal Scrolling Sector Pills */}
+        <div className="mt-pill-row">
+          <span className="mt-pill-label">Sector</span>
           {sectors.map((sec) => {
             const isSelected = sectorFilter === sec;
             const count = sectorCounts[sec] || 0;
@@ -704,31 +692,28 @@ export function MasterTrackerTab({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px',
-                  height: '25px',
-                  padding: '0 8px',
+                  height: '28px',
+                  padding: '0 10px',
                   fontSize: '11.5px',
                   fontWeight: isSelected ? 700 : 500,
-                  borderRadius: '12px',
+                  borderRadius: '8px',
                   border: isSelected ? '1px solid #0F766E' : '1px solid #E2E8F0',
                   background: isSelected ? '#0F766E' : '#F8FAFC',
                   color: isSelected ? '#FFFFFF' : '#475569',
                   cursor: 'pointer',
                   flexShrink: 0,
                   whiteSpace: 'nowrap',
-                  boxSizing: 'border-box',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 <span>{sec}</span>
                 <span
                   style={{
                     fontSize: '10px',
-                    padding: '1px 4px',
+                    padding: '1px 5px',
                     borderRadius: '6px',
                     background: isSelected ? 'rgba(255,255,255,0.25)' : '#E2E8F0',
                     color: isSelected ? '#FFFFFF' : '#64748B',
                     fontWeight: 700,
-                    whiteSpace: 'nowrap',
                   }}
                 >
                   {count}
@@ -739,25 +724,13 @@ export function MasterTrackerTab({
         </div>
 
         {/* Signal Quick Filter Chips */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            overflowX: 'auto',
-            whiteSpace: 'nowrap',
-            scrollbarWidth: 'none',
-            paddingTop: '6px',
-          }}
-        >
-          <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, marginRight: '2px', flexShrink: 0 }}>
-            Signal:
-          </span>
+        <div className="mt-pill-row">
+          <span className="mt-pill-label">Signal</span>
           {[
-            { id: 'All', label: 'All Stocks' },
-            { id: 'gainers', label: 'Day Gainers' },
-            { id: 'near52High', label: 'Near 52W High' },
-            { id: 'watchlist', label: `My Watchlist (${summaryStats.watchlistCount})` },
+            { id: 'All', label: 'All' },
+            { id: 'gainers', label: 'Gainers' },
+            { id: 'near52High', label: 'Near 52W' },
+            { id: 'watchlist', label: `Watchlist (${summaryStats.watchlistCount})` },
           ].map((sig) => {
             const isSelected = signalFilter === sig.id;
             return (
@@ -769,18 +742,17 @@ export function MasterTrackerTab({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px',
-                  height: '25px',
-                  padding: '0 8px',
+                  height: '28px',
+                  padding: '0 10px',
                   fontSize: '11.5px',
                   fontWeight: isSelected ? 700 : 500,
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                   border: isSelected ? '1px solid #0F766E' : '1px solid #CBD5E1',
                   background: isSelected ? '#F0FDFA' : '#FFFFFF',
                   color: isSelected ? '#0F766E' : '#475569',
                   cursor: 'pointer',
                   flexShrink: 0,
                   whiteSpace: 'nowrap',
-                  boxSizing: 'border-box',
                 }}
               >
                 {sig.id === 'watchlist' && <Bookmark size={11} />}
