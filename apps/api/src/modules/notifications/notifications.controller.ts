@@ -11,11 +11,32 @@ import {
   HttpStatus,
   UseGuards,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { ConsentPreferencesDto, SimulateNotificationDto } from '@ff/types';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard, Public } from '../auth/guards/jwt-auth.guard';
+import { IsEmail, IsIn, IsString, MaxLength, MinLength } from 'class-validator';
+
+class ContactFormDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name!: string;
+
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @IsIn(['general', 'support', 'billing', 'partnership', 'compliance'])
+  topic!: string;
+
+  @IsString()
+  @MinLength(20)
+  @MaxLength(5000)
+  message!: string;
+}
 
 @ApiTags('Notifications & DPDP Consent')
 @Controller('notifications')
@@ -39,6 +60,17 @@ export class NotificationsController {
       } catch {}
     }
     throw new UnauthorizedException('Authentication required');
+  }
+
+  @Public()
+  @Post('contact')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Public marketing contact form → EMAIL_PROVIDER channel' })
+  async submitContact(@Body() dto: ContactFormDto) {
+    if (!dto?.name || !dto?.email || !dto?.message) {
+      throw new BadRequestException('name, email, and message are required');
+    }
+    return this.notifService.submitContactForm(dto);
   }
 
   @Get('my')

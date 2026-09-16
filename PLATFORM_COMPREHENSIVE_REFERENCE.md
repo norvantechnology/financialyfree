@@ -51,12 +51,13 @@
    - 6.2 Digio & KRA (KYC Verification & Document Processing)
    - 6.3 Razorpay Payment Gateway & Subscriptions
    - 6.4 Yahoo Finance Market Data (Delayed Indices & Quotes)
-   - 6.5 NSE India Live & Historical Feeds (Breadth, Calendar, Actions)
-   - 6.6 BSE India Corporate Filings (Announcements & Order Tracker)
+   - 6.5 NSE India Live & Historical Feeds (Breadth, Calendar, Actions, PIT, Announcements)
+   - 6.6 BSE India Corporate Filings, PDF Annexures & Order Tracker Pipeline (full params + UI/DB mapping)
    - 6.7 Vahan MoRTH National Automobile Registration Registry
    - 6.8 Economic Times RSS Feed (News & Market Headlines)
    - 6.9 Screener.in & Exchange Disclosures (Audited Financials)
    - 6.10 Transactional Email Service (Nodemailer / SMTP)
+   - 6.11 End-to-End Field Mapping Matrix (Third-Party → Backend → UI → Health DB)
 7. [Backend Engineering Architecture, Modules & Database Schema](#7-backend-engineering-architecture-modules--database-schema)
    - 7.1 NestJS 10 Domain Architecture
    - 7.2 Database Schema, TimescaleDB & 11 TypeORM Migrations
@@ -417,30 +418,62 @@ Techno-Funda Suite Navigation Bar (/techno-funda?tab=...)
 
 ---
 
-### 5.4 Tab 4: Order Tracker Dashboard
+### 5.4 Tab 4: Order Tracker Dashboard (`orders`)
+
+- **Route / Tab Key**: `/techno-funda?tab=orders`
+- **UI Component**: `apps/web/components/techno-funda/order-tracker-tab.tsx` (`OrderTrackerTab`)
+- **Page Wiring**: `apps/web/app/techno-funda/page.tsx` → fetches feed key `orders` → `setOrderTrackerData` → props `liveOrders` / `liveConsolidated`
+- **Backend Endpoint**: `GET /api/v1/techno-funda/orders?refresh=true|false`  
+  Controller: `TechnoFundaController.getOrderTracker` → `TechnoFundaService.getOrderTracker(forceRefresh)`
 
 - **What is the Use?**  
-  Tracks significant corporate order wins, EPC contracts, defense tenders, and export agreements announced by listed Indian companies. Computes the materiality of the order relative to the company's annual revenue.
+  Tracks significant corporate order wins, EPC contracts, LOA/LOI awards, defense tenders, and export agreements under **SEBI LODR Regulation 30** (bagging/receiving of orders). Computes materiality vs company TTM revenue. **Live-only** — no mock/seed order rows.
 
-- **What We Are Showing:**
-  - Announcements stream listing company, symbol, client/counterparty, contract title, announcement date, and contract duration.
-  - **Order Value**: Highlighted in ₹ Crores (or converted $ Millions).
-  - **% of Annual Revenue**: Metric showing the order value as a percentage of the company's trailing 12-month (TTM) revenue.
-  - **Direct Exchange Filing Link**: Direct link to the official signed BSE/NSE PDF disclosure.
-  - **Search & Filter Controls**: Keyword search by customer (e.g. "Saudi Aramco", "Indian Army", "Railways") or company, and minimum contract value filter.
+- **What We Are Showing (UI columns):**
+
+  | UI Label | API Field | Notes |
+  |---|---|---|
+  | Company | `companyName`, `symbol` | Resolved via NSE equity universe + financial summary |
+  | Customer / Counterparty | `customer` | From PDF annexure “entity awarding…” or headline `from …` |
+  | Order Type | `orderType` | `Purchase Order / Contract`, `Letter of Intent`, `EPC / Contract`, `L1 Tender Winner` |
+  | Date | `date` | `en-IN` formatted from `pubDate` |
+  | Contract Value | `contractValueFormatted`, `contractValueCr` | `₹X Cr` or **`Undisclosed`** (never fake zeros as valued) |
+  | Order Size % of Revenue | `orderSizePct` | Materiality ratio |
+  | Company Revenue | `companyRevenueFormatted` | TTM / fiscal year from financial summary |
+  | Filing PDF | `pdfUrl` | BSE `AttachLive` / `AttachHis` PDF URL |
+  | Consolidated Total Order Value | `totalOrderValueFormatted` | Sum of `contractValueCr` per symbol; `Undisclosed` if all unknown |
+  | Orders as % of Revenue | `ordersAsRevenuePct` | Consolidated materiality |
+  | Order Count | `orderCount` | Filings in selected timeframe |
 
 - **How We Are Showing It:**
-  - Responsive card grid and structured table with order size distribution chips.
+  - Sub-tabs: **Consolidated Company View** and **All Orders**.
+  - Filters: search, timeframe (6M / 1Y / 2Y / All), min revenue %, min revenue ₹ Cr, company/customer filters, sort columns.
+  - Mobile-responsive tables/cards; PDF opens via `pdfUrl`.
 
-- **How We Get Dynamic Data from Third Parties:**
-  - Backed by `TechnoFundaService.getOrderTracker()`.
-  - Scrapes BSE Corporate Announcements feed (`AnnSubCategoryGetData/w`).
-  - Regex pattern matching extracts numbers followed by "Cr", "Crore", "Lakh", or "$ Million".
-  - Correlates order size with audited TTM revenues from platform financial data.
+- **How We Get Dynamic Data from Third Parties (pipeline):**
+  1. `getNewsFeed()` merges **NSE corporate announcements** + **BSE `AnnSubCategoryGetData`** + **ET Markets RSS**.
+  2. `detectOrderWin()` flags order/contract wins (excludes court/ROC/office-shift false positives). Prefer BSE subcategory `Award of Order / Receipt of Order`.
+  3. `extractOrderValue()` parses ₹ Cr / Lakh / USD from **headline + description**.
+  4. **Critical (Sep 2026 fix):** If value still missing, `enrichOrderAnnouncementsFromPdfs()` downloads the LODR PDF (`AttachLive` → fallback `AttachHis`), extracts text via `pdftotext` or **`pdfjs-dist`**, then re-parses annexure block *“broad commercial consideration / size of the order”* (amounts often absent from BSE `HEADLINE`).
+  5. `getCompanyFinancialSummary(symbol)` supplies TTM revenue for materiality.
+  6. In-memory cache TTL **15 minutes** (`orderTrackerCache`); empty results use short poison TTL (~1 min) so the next refresh retries.
+
+- **Third-Party Dependencies for this tab:** See **§6.5** (NSE announcements), **§6.6** (BSE + PDF), **§6.8** (ET), **§6.9** (financials). Full param tables in §6.6.
+
+- **Database / Health:**
+  - Order rows are **not persisted** as a dedicated `orders` table (computed live).
+  - Upstream news blob cached in PostgreSQL `data_source_health` where `sourceKey = 'news'` (`rawResponseSnippet` JSON with `latestHeadlines`).
+  - Admin integrity catalog currently lists `news` (ET URL in `upstreamRef`); Order Tracker reuses that news pipeline + PDF enrichment. Ledger key for ops: `order_tracker` (see `docs/INTEGRATION_LEDGER.md`).
 
 - **Mathematical Formula & Logic:**
   $$\text{Materiality Ratio } (\%) = \left(\frac{\text{Contract Value (₹ Cr)}}{\text{TTM Company Revenue (₹ Cr)}}\right) \times 100$$
-  - Contracts exceeding $15\%$ of annual revenue are flagged with a gold "Mega Win" priority badge.
+  - USD absolute amounts (e.g. `23663860`) converted ≈ `(USD × 83) / 10^7` → ₹ Cr when headline lacks explicit Cr.
+  - Lakhs → Cr via ÷ 100.
+  - UI shows **Undisclosed** when `contractValueCr === 0` after PDF enrichment (not `₹0 Cr`).
+
+- **Verified live samples (2026-09-16):**
+  - Suratwwala Business Group — headline had no ₹; PDF annexure → **₹69 Cr**.
+  - Patels Airtemp — headline `Approximate Rs. 226 Crores` → **₹226 Cr**.
 
 ---
 
@@ -558,9 +591,10 @@ $$\text{Where } \text{Residual Income}_t = \text{Net Income}_t - (r_e \times \te
   - High-density news feed layout with relative timestamps (`14 minutes ago`) and clean typography.
 
 - **How We Get Dynamic Data from Third Parties:**
-  - Ingests Economic Times RSS 2.0 feed (`https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms`).
-  - Automated regex and keyword classification tags articles.
-  - Strips HTML tags and decodes XML entities.
+  - **Primary (exchange filings):** NSE `GET /api/corporate-announcements?index=equities` + BSE `AnnSubCategoryGetData/w` (see §6.5–6.6).
+  - **Secondary:** Economic Times RSS 2.0 (`…/rssfeeds/2146842.cms`).
+  - `getNewsFeed()` merges all three; classifies via `detectOrderWin` / `classifyAnnouncementCategory`; persists blob to `data_source_health` (`sourceKey=news`).
+  - Order-value chips on News cards use `orderValue` (headline parse); Order Tracker additionally enriches from PDF annexures (§5.4).
 
 ---
 
@@ -949,12 +983,180 @@ $$\text{Where } \text{Residual Income}_t = \text{Net Income}_t - (r_e \times \te
 | **NSE India (Insider Trading)** | JSON API (`corporates-pit`) | SEBI PIT disclosures, promoter purchases, sales, and pledges | 15 minutes | Disclosed regulatory filings baseline |
 | **NSE & BSE (IPO Pipeline)** | JSON API (`ipo-current-issue`) | Live bidding subscriptions, GMP estimates, upcoming issues | 30 minutes | Mainboard & SME issuance database |
 | **NSE India (Corporate Actions)** | JSON API (`corporates-corporateActions`) | Dividend calendar, stock splits, bonus issues, and rights issues | 1 hour | Ex-date scheduled corporate action baseline |
-| **BSE India** | JSON REST API | Corporate announcements (`AnnSubCategoryGetData/w`), PDFs | 10 minutes | Curated industrial and EPC contracts database |
+| **BSE India** | JSON REST + PDF HTTPS | `AnnSubCategoryGetData/w` + `AttachLive`/`AttachHis` LODR PDFs | 15 min (orders / news) | Empty day-walk merge; PDF annexure extraction for ₹ Cr |
 | **Reserve Bank of India (RBI)** | HTTPS Regulatory Extraction | Monetary policy rates (Repo, MSF, SDF), MPC dates, CPI inflation | 24 hours | RBI MPC policy statement archive |
 | **Vahan MoRTH** | HTTP Extraction & ETL | National vehicle registrations (2W, 3W, 4W, CV, EV, Tractors) | 24 hours | Historical MoRTH longitudinal dataset (2018–2026) |
-| **Economic Times** | RSS 2.0 XML Stream | Live financial market headlines and corporate news | 5 minutes | Cached news archive with NLP category tagging |
-| **Screener.in / Filings** | HTTPS Scraper | Balance sheets, P&L statements, Free Cash Flows, Debt | 1 hour | Tata Motors audited financial statements baseline |
+| **Economic Times** | RSS 2.0 XML Stream | Live financial market headlines and corporate news | 5–15 minutes | Cached news archive with category tagging |
+| **Screener.in / Filings** | HTTPS Scraper | Balance sheets, P&L statements, Free Cash Flows, Debt | 1 hour | Estimated / unavailable financial summary markers |
 | **SMTP / Nodemailer** | TLS Port 587/465 | Verification emails, password reset tokens, invoices | Real-time | Console logger fallback when SMTP credentials are unset |
+| **pdfjs-dist / pdftotext** | Local PDF text extract | LODR annexure amount & counterparty when headline omits ₹ Cr | Per order enrich | Skip enrich; leave `Undisclosed` |
+
+> **Focused Order Tracker integration doc**: [`docs/integrations/order-tracker-bse-nse.md`](docs/integrations/order-tracker-bse-nse.md)
+
+### 6.5 NSE India — Announcements, PIT & Related Feeds (params used by platform)
+
+#### 6.5.1 Corporate Announcements (Order Tracker + News Desk)
+
+| Item | Value |
+|---|---|
+| **Base** | `https://www.nseindia.com` |
+| **Path** | `/api/corporate-announcements` |
+| **Query params** | `index=equities` |
+| **Auth / session** | Cookie + `User-Agent` via internal `fetchNseApi()` (NSE requires browse session) |
+| **Service method** | `TechnoFundaService.fetchLiveNseAnnouncements()` |
+| **Fields used** | `sm_name` / company, `symbol`, `desc` / `attchmntText`, `attchmntFile`, `sort_date` / `an_dt` |
+| **Derived** | `isOrderWin`, `orderValue`, `category` (`Orders`, `Results`, …) |
+| **UI mapping** | News Desk + Order Tracker candidates |
+| **DB** | Persisted inside `data_source_health.rawResponseSnippet` under `sourceKey='news'` |
+
+#### 6.5.2 SEBI PIT Insider Trading
+
+| Item | Value |
+|---|---|
+| **Path** | `/api/corporates-pit` |
+| **Query params** | `index=equities`, `from_date=DD-MM-YYYY`, `to_date=DD-MM-YYYY` (also bare `index=equities`) |
+| **Fallback** | If current calendar year window empty, retry prior years (−1/−2) and broader ranges |
+| **Service** | `getInsiderTrading()` |
+| **UI** | `/techno-funda?tab=insider` |
+
+#### 6.5.3 Other NSE endpoints (summary)
+
+| Endpoint | Params | Used by |
+|---|---|---|
+| `/api/allIndices` | (session) | Market breadth / MMI |
+| `/api/event-calendar` | — | Results Calendar |
+| `/api/corporates-corporateActions?index=equities` | `index` | Buybacks / Dividends |
+| `/api/corporate-share-holdings-master?index=equities` | `index` | Shareholding |
+| `/api/historical/bulk-block-deals` | date / type | Bulk & Block Deals |
+| `/api/option-chain-indices` | `symbol` | F&O OI / PCR / Max Pain |
+| `/api/live-analysis-52-week-high-low` | — | 52W screener |
+| `/api/ipo-current-issue` | — | IPO Tracker |
+
+### 6.6 BSE India Corporate Filings, PDF Annexures & Order Tracker Pipeline
+
+#### 6.6.1 Announcements discovery API
+
+| Item | Value |
+|---|---|
+| **URL** | `https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w` |
+| **Method** | `GET` |
+| **Required headers** | `User-Agent` (browser), `Referer: https://www.bseindia.com/`, `Origin: https://www.bseindia.com`, `Accept: application/json` |
+| **Critical constraint** | Returns rows only when **`strPrevDate === strToDate`** (single calendar day). Multi-day ranges return empty. Platform **day-walks** last **14 days** × **2 pages**. |
+
+**Query parameters (exactly as called):**
+
+| Param | Platform value | Meaning |
+|---|---|---|
+| `pageno` | `1` then `2` | Pagination |
+| `strCat` | `-1` | All categories |
+| `strPrevDate` | `YYYYMMDD` (same as `strToDate`) | Day start |
+| `strToDate` | `YYYYMMDD` | Day end (must equal prev) |
+| `strScrip` | `` (empty) | All scrips |
+| `strSearch` | `P` | Platform search mode used by BSE UI |
+| `strType` | `C` | Corporate announcements |
+
+**Response shape:** JSON with `Table: []` array. Important columns:
+
+| BSE field | Backend use |
+|---|---|
+| `SCRIP_CD` | BSE scrip; **not** used as NSE symbol (numeric codes cleared) |
+| `SLONGNAME` | `company` |
+| `HEADLINE` / `NEWSSUB` | title / description text for detect + value parse |
+| `SUBCATNAME` | Order detect boost when `Award of Order / Receipt of Order` |
+| `CATEGORYNAME` | Classification aid |
+| `ATTACHMENTNAME` | PDF file name → AttachLive/His URL |
+| `DT_TM` / `News_submission_dt` | `pubDate` |
+| `NEWSID` | Dedup key |
+| `NSURL` | Company page fallback link |
+| `PDFFLAG` / `Fld_Attachsize` | Attachment presence (informational) |
+
+**Service:** `fetchLiveBseAnnouncements()` in `techno-funda.service.ts`.
+
+#### 6.6.2 Attachment PDFs (where ₹ Cr usually lives)
+
+| Item | Value |
+|---|---|
+| **Live folder** | `https://www.bseindia.com/xml-data/corpfiling/AttachLive/{ATTACHMENTNAME}` |
+| **History folder** | `https://www.bseindia.com/xml-data/corpfiling/AttachHis/{ATTACHMENTNAME}` |
+| **Fallback** | Try Live first; on miss/empty text try His (and vice versa) via `resolveAnnouncementPdfUrls()` |
+| **Headers** | Same BSE Referer/UA; `Accept: application/pdf,*/*` |
+| **Text extract** | Prefer system `pdftotext -layout`; else `pdfjs-dist@4.10.38` (`apps/api` dependency) |
+| **Parsers** | `extractOrderValue()`, `extractCounterpartyFromFiling()`, `parseOrderValueCr()` |
+| **Annexure patterns** | `broad commercial consideration`, `broad consideration or size`, `size of the order`, `Rs./INR/₹ … Crore(s)/Cr`, `~ INR x.xx Crore` |
+| **Concurrency** | Batches of 4 PDFs during `enrichOrderAnnouncementsFromPdfs()` |
+
+**Regulatory context:** SEBI LODR Reg 30 / Schedule III order bagging disclosures; XBRL single-filing expanding (BSE notices 2024–2026) but **PDF filings remain** for many order events — platform must read PDF annexures.
+
+#### 6.6.3 Backend Order Tracker assembly
+
+| Step | Method / artifact |
+|---|---|
+| Feed merge | `getNewsFeed()` → NSE + BSE + ET |
+| Filter | `headlines.filter(h => h.isOrderWin)` |
+| Enrich | `enrichOrderAnnouncementsFromPdfs()` for missing ₹ |
+| Symbol resolve | Strip numeric BSE codes → NSE universe name/symbol match → first company token |
+| Financials | `getCompanyFinancialSummary(sym)` |
+| Output | `{ source, dataSource, totalOrdersCount, totalOrderValueCr, consolidated[], orders[], lastUpdated }` |
+| Cache | `orderTrackerCache` 15 min |
+
+**API response → UI prop mapping:**
+
+| API (`GET …/orders`) | React prop / column |
+|---|---|
+| `orders[]` | `liveOrders` → All Orders table |
+| `consolidated[]` | `liveConsolidated` → Company view (re-aggregated by timeframe client-side) |
+| `orders[].contractValueCr` | Contract value sort / sum |
+| `orders[].contractValueFormatted` | Display (`₹… Cr` or `Undisclosed`) |
+| `orders[].pdfUrl` | Filing link / icon |
+| `orders[].customer` | Customer column |
+| `totalOrderValueCr` | Dashboard aggregate (client may re-sum filtered set) |
+| `lastUpdated` | Refresh chrome |
+
+#### 6.6.4 Database mapping (Order Tracker related)
+
+| Store | Role |
+|---|---|
+| **PostgreSQL `data_source_health`** (`migration 010`) | Health row `sourceKey='news'`: `mode`, `status`, `lastFetchedAt`, `durationMs`, `upstreamRef`, `rawResponseSnippet` (merged headlines JSON), `errorMessage` |
+| **No `order_wins` table** | Orders are derived at request time from live filings + PDF text |
+| **Admin** | `/admin/data-integrity` → refresh `news` rehydrates announcement cache used by Order Tracker |
+| **In-process memory** | `orderTrackerCache`, news staleness gate (15 min on `lastFetchedAt`) |
+
+`data_source_health` columns (entity `DataSourceHealthEntity`):
+
+| Column | Type | Purpose |
+|---|---|---|
+| `id` | uuid PK | Row id |
+| `sourceKey` | varchar(64) unique | e.g. `news`, `buybacks`, `results_calendar` |
+| `sourceName` | varchar(128) | Human label |
+| `mode` | `LIVE_FETCH` \| `COMPUTED_FROM_LIVE` \| `STATIC_SEED` \| `MOCK_PROVIDER` | Provenance |
+| `status` | `SUCCESS` \| `FAILURE` | Last run |
+| `upstreamRef` | varchar(512) | Canonical upstream URL(s) |
+| `lastFetchedAt` | timestamptz | Cache freshness |
+| `durationMs` | int | Fetch timing |
+| `rawResponseSnippet` | text | Cached payload / headlines |
+| `errorMessage` | text nullable | Last error |
+
+### 6.7–6.10 (unchanged roles; see summary table)
+
+- **6.7 Vahan MoRTH** — `VahanEtlService`; 24h cache; UI Vahan tab.
+- **6.8 Economic Times RSS** — `https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms`; merged into news; order-win NLP on titles.
+- **6.9 Screener / filings scrape** — revenue/PAT for materiality & valuation baselines.
+- **6.10 SMTP** — transactional mail only (not market data).
+
+### 6.11 End-to-End Field Mapping Matrix (Third-Party → Backend → UI → Health DB)
+
+| Third-party field / source | Backend field | UI surface | DB / cache |
+|---|---|---|---|
+| BSE `HEADLINE` + `SUBCATNAME` | `title`, `isOrderWin`, `category` | News Desk, Order detect | `data_source_health` (`news`) snippet |
+| BSE `ATTACHMENTNAME` → PDF text | `orderValue`, `customer` | Contract Value, Customer | Memory after enrich; not separately stored |
+| BSE `SLONGNAME` | `company` → `companyName` | Company column | — |
+| BSE `SCRIP_CD` | discarded if numeric; symbol resolved via universe | `symbol` | — |
+| BSE `DT_TM` | `pubDate` → `date` | Date column / timeframe filter | — |
+| NSE `desc` / `attchmntText` | `description`, `orderValue` | News + Orders | `news` snippet |
+| NSE PIT rows | insider payload | Insider tab | (endpoint cache / live) |
+| ET RSS `title`/`description` | headlines | News Desk | `news` snippet |
+| Financial summary revenue | `companyRevenueCr`, `orderSizePct` | Revenue & % columns | Per-symbol memory cache inside service |
+| PDF annexure ₹ Cr | `contractValueCr` / `Formatted` | Total Order Value | Recomputed each `getOrderTracker` |
 
 ---
 
@@ -972,8 +1174,11 @@ The backend application in `apps/api` follows domain-driven modularity:
 - **`MutualFundsModule`**: Scheme master database and TimescaleDB NAV analytics.
 - **`NotificationsModule`**: In-app notifications and email dispatch.
 - **`PaymentsModule` / `SubscriptionsModule`**: Razorpay webhook ingestion, order generation, and GST invoice numbering.
-- **`TechnoFundaModule`**: Houses `TechnoFundaService`, `MarketIndexService`, and `VahanEtlService`. Exposes 20 institutional screener and research endpoints:
+- **`TechnoFundaModule`**: Houses `TechnoFundaService`, `MarketIndexService`, and `VahanEtlService`. Exposes institutional screener and research endpoints (all under `/api/v1/techno-funda`, optional `?refresh=true`):
   - `GET /techno-funda/live-feeds` (Core feeds: MMI, Results, News, Filings)
+  - `GET /techno-funda/news` (NSE + BSE + ET merged announcements; seeds Order Tracker)
+  - `GET /techno-funda/orders` (**Order Tracker** — live BSE/NSE order wins + PDF annexure ₹ Cr enrichment)
+  - `GET /techno-funda/master-tracker` (Curated growth watchlist + live quotes)
   - `GET /techno-funda/sector-heatmap` (11 NSE Sector Indices Heatmap & Rotation)
   - `GET /techno-funda/52w-high-low` (52-Week High & Low Breakout Screener)
   - `GET /techno-funda/delivery-screener` (High Delivery % Momentum Screener)
@@ -984,6 +1189,7 @@ The backend application in `apps/api` follows domain-driven modularity:
   - `GET /techno-funda/ipo-tracker` (Mainboard & SME IPO Pipeline & Bidding)
   - `GET /techno-funda/dividends` (Dividend & Corporate Action Calendar)
   - `GET /techno-funda/rbi-macro` (RBI Repo Rate, MPC Calendar & Policy Dashboard)
+  - Also: `market-mood`, `pead`, `pead-feed`, `vahan`, `vahan-makers`, `buybacks`, `results-calendar`, `shareholding`, `valuation-financials`, `financial-modelling`, `bank-nbfc`, `indices`, `overview`
 - **`UsersModule`**: User CRUD, preferences, and profile management.
 
 ### 7.2 Database Schema & 11 TypeORM Migrations
@@ -998,6 +1204,7 @@ PostgreSQL 16 relational database extended with TimescaleDB hypertables:
 8. `008-mutual-funds.ts`: `mf_schemes` and `mf_nav_history` (TimescaleDB hyper-table partitioned on time).
 9. `009-notifications.ts`: `notifications` table storing in-app alerts and read status.
 10. `011-invoices.ts`: `invoices` table with sequential GST invoice numbers, taxable amount, and receipts.
+11. `010-data-source-health.ts`: `data_source_health` table — provenance/mode/status/`rawResponseSnippet` for live feeds (`news`, `buybacks`, `results_calendar`, `shareholding`, indices, Vahan, etc.). **Order Tracker does not have its own table**; it reuses `news` cache + live PDF enrichment.
 
 ### 7.3 Caching, Rate Limiting & Proxy Architecture
 - **In-Memory TTL + Redis 7**: Market indices cached for 5 minutes (`CACHE_TTL_MS = 300_000`); Vahan registration data cached for 24 hours.

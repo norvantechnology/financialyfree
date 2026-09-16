@@ -31,7 +31,7 @@ export function AureusScoreBadge({
     return calculateAureusScore({ roce: null, debtToEquity: null, promoterHoldingPercent: null });
   }, [propResult, inputs]);
 
-  const { score, tier, tierLabel, tierColor, isPartial, summary, subScores, totalWeightAvailable } = result;
+  const { score, tier, tierLabel, isPartial, summary, subScores, totalWeightAvailable } = result;
 
   const isInsufficient = tier === 'INSUFFICIENT_DATA' || score === null;
 

@@ -3,7 +3,9 @@
 > **AMFI-Registered Mutual Fund Distributor Platform** (ARN-350272 / FutureZenith Insights LLP)  
 > Combining Goal-Based Mutual Fund Execution, Systematic Asset Allocation, LMS Education, and Techno-Funda Decision Support.
 
-📘 **Comprehensive Master Documentation**: See [PLATFORM_COMPREHENSIVE_REFERENCE.md](file:///home/ig-008/Documents/MY/financiallyfree/PLATFORM_COMPREHENSIVE_REFERENCE.md) for full architectural documentation covering all UI features, backend modules, third-party integrations (BSE StAR MF, Digio, Razorpay, Yahoo Finance, NSE/BSE, Vahan, ET RSS), and detailed tab-by-tab mathematical logic.
+📘 **Comprehensive Master Documentation**: See [PLATFORM_COMPREHENSIVE_REFERENCE.md](./PLATFORM_COMPREHENSIVE_REFERENCE.md) for full architectural documentation covering all UI features, backend modules, third-party integrations (BSE StAR MF, Digio, Razorpay, Yahoo Finance, NSE/BSE, Vahan, ET RSS), and detailed tab-by-tab mathematical logic.
+
+📦 **Order Tracker (BSE/NSE filings + PDF ₹ Cr mapping)**: [docs/integrations/order-tracker-bse-nse.md](./docs/integrations/order-tracker-bse-nse.md) — full third-party params, backend pipeline, UI column mapping, and `data_source_health` DB notes. Ledger: [docs/INTEGRATION_LEDGER.md](./docs/INTEGRATION_LEDGER.md).
 
 ---
 

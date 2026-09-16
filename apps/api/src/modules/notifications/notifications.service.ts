@@ -239,14 +239,43 @@ export class NotificationsService {
     return this.sendNotification(
       userId,
       {
-        userId,
-        type: category as any,
-        channel: 'push' as any,
         title,
         message,
-        metadata: { simulated: true, triggerType },
+        type: category as any,
+        channel: 'in_app' as any,
       },
-      { phone: '+919876543210', email: 'investor@financiallyfree.in' },
     );
+  }
+
+  /**
+   * Public marketing contact form — routes through existing EMAIL_PROVIDER
+   * (EmailMockProvider in non-prod; swap provider for live SES/SendGrid).
+   */
+  async submitContactForm(input: {
+    name: string;
+    email: string;
+    topic: string;
+    message: string;
+  }): Promise<{ success: boolean; messageId: string }> {
+    const supportInbox =
+      process.env.CONTACT_INBOX_EMAIL ||
+      process.env.SUPPORT_EMAIL ||
+      'support@financiallyfree.in';
+
+    const result = await this.emailProvider.sendMessage({
+      recipient: supportInbox,
+      subject: `[Contact/${input.topic}] ${input.name} <${input.email}>`,
+      body: [
+        `Name: ${input.name}`,
+        `Email: ${input.email}`,
+        `Topic: ${input.topic}`,
+        '',
+        input.message,
+      ].join('\n'),
+      metadata: { source: 'marketing_contact_form', replyTo: input.email },
+    });
+
+    this.logger.log(`Contact form queued via EMAIL_PROVIDER → ${result.messageId}`);
+    return { success: true, messageId: result.messageId };
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Landmark, Calendar, Download} from 'lucide-react';
 import { exportTableToCsv } from '../../lib/csv-export';
 import { TfLoadingState } from './tf-loading-state';
