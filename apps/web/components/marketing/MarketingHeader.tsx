@@ -74,9 +74,14 @@ export function MarketingHeader({ forceSolid = false }: { forceSolid?: boolean }
 
           <div className="mkt-header-actions">
             {loggedIn ? (
-              <Link href="/dashboard" className="mkt-btn mkt-btn-primary mkt-header-cta-desktop">
-                Go to Dashboard
-              </Link>
+              <>
+                <Link href="/dashboard" className="mkt-btn mkt-btn-primary mkt-header-cta-desktop">
+                  Go to Dashboard
+                </Link>
+                <Link href="/dashboard" className="mkt-btn mkt-btn-primary mkt-header-cta-mobile">
+                  Dashboard
+                </Link>
+              </>
             ) : (
               <>
                 <Link href="/auth/login" className="mkt-btn mkt-btn-ghost mkt-header-cta-desktop">
@@ -84,6 +89,12 @@ export function MarketingHeader({ forceSolid = false }: { forceSolid?: boolean }
                 </Link>
                 <Link href="/auth/register" className="mkt-btn mkt-btn-primary mkt-header-cta-desktop">
                   Get Started Free
+                </Link>
+                <Link href="/auth/login" className="mkt-btn mkt-btn-ghost mkt-header-cta-mobile-login">
+                  Log In
+                </Link>
+                <Link href="/dashboard" className="mkt-btn mkt-btn-primary mkt-header-cta-mobile">
+                  Dashboard
                 </Link>
               </>
             )}

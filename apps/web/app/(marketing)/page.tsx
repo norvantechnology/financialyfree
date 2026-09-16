@@ -110,6 +110,16 @@ export default function HomePage() {
               Explore Research Suite
             </Link>
           </div>
+          <div className="mkt-hero-direct-links">
+            <span>Direct access:</span>
+            <Link href="/dashboard" className="mkt-hero-direct-link">
+              Go to Dashboard →
+            </Link>
+            <span className="mkt-hero-link-sep">·</span>
+            <Link href="/auth/login" className="mkt-hero-direct-link">
+              Log In
+            </Link>
+          </div>
           <IndicesRibbon />
         </div>
       </section>

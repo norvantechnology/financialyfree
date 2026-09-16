@@ -2323,8 +2323,8 @@ input:checked + .toggle-slider:before {
 .space-x-3 > * + * { margin-left: clamp(10px, 2vw, 14px) !important; }
 .space-x-4 > * + * { margin-left: clamp(12px, 2.5vw, 18px) !important; }
 
-/* Responsive Sections */
-.section, section {
+/* Responsive Sections (excludes marketing sections which manage their own spacing) */
+.section, section:not([class*="mkt-"]) {
   margin-bottom: clamp(16px, 3.5vw, 28px);
 }
 
@@ -8163,4 +8163,17 @@ tr:hover .tf-sticky-symbol-cell {
 .mkt .mkt-compliance-bar p {
   color: #9a3412 !important; /* 4.8:1 on #fff7ed background */
 }
+
+/* Guarantee seamless transitions between dark marketing sections and footer: zero margin leaks */
+.mkt section,
+.mkt .mkt-section,
+.mkt-section,
+.mkt-section-cta {
+  margin-bottom: 0 !important;
+}
+
+.mkt-footer {
+  margin-top: 0 !important;
+}
+
 

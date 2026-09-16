@@ -126,20 +126,31 @@ export function FeatureCard({
   description,
   icon,
   badge,
+  tags,
 }: {
   title: string;
   description: string;
   icon?: React.ReactNode;
   badge?: string;
+  tags?: string[];
 }) {
   return (
     <article className="mkt-card">
-      {badge ? <div className="mkt-kicker">{badge}</div> : null}
-      {icon ? <div className="mkt-card-icon">{icon}</div> : null}
+      {badge ? <div className="mkt-card-badge">{badge}</div> : null}
+      {icon ? <div className="mkt-feature-icon-wrap">{icon}</div> : null}
       <h3 className="mkt-serif mkt-card-title">{title}</h3>
       <p className="mkt-text-muted" style={{ margin: 0, lineHeight: 1.55 }}>
         {description}
       </p>
+      {tags && tags.length > 0 ? (
+        <div className="mkt-feature-tags">
+          {tags.map((t) => (
+            <span key={t} className="mkt-feature-tag">
+              {t}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </article>
   );
 }
