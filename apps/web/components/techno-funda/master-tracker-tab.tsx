@@ -763,83 +763,20 @@ export function MasterTrackerTab({
         </div>
       </div>
 
-      {/* ── 3. Mobile Cards View (< 768px always, or Cards View on Desktop) ── */}
-      {(viewMode === 'cards' || true) && (
+      {/* ── 3. Cards View (mobile always; desktop when Cards selected) ─────── */}
+      {(viewMode === 'cards' || viewMode === 'table') && (
         <div className={viewMode === 'table' ? 'tf-mobile-only' : ''}>
-          {/* Quick Mobile Sort Strip */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: '#FFFFFF',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '1px solid #E2E8F0',
-              marginBottom: '10px',
-              fontSize: '11.5px',
-            }}
-          >
-            <span style={{ fontWeight: 600, color: '#475569' }}>
-              Showing {sortedFilteredStocks.length} of {stocks.length} Stocks:
+          <div className="mt-results-meta">
+            <span>
+              {sortedFilteredStocks.length} of {stocks.length} stocks
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <select
-                value={sortColumn}
-                onChange={(e) => handleSort(e.target.value as MasterSortCol)}
-                style={{
-                  height: '32px',
-                  padding: '0 26px 0 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  fontSize: '11.5px',
-                  background: '#FFFFFF',
-                  color: '#0F172A',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  outline: 'none',
-                }}
-              >
-                <option value="marketCap">Market Cap</option>
-                <option value="price">Price</option>
-                <option value="changePct">Day Change</option>
-                <option value="week52High">52W High</option>
-                <option value="eps">FY27 EPS</option>
-              </select>
-              <button
-                type="button"
-                onClick={() => setSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'))}
-                style={{
-                  height: '32px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '0 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #CBD5E1',
-                  background: '#F8FAFC',
-                  fontSize: '11px',
-                  fontWeight: 650,
-                  color: '#0F766E',
-                  cursor: 'pointer',
-                }}
-              >
-                <ArrowUpDown size={12} />
-                <span>{sortDirection === 'asc' ? 'Asc' : 'Desc'}</span>
-              </button>
-            </div>
+            <span className="tf-mobile-only" style={{ fontWeight: 500, color: '#94A3B8' }}>
+              Expand cards for catalysts &amp; quarters
+            </span>
           </div>
 
-          {/* Cards Grid Layout */}
           <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns:
-                viewMode === 'cards'
-                  ? 'repeat(auto-fill, minmax(320px, 1fr))'
-                  : '1fr',
-              gap: '8px',
-            }}
+            className={`mt-cards-grid${viewMode === 'cards' ? ' mt-cards-grid-dense' : ''}`}
           >
             {sortedFilteredStocks.map((stock) => {
               const isPos = stock.changePct >= 0;
@@ -849,7 +786,6 @@ export function MasterTrackerTab({
                 (q) => q?.status === 'Beat'
               ).length;
 
-              // 52W range calculation
               const low = stock.technicals?.week52Low || 1;
               const high = stock.technicals?.week52High || 1;
               const rangeSpan = Math.max(1, high - low);
@@ -859,96 +795,68 @@ export function MasterTrackerTab({
               );
 
               return (
-                <div
-                  key={stock.id}
-                  className="card"
-                  style={{
-                    background: '#FFFFFF',
-                    borderRadius: '10px',
-                    border: '1px solid #E2E8F0',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    transition: 'box-shadow 0.18s ease, transform 0.18s ease',
-                    overflow: 'hidden',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 16px rgba(15,118,110,0.10)';
-                    (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-1px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-                    (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
-                  }}
-                >
-                  {/* ─── TOP ACCENT BAR with beat colour ─────────── */}
-                  <div style={{
-                    height: '3px',
-                    background: beatsCount >= 3
-                      ? 'linear-gradient(90deg, #059669, #10B981)'
-                      : beatsCount >= 2
-                        ? 'linear-gradient(90deg, #2563EB, #60A5FA)'
-                        : 'linear-gradient(90deg, #94A3B8, #CBD5E1)',
-                  }} />
+                <article key={stock.id} className="mt-stock-card">
+                  <div
+                    className="mt-stock-accent"
+                    style={{
+                      background:
+                        beatsCount >= 3
+                          ? 'linear-gradient(90deg, #059669, #10B981)'
+                          : beatsCount >= 2
+                            ? 'linear-gradient(90deg, #2563EB, #60A5FA)'
+                            : 'linear-gradient(90deg, #94A3B8, #CBD5E1)',
+                    }}
+                  />
 
-                  {/* ─── CARD BODY ────────────────────────────────── */}
-                  <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-
-                    {/* ── ROW 1: Identity + Price ─────────────────── */}
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '6px' }}>
-                      {/* Left: Symbol, Sector, Name */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', marginBottom: '2px' }}>
-                          <span style={{ fontSize: '14.5px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.01em' }}>
-                            {stock.symbol}
-                          </span>
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: 650,
-                            padding: '1px 6px',
-                            borderRadius: '12px',
-                            background: '#F1F5F9',
-                            color: '#475569',
-                            border: '1px solid #E2E8F0',
-                            whiteSpace: 'nowrap',
-                          }}>
-                            {stock.sector}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 500, lineHeight: 1.25 }}>
-                          {stock.name}
-                        </div>
+                  <div className="mt-stock-body">
+                    {/* Identity + Price */}
+                    <div className="mt-stock-head">
+                      <div className="mt-stock-id">
+                        <div className="mt-stock-sym">{stock.symbol}</div>
+                        <div className="mt-stock-name">{stock.name}</div>
+                        <span className="mt-stock-sector">{stock.sector}</span>
                       </div>
-
-                      {/* Right: Price block */}
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <div style={{ fontSize: '15.5px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                      <div className="mt-stock-price-block">
+                        <div className="mt-stock-price">
                           ₹{fmtNum(stock.price, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'flex-end', marginTop: '2px' }}>
-                          <span style={{
-                            fontSize: '11.5px',
-                            fontWeight: 750,
-                            color: isPos ? '#16A34A' : '#DC2626',
-                            background: isPos ? '#DCFCE7' : '#FEE2E2',
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                          }}>
-                            {isPos ? '+' : ''}{fmtNum(stock.changePct, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                        <div className="mt-stock-chg">
+                          <span className={`mt-stock-chg-badge ${isPos ? 'is-up' : 'is-down'}`}>
+                            {isPos ? '+' : ''}
+                            {fmtNum(stock.changePct, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                           </span>
-                          <span style={{
-                            fontSize: '9.5px', fontWeight: 750, background: '#F1F5F9',
-                            color: '#64748B', padding: '1px 4px', borderRadius: '3px',
-                          }}>1D</span>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: '#94A3B8' }}>1D</span>
                         </div>
-                        <div style={{ fontSize: '10.5px', color: '#94A3B8', marginTop: '1px' }}>
-                          Cap: <strong style={{ color: '#475569' }}>{formatMarketCap(stock.marketCapCr)}</strong>
+                        <div className="mt-stock-cap">
+                          Cap <strong style={{ color: '#475569' }}>{formatMarketCap(stock.marketCapCr)}</strong>
                         </div>
                       </div>
                     </div>
 
-                    {/* ── ROW 2: Watchlist + Actions ──────────────── */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    {/* Quick metrics */}
+                    <div className="mt-metric-strip">
+                      <div className="mt-metric-cell">
+                        <span>Beats</span>
+                        <strong style={{ color: beatsCount >= 3 ? '#059669' : '#0F172A' }}>
+                          {beatsCount}/4
+                        </strong>
+                      </div>
+                      <div className="mt-metric-cell">
+                        <span>FY27 EPS</span>
+                        <strong>
+                          {stock.technicals?.expectedEpsFy27
+                            ? `₹${stock.technicals.expectedEpsFy27}`
+                            : '—'}
+                        </strong>
+                      </div>
+                      <div className="mt-metric-cell">
+                        <span>52W pos</span>
+                        <strong>{fmtNum(pctFromLow, { maximumFractionDigits: 0 })}%</strong>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="mt-actions">
                       <WatchlistButton
                         symbol={stock.symbol}
                         companyName={stock.name}
@@ -959,34 +867,22 @@ export function MasterTrackerTab({
                         inputs={(stock as any).fundamentals ? { symbol: stock.symbol, companyName: stock.name, ...(stock as any).fundamentals } : undefined}
                         size="sm"
                       />
-
-                      <div style={{ flex: 1 }} />
-
+                      <div className="mt-actions-spacer" />
                       {onSelectValuation && (
                         <button
                           type="button"
                           onClick={() => onSelectValuation(stock.symbol)}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '3px',
-                            padding: '3px 8px', borderRadius: '5px', fontSize: '11px', fontWeight: 700,
-                            border: '1px solid #CCFBF1', background: '#F0FDFA', color: '#0F766E', cursor: 'pointer',
-                            transition: 'all 0.12s ease',
-                          }}
+                          className="mt-action-btn mt-action-btn-dcf"
                         >
                           <Calculator size={12} />
-                          <span>DCF Lab</span>
+                          <span>DCF</span>
                         </button>
                       )}
                       {onOpenPulse && (
                         <button
                           type="button"
                           onClick={() => onOpenPulse(stock)}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '3px',
-                            padding: '3px 8px', borderRadius: '5px', fontSize: '11px', fontWeight: 700,
-                            border: '1px solid #BFDBFE', background: '#EFF6FF', color: '#1E40AF', cursor: 'pointer',
-                            transition: 'all 0.12s ease',
-                          }}
+                          className="mt-action-btn mt-action-btn-pulse"
                         >
                           <Activity size={12} />
                           <span>Pulse</span>
@@ -994,38 +890,54 @@ export function MasterTrackerTab({
                       )}
                     </div>
 
-                    {/* ── DIVIDER ─────────────────────────────────── */}
-                    <div style={{ height: '1px', background: '#F1F5F9' }} />
-
-                    {/* ── ROW 3: Key Growth Catalyst ──────────────── */}
-                    <div style={{ padding: '6px 9px', background: '#F0FDFA', borderRadius: '6px', border: '1px solid #CCFBF1' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    {/* Growth trigger */}
+                    <div className="mt-trigger-box">
+                      <div className="mt-trigger-label">
                         <Target size={11} color="#0F766E" />
-                        <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#0F766E', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          Key Growth Trigger
-                        </span>
+                        <span>Key growth trigger</span>
                       </div>
-                      <p style={{ fontSize: '12px', color: '#0F172A', lineHeight: 1.35, margin: 0, fontWeight: 500 }}>
+                      <p className="mt-trigger-text">
                         {stock.keyTriggers?.[0] || 'Executing long-term corporate growth milestones.'}
                       </p>
                       {stock.keyTriggers && stock.keyTriggers.length > 1 && (
-                        <div style={{ marginTop: '3px' }}>
+                        <div style={{ marginTop: '4px' }}>
                           <button
                             type="button"
                             onClick={() => setExpandedTriggerId(isTriggerExpanded ? null : stock.id)}
                             style={{
-                              background: 'none', border: 'none', color: '#0F766E',
-                              fontSize: '11.5px', fontWeight: 700, cursor: 'pointer',
-                              padding: 0, display: 'inline-flex', alignItems: 'center', gap: '2px',
+                              background: 'none',
+                              border: 'none',
+                              color: '#0F766E',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              padding: 0,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '2px',
                             }}
                           >
                             {isTriggerExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-                            <span>{isTriggerExpanded ? 'Hide catalysts' : `+${stock.keyTriggers.length - 1} more catalysts`}</span>
+                            <span>
+                              {isTriggerExpanded
+                                ? 'Hide catalysts'
+                                : `+${stock.keyTriggers.length - 1} more`}
+                            </span>
                           </button>
                           {isTriggerExpanded && (
-                            <ul style={{ margin: '4px 0 0', paddingLeft: '14px', fontSize: '11.5px', color: '#334155', lineHeight: 1.35 }}>
+                            <ul
+                              style={{
+                                margin: '4px 0 0',
+                                paddingLeft: '14px',
+                                fontSize: '11.5px',
+                                color: '#334155',
+                                lineHeight: 1.35,
+                              }}
+                            >
                               {stock.keyTriggers.slice(1).map((t, idx) => (
-                                <li key={idx} style={{ marginBottom: '2px' }}>{t}</li>
+                                <li key={idx} style={{ marginBottom: '2px' }}>
+                                  {t}
+                                </li>
                               ))}
                             </ul>
                           )}
@@ -1033,22 +945,45 @@ export function MasterTrackerTab({
                       )}
                     </div>
 
-                    {/* ── ROW 4: Quarterly Scorecard ──────────────── */}
+                    {/* Quarterly scorecard */}
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>Quarterly Scorecard</span>
-                        <span style={{
-                          fontSize: '11.5px', fontWeight: 800, padding: '2px 8px', borderRadius: '20px',
-                          background: beatsCount >= 3 ? '#ECFDF5' : beatsCount >= 2 ? '#EFF6FF' : '#FEF3C7',
-                          color: beatsCount >= 3 ? '#065F46' : beatsCount >= 2 ? '#1E40AF' : '#92400E',
-                          border: `1px solid ${beatsCount >= 3 ? '#A7F3D0' : beatsCount >= 2 ? '#BFDBFE' : '#FDE68A'}`,
-                        }}>
-                          {beatsCount}/4 Beats
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: '6px',
+                          gap: '8px',
+                        }}
+                      >
+                        <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
+                          Quarters
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            padding: '2px 8px',
+                            borderRadius: '20px',
+                            background:
+                              beatsCount >= 3 ? '#ECFDF5' : beatsCount >= 2 ? '#EFF6FF' : '#FEF3C7',
+                            color:
+                              beatsCount >= 3 ? '#065F46' : beatsCount >= 2 ? '#1E40AF' : '#92400E',
+                            border: `1px solid ${
+                              beatsCount >= 3
+                                ? '#A7F3D0'
+                                : beatsCount >= 2
+                                  ? '#BFDBFE'
+                                  : '#FDE68A'
+                            }`,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {beatsCount}/4 beats
                         </span>
                       </div>
 
-                      {/* Quarter Pills — compact horizontal strip */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
+                      <div className="mt-q-grid">
                         {quartersKeys.map(({ key, label }) => {
                           const q = stock.quarterly?.[key];
                           const s = q?.status || 'Neutral';
@@ -1057,80 +992,147 @@ export function MasterTrackerTab({
                           return (
                             <div
                               key={key}
-                              style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '2px',
-                                padding: '4px 2px',
-                                minHeight: '38px',
-                                borderRadius: '6px',
-                                background: isBeat ? '#ECFDF5' : isMiss ? '#FEF2F2' : '#F8FAFC',
-                                border: `1px solid ${isBeat ? '#A7F3D0' : isMiss ? '#FECACA' : '#E2E8F0'}`,
-                                boxSizing: 'border-box',
-                              }}
+                              className={`mt-q-cell${isBeat ? ' is-beat' : ''}${isMiss ? ' is-miss' : ''}`}
                             >
-                              <span style={{ fontSize: '10px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                                {label.replace(' FY', '').replace('Q', 'Q').replace('27', "'27").replace('26', "'26")}
+                              <span
+                                style={{
+                                  fontSize: '9.5px',
+                                  fontWeight: 700,
+                                  color: '#94A3B8',
+                                  textTransform: 'uppercase',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {label
+                                  .replace(' FY', '')
+                                  .replace('27', "'27")
+                                  .replace('26', "'26")}
                               </span>
-                              <span style={{
-                                fontSize: '11px',
-                                fontWeight: 800,
-                                color: isBeat ? '#059669' : isMiss ? '#DC2626' : '#64748B',
-                                whiteSpace: 'nowrap',
-                                wordBreak: 'keep-all',
-                                hyphens: 'none',
-                                lineHeight: 1,
-                              }}>
-                                {isBeat ? 'Beat' : isMiss ? 'Miss' : 'In-line'}
+                              <span
+                                style={{
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  color: isBeat ? '#059669' : isMiss ? '#DC2626' : '#64748B',
+                                  lineHeight: 1,
+                                }}
+                              >
+                                {isBeat ? 'Beat' : isMiss ? 'Miss' : 'OK'}
                               </span>
                             </div>
                           );
                         })}
                       </div>
 
-                      {/* Expandable guidance drawer */}
                       <div style={{ marginTop: '8px', textAlign: 'center' }}>
                         <button
                           type="button"
                           onClick={() => setExpandedQuarterId(isQuarterExpanded ? null : stock.id)}
                           style={{
-                            background: 'none', border: 'none', fontSize: '12.5px',
-                            color: '#2563EB', fontWeight: 650, cursor: 'pointer',
-                            display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px',
+                            background: 'none',
+                            border: 'none',
+                            fontSize: '12px',
+                            color: '#2563EB',
+                            fontWeight: 650,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '2px 6px',
                           }}
                         >
                           {isQuarterExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                          <span>{isQuarterExpanded ? 'Hide guidance & results' : 'Guidance vs Actuals'}</span>
+                          <span>
+                            {isQuarterExpanded ? 'Hide guidance' : 'Guidance vs actuals'}
+                          </span>
                         </button>
                         {isQuarterExpanded && (
-                          <div style={{ marginTop: '8px', display: 'grid', gridTemplateColumns: '1fr', gap: '6px', textAlign: 'left' }}>
+                          <div
+                            style={{
+                              marginTop: '8px',
+                              display: 'grid',
+                              gridTemplateColumns: '1fr',
+                              gap: '6px',
+                              textAlign: 'left',
+                            }}
+                          >
                             {quartersKeys.map(({ key, label }) => {
                               const q = stock.quarterly?.[key];
                               const s = q?.status || 'Neutral';
-                              const isBeat = s === 'Beat'; const isMiss = s === 'Miss';
+                              const isBeat = s === 'Beat';
+                              const isMiss = s === 'Miss';
                               return (
-                                <div key={key} style={{
-                                  padding: '9px 12px', borderRadius: '7px', fontSize: '13px',
-                                  background: isBeat ? '#ECFDF5' : isMiss ? '#FEF2F2' : '#F8FAFC',
-                                  border: `1px solid ${isBeat ? '#A7F3D0' : isMiss ? '#FECACA' : '#E2E8F0'}`,
-                                }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                    <strong style={{ color: '#0F172A', fontSize: '13px' }}>{label}</strong>
-                                    <span style={{
-                                      fontSize: '11.5px', fontWeight: 800, padding: '2px 8px', borderRadius: '10px',
-                                      background: isBeat ? '#059669' : isMiss ? '#DC2626' : '#64748B', color: '#fff',
-                                    }}>{s}</span>
+                                <div
+                                  key={key}
+                                  style={{
+                                    padding: '9px 12px',
+                                    borderRadius: '7px',
+                                    fontSize: '13px',
+                                    background: isBeat
+                                      ? '#ECFDF5'
+                                      : isMiss
+                                        ? '#FEF2F2'
+                                        : '#F8FAFC',
+                                    border: `1px solid ${
+                                      isBeat ? '#A7F3D0' : isMiss ? '#FECACA' : '#E2E8F0'
+                                    }`,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      marginBottom: '4px',
+                                      gap: '8px',
+                                    }}
+                                  >
+                                    <strong style={{ color: '#0F172A', fontSize: '13px' }}>
+                                      {label}
+                                    </strong>
+                                    <span
+                                      style={{
+                                        fontSize: '11px',
+                                        fontWeight: 800,
+                                        padding: '2px 8px',
+                                        borderRadius: '10px',
+                                        background: isBeat
+                                          ? '#059669'
+                                          : isMiss
+                                            ? '#DC2626'
+                                            : '#64748B',
+                                        color: '#fff',
+                                      }}
+                                    >
+                                      {s}
+                                    </span>
                                   </div>
                                   {q?.guidance && (
-                                    <div style={{ color: '#475569', marginBottom: '3px', lineHeight: 1.4, fontSize: '12.5px' }}>
-                                      <span style={{ color: '#2563EB', fontWeight: 700 }}>Target: </span>{q.guidance}
+                                    <div
+                                      style={{
+                                        color: '#475569',
+                                        marginBottom: '3px',
+                                        lineHeight: 1.4,
+                                        fontSize: '12.5px',
+                                      }}
+                                    >
+                                      <span style={{ color: '#2563EB', fontWeight: 700 }}>
+                                        Target:{' '}
+                                      </span>
+                                      {q.guidance}
                                     </div>
                                   )}
                                   {q?.actual && (
-                                    <div style={{ color: '#1E293B', lineHeight: 1.4, fontSize: '12.5px' }}>
-                                      <span style={{ color: '#059669', fontWeight: 700 }}>Result: </span>{q.actual}
+                                    <div
+                                      style={{
+                                        color: '#1E293B',
+                                        lineHeight: 1.4,
+                                        fontSize: '12.5px',
+                                      }}
+                                    >
+                                      <span style={{ color: '#059669', fontWeight: 700 }}>
+                                        Result:{' '}
+                                      </span>
+                                      {q.actual}
                                     </div>
                                   )}
                                 </div>
@@ -1141,94 +1143,88 @@ export function MasterTrackerTab({
                       </div>
                     </div>
 
-                    {/* ── ROW 5: Technicals Row ───────────────────── */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
-                      {/* DMA badges */}
-                      <span style={{
-                        display: 'inline-flex',
+                    {/* DMA + 52W range */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '3px',
-                        padding: '0 8px',
-                        height: '24px',
-                        borderRadius: '5px',
-                        fontSize: '11.5px',
-                        fontWeight: 700,
-                        background: stock.technicals?.above20Dma ? '#DCFCE7' : '#FEE2E2',
-                        color: stock.technicals?.above20Dma ? '#15803D' : '#B91C1C',
-                        border: `1px solid ${stock.technicals?.above20Dma ? '#86EFAC' : '#FECACA'}`,
-                        whiteSpace: 'nowrap',
-                        wordBreak: 'keep-all',
-                        flexShrink: 0,
-                        boxSizing: 'border-box',
-                        lineHeight: 1,
-                      }}>
-                        {stock.technicals?.above20Dma ? <Check size={12} strokeWidth={2.5} /> : <X size={12} strokeWidth={2.5} />}
-                        <span>20 DMA</span>
+                        gap: '6px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          padding: '0 8px',
+                          height: '26px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          background: stock.technicals?.above20Dma ? '#DCFCE7' : '#FEE2E2',
+                          color: stock.technicals?.above20Dma ? '#15803D' : '#B91C1C',
+                          border: `1px solid ${
+                            stock.technicals?.above20Dma ? '#86EFAC' : '#FECACA'
+                          }`,
+                        }}
+                      >
+                        {stock.technicals?.above20Dma ? (
+                          <Check size={12} strokeWidth={2.5} />
+                        ) : (
+                          <X size={12} strokeWidth={2.5} />
+                        )}
+                        20 DMA
                       </span>
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '3px',
-                        padding: '0 8px',
-                        height: '24px',
-                        borderRadius: '5px',
-                        fontSize: '11.5px',
-                        fontWeight: 700,
-                        background: stock.technicals?.above100Dma ? '#CCFBF1' : '#FEE2E2',
-                        color: stock.technicals?.above100Dma ? '#0F766E' : '#B91C1C',
-                        border: `1px solid ${stock.technicals?.above100Dma ? '#5EEAD4' : '#FECACA'}`,
-                        whiteSpace: 'nowrap',
-                        wordBreak: 'keep-all',
-                        flexShrink: 0,
-                        boxSizing: 'border-box',
-                        lineHeight: 1,
-                      }}>
-                        {stock.technicals?.above100Dma ? <Check size={12} strokeWidth={2.5} /> : <X size={12} strokeWidth={2.5} />}
-                        <span>100 DMA</span>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          padding: '0 8px',
+                          height: '26px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          background: stock.technicals?.above100Dma ? '#CCFBF1' : '#FEE2E2',
+                          color: stock.technicals?.above100Dma ? '#0F766E' : '#B91C1C',
+                          border: `1px solid ${
+                            stock.technicals?.above100Dma ? '#5EEAD4' : '#FECACA'
+                          }`,
+                        }}
+                      >
+                        {stock.technicals?.above100Dma ? (
+                          <Check size={12} strokeWidth={2.5} />
+                        ) : (
+                          <X size={12} strokeWidth={2.5} />
+                        )}
+                        100 DMA
                       </span>
-                      <span style={{ flex: 1 }} />
-                      {stock.technicals?.expectedEpsFy27 && (
-                        <span style={{ fontSize: '12.5px', color: '#64748B', fontWeight: 600 }}>
-                          FY27 EPS: <strong style={{ color: '#0F766E', fontSize: '14px' }}>₹{stock.technicals.expectedEpsFy27}</strong>
-                        </span>
-                      )}
                     </div>
 
-                    {/* ── ROW 6: 52W Range Bar ────────────────────── */}
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: '#94A3B8', marginBottom: '5px' }}>
-                        <span>52W Low: <strong style={{ color: '#64748B' }}>{fmtInr(low)}</strong></span>
-                        <span style={{ fontWeight: 700, color: '#0F172A', fontSize: '12px' }}>
-                          {fmtNum(pctFromLow, { maximumFractionDigits: 0 })}% from Low
+                      <div className="mt-range-track">
+                        <div
+                          className="mt-range-fill"
+                          style={{
+                            width: `${pctFromLow}%`,
+                            background:
+                              pctFromLow >= 88
+                                ? 'linear-gradient(90deg, #10B981, #059669)'
+                                : 'linear-gradient(90deg, #0F766E, #10B981)',
+                          }}
+                        />
+                      </div>
+                      <div className="mt-range-labels">
+                        <span>L {fmtInr(low)}</span>
+                        <span style={{ color: '#0F172A', fontWeight: 700 }}>
+                          {fmtNum(pctFromLow, { maximumFractionDigits: 0 })}% from low
                         </span>
-                        <span>52W High: <strong style={{ color: '#64748B' }}>{fmtInr(high)}</strong></span>
-                      </div>
-                      <div style={{ width: '100%', height: '7px', background: '#F1F5F9', borderRadius: '4px', position: 'relative' }}>
-                        <div style={{
-                          width: `${pctFromLow}%`, height: '100%',
-                          background: pctFromLow >= 88
-                            ? 'linear-gradient(90deg, #10B981, #059669)'
-                            : 'linear-gradient(90deg, #0F766E, #10B981)',
-                          borderRadius: '4px', transition: 'width 0.4s ease',
-                        }} />
-                        {/* Marker dot */}
-                        <div style={{
-                          position: 'absolute', top: '-3px',
-                          left: `calc(${pctFromLow}% - 6px)`,
-                          width: '13px', height: '13px', borderRadius: '50%',
-                          background: '#0F766E', border: '2px solid #FFFFFF',
-                          boxShadow: '0 1px 3px rgba(15,118,110,0.3)',
-                        }} />
-                      </div>
-                      <div style={{ fontSize: '9px', color: '#94A3B8', marginTop: '5px', textAlign: 'right' }}>
-                        Last sync: {stock.lastUpdated || 'Real-time'}
+                        <span>H {fmtInr(high)}</span>
                       </div>
                     </div>
-
-                  </div>{/* end card body */}
-                </div>
+                  </div>
+                </article>
               );
             })}
 
@@ -1240,11 +1236,11 @@ export function MasterTrackerTab({
                   padding: '40px 16px',
                   color: '#94A3B8',
                   background: '#F8FAFC',
-                  borderRadius: '8px',
+                  borderRadius: '10px',
                   border: '1px dashed #D1D5DB',
                 }}
               >
-                No companies found matching the search criteria.
+                No companies match these filters.
               </div>
             )}
           </div>
