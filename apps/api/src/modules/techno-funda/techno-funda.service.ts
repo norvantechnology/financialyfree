@@ -18,6 +18,12 @@ import {
 import { DataSourceHealthEntity } from '../../database/entities/data-source-health.entity';
 import { MarketIndexService } from './market-index.service';
 import { VahanEtlService } from './vahan-etl.service';
+import {
+  alignClosesWithSession,
+  extractYahooCloses,
+  extractYahooVolumes,
+  parseYahooSessionChange,
+} from './yahoo-quote.util';
 
 export interface CompanyFinancialSummary {
   companyName: string;
@@ -2506,37 +2512,39 @@ export class TechnoFundaService {
 
           if (!resp.ok) return;
           const json = (await resp.json()) as any;
-          const quotes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
-          const validCloses: number[] = quotes.filter(
-            (p: any) => typeof p === 'number' && !isNaN(p),
-          );
-          const meta = json?.chart?.result?.[0]?.meta;
+          const result = json?.chart?.result?.[0];
+          const meta = result?.meta;
+          const validCloses = extractYahooCloses(result);
+          const session = parseYahooSessionChange(meta, validCloses);
 
-          if (validCloses.length > 0) {
-            const currentPrice = meta?.regularMarketPrice
-              ? Math.round(meta.regularMarketPrice * 100) / 100
-              : Math.round(validCloses[validCloses.length - 1] * 100) / 100;
-            const prevClose =
-              validCloses.length > 1
-                ? validCloses[validCloses.length - 2]
-                : meta?.regularMarketPreviousClose || currentPrice;
-            const dailyRet =
-              prevClose > 0
-                ? Math.round(((currentPrice - prevClose) / prevClose) * 10000) / 100
-                : 0;
+          if (validCloses.length > 0 || session) {
+            const currentPrice = session?.current
+              ?? (meta?.regularMarketPrice
+                ? Math.round(meta.regularMarketPrice * 100) / 100
+                : Math.round(validCloses[validCloses.length - 1] * 100) / 100);
+            const dailyRet = session?.changePct
+              ?? (validCloses.length > 1
+                ? Math.round(
+                    ((currentPrice - validCloses[validCloses.length - 2]) /
+                      validCloses[validCloses.length - 2]) *
+                      10000,
+                  ) / 100
+                : 0);
             const price20dAgo =
               validCloses.length > 20
                 ? Math.round(validCloses[validCloses.length - 21] * 100) / 100
-                : Math.round(validCloses[0] * 100) / 100;
+                : Math.round((validCloses[0] || currentPrice) * 100) / 100;
             const drift20d =
               price20dAgo > 0
                 ? Math.round(((currentPrice - price20dAgo) / price20dAgo) * 10000) / 100
                 : 0;
             const sma50Slice = validCloses.slice(-50);
             const sma50 =
-              Math.round(
-                (sma50Slice.reduce((a, b) => a + b, 0) / sma50Slice.length) * 100,
-              ) / 100;
+              sma50Slice.length > 0
+                ? Math.round(
+                    (sma50Slice.reduce((a, b) => a + b, 0) / sma50Slice.length) * 100,
+                  ) / 100
+                : currentPrice;
             const stage: 'Stage 2 Breakout' | 'Consolidating' =
               currentPrice >= sma50 ? 'Stage 2 Breakout' : 'Consolidating';
 
@@ -3118,8 +3126,8 @@ export class TechnoFundaService {
     previousClose: number;
   } | null> {
     try {
-      // 1y supplies fiftyTwoWeek* meta + daily closes; do NOT use chartPreviousClose for day %
-      // (Yahoo chartPreviousClose is the close at the start of the requested range, ~1y ago).
+      // 1y supplies fiftyTwoWeek* meta + daily closes; session % via shared Yahoo helper
+      // (never use chartPreviousClose — that is range-start close on long charts).
       const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y`;
       const resp = await fetch(url, {
         headers: {
@@ -3133,34 +3141,10 @@ export class TechnoFundaService {
       const json = (await resp.json()) as any;
       const result = json?.chart?.result?.[0];
       const meta = result?.meta;
-      if (!meta || meta.regularMarketPrice === undefined) return null;
-      const cmp = Math.round(Number(meta.regularMarketPrice) * 100) / 100;
-
-      const closes: number[] = (result?.indicators?.quote?.[0]?.close || []).filter(
-        (c: any) => typeof c === 'number' && !isNaN(c) && c > 0,
-      );
-      const volumes: number[] = (result?.indicators?.quote?.[0]?.volume || []).filter(
-        (v: any) => typeof v === 'number' && !isNaN(v) && v > 0,
-      );
-
-      // Session day change: prefer Yahoo's live %; else last two daily closes.
-      // Never use meta.chartPreviousClose here — that is range-start close on long charts.
-      let prevClose = Number(
-        meta.regularMarketPreviousClose ||
-          (closes.length >= 2 ? closes[closes.length - 2] : 0) ||
-          0,
-      );
-      let dayChangePct: number | null = null;
-      const liveChg = meta.regularMarketChangePercent ?? meta.fulldayChangePercent;
-      if (liveChg != null && Number.isFinite(Number(liveChg))) {
-        dayChangePct = Math.round(Number(liveChg) * 100) / 100;
-        if (!prevClose && closes.length >= 2) prevClose = closes[closes.length - 2];
-      } else if (prevClose > 0) {
-        dayChangePct = Math.round(((cmp - prevClose) / prevClose) * 10000) / 100;
-      } else {
-        dayChangePct = 0;
-      }
-      if (!prevClose) prevClose = cmp;
+      const closes = extractYahooCloses(result);
+      const volumes = extractYahooVolumes(result);
+      const session = parseYahooSessionChange(meta, closes);
+      if (!session) return null;
 
       let week52High = Number(meta.fiftyTwoWeekHigh || 0);
       let week52Low = Number(meta.fiftyTwoWeekLow || 0);
@@ -3173,12 +3157,12 @@ export class TechnoFundaService {
 
       const volume = Number(meta.regularMarketVolume || volumes[volumes.length - 1] || 0);
       return {
-        cmp,
+        cmp: session.current,
         week52High: Math.round(week52High * 100) / 100,
         week52Low: Math.round(week52Low * 100) / 100,
-        dayChangePct,
+        dayChangePct: session.changePct,
         volume,
-        previousClose: Math.round(prevClose * 100) / 100,
+        previousClose: session.previousClose,
       };
     } catch {
       return null;
@@ -3948,22 +3932,18 @@ export class TechnoFundaService {
           });
           if (!resp.ok) return;
           const json = (await resp.json()) as any;
-          const meta = json?.chart?.result?.[0]?.meta;
-          const closes: number[] = (json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(
-            (c: any) => typeof c === 'number' && !isNaN(c),
-          );
-          if (closes.length > 0) {
-            const lastClose = closes[closes.length - 1];
-            const priorClose = closes.length >= 2 ? closes[closes.length - 2] : undefined;
+          const result = json?.chart?.result?.[0];
+          const meta = result?.meta;
+          const closesRaw = extractYahooCloses(result);
+          const session = parseYahooSessionChange(meta, closesRaw);
+          if (closesRaw.length > 0 || session) {
+            const closes = session
+              ? alignClosesWithSession(closesRaw.length ? closesRaw : [session.current], session)
+              : closesRaw;
             candlesMap[idx.ticker] = {
               closes,
-              currentPrice: meta?.regularMarketPrice || lastClose,
-              // Prefer prior daily close — chartPreviousClose on 3mo charts is range-start (~3m ago)
-              previousClose:
-                meta?.regularMarketPreviousClose ||
-                priorClose ||
-                meta?.previousClose ||
-                lastClose,
+              currentPrice: session?.current || meta?.regularMarketPrice || closes[closes.length - 1],
+              previousClose: session?.previousClose || closes[closes.length - 2] || closes[0],
             };
           }
         } catch {}

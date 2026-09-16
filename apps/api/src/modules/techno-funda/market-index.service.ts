@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { extractYahooCloses, parseYahooSessionChange } from './yahoo-quote.util';
 
 export interface IndexSnapshot {
   symbol: string;
@@ -209,53 +210,26 @@ export class MarketIndexService {
     const json = (await resp.json()) as any;
     const result = json?.chart?.result?.[0];
     const meta = result?.meta;
-    if (!meta || meta.regularMarketPrice === undefined) {
+    const closes = extractYahooCloses(result);
+    const session = parseYahooSessionChange(meta, closes);
+    if (!session) {
       throw new Error(`Invalid payload for ${ticker}`);
     }
 
-    const current = Math.round(Number(meta.regularMarketPrice) * 100) / 100;
-    const closes: number[] = (result?.indicators?.quote?.[0]?.close || []).filter(
-      (c: any) => typeof c === 'number' && !isNaN(c) && c > 0,
-    );
-
-    // Prefer Yahoo's live session % — chartPreviousClose is unreliable across ranges.
-    let changePct: number;
-    let previousClose: number;
-    const liveChg = meta.regularMarketChangePercent ?? meta.fulldayChangePercent;
-    if (liveChg != null && Number.isFinite(Number(liveChg))) {
-      changePct = Math.round(Number(liveChg) * 100) / 100;
-      previousClose =
-        changePct !== -100
-          ? Math.round((current / (1 + changePct / 100)) * 100) / 100
-          : current;
-    } else {
-      previousClose = Math.round(
-        Number(
-          meta.regularMarketPreviousClose ||
-            (closes.length >= 2 ? closes[closes.length - 2] : 0) ||
-            current,
-        ) * 100,
-      ) / 100;
-      changePct =
-        previousClose > 0
-          ? Math.round(((current - previousClose) / previousClose) * 10000) / 100
-          : 0;
-    }
-    const change = Math.round((current - previousClose) * 100) / 100;
-    const dayHigh = meta.regularMarketDayHigh ? Number(meta.regularMarketDayHigh) : current;
-    const dayLow = meta.regularMarketDayLow ? Number(meta.regularMarketDayLow) : current;
+    const dayHigh = meta.regularMarketDayHigh ? Number(meta.regularMarketDayHigh) : session.current;
+    const dayLow = meta.regularMarketDayLow ? Number(meta.regularMarketDayLow) : session.current;
     const timeSec = meta.regularMarketTime || Math.floor(Date.now() / 1000);
 
     return {
       symbol,
       name,
       ticker,
-      current,
-      change,
-      changePct,
+      current: session.current,
+      change: session.change,
+      changePct: session.changePct,
       dayHigh,
       dayLow,
-      previousClose,
+      previousClose: session.previousClose,
       lastUpdated: new Date(timeSec * 1000).toISOString(),
       delayedMinutes: 15,
       source: 'Yahoo Finance Delayed Feed (15-min)',
@@ -404,26 +378,9 @@ export class MarketIndexService {
             if (!resp.ok) return;
             const json = (await resp.json()) as any;
             const result = json?.chart?.result?.[0];
-            const meta = result?.meta;
-            if (!meta?.regularMarketPrice) return;
-            const current = Number(meta.regularMarketPrice);
-            const liveChg = meta.regularMarketChangePercent ?? meta.fulldayChangePercent;
-            let up: boolean;
-            if (liveChg != null && Number.isFinite(Number(liveChg))) {
-              up = Number(liveChg) >= 0;
-            } else {
-              const closes: number[] = (result?.indicators?.quote?.[0]?.close || []).filter(
-                (c: any) => typeof c === 'number' && !isNaN(c) && c > 0,
-              );
-              const prev = Number(
-                meta.regularMarketPreviousClose ||
-                  (closes.length >= 2 ? closes[closes.length - 2] : 0) ||
-                  current,
-              );
-              if (prev <= 0) return;
-              up = current >= prev;
-            }
-            if (up) advances += 1;
+            const session = parseYahooSessionChange(result?.meta, extractYahooCloses(result));
+            if (!session) return;
+            if (session.changePct >= 0) advances += 1;
             else declines += 1;
           } catch {}
         }),
