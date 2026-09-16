@@ -51,6 +51,17 @@
   --text-muted:            #475569;   /* Slate-600 (WCAG AAA compliant) */
   --text-inverse:          #FFFFFF;
 
+  /* Semantic on-surface text (WCAG AA — use with matching bg context) */
+  --text-on-dark:          #FFFFFF;   /* ≥4.5:1 on --bg-dark / navy */
+  --text-on-dark-muted:    #CBD5E1;   /* slate-300 ≥4.5:1 on navy */
+  --text-on-dark-subtle:   #94A3B8;   /* decorative only; prefer muted for body */
+  --text-on-light:         #0F172A;   /* on cream / white */
+  --text-on-light-muted:   #475569;   /* body secondary on light */
+  --text-on-brand:         #0A0F1D;   /* on gold / amber CTAs */
+  --bg-dark:               #0A0F1D;
+  --bg-dark-elevated:      #0F172A;
+  --bg-brand:              #F59E0B;
+
   /* Typography: Plus Jakarta Sans is the PRIMARY font (crisp, solid, modern fintech typography with zero thin/hairline strokes) */
   --font-sans:             var(--font-jakarta), 'Plus Jakarta Sans', var(--font-inter), 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-display:          var(--font-jakarta), 'Plus Jakarta Sans', var(--font-inter), 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;

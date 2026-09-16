@@ -72,7 +72,7 @@ export default function BlogArticlePage({ params }: Props) {
             ]}
           />
           <header style={{ maxWidth: 720, margin: '0 auto 28px' }}>
-            <p style={{ color: 'var(--mkt-muted)', fontSize: '0.9rem' }}>
+            <p className="mkt-text-muted" style={{ fontSize: '0.9rem' }}>
               <time dateTime={post.date}>
                 {new Date(post.date).toLocaleDateString('en-IN', {
                   day: 'numeric',
@@ -83,10 +83,10 @@ export default function BlogArticlePage({ params }: Props) {
               {' · '}
               {post.readingMinutes} min read · {post.author}
             </p>
-            <h1 className="mkt-serif" style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', margin: '8px 0 12px' }}>
+            <h1 className="mkt-serif mkt-page-title" style={{ margin: '8px 0 12px' }}>
               {post.title}
             </h1>
-            <p style={{ color: 'var(--mkt-muted)', fontSize: '1.05rem' }}>{post.description}</p>
+            <p className="mkt-text-muted" style={{ fontSize: '1.05rem' }}>{post.description}</p>
           </header>
           <div
             className="mkt-article"

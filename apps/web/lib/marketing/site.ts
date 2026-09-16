@@ -3,7 +3,8 @@
 export const SITE = {
   name: 'FinanciallyFree',
   legalEntity: 'FutureZenith Insights LLP',
-  amfiArn: 'ARN-350272',
+  /** Numeric ARN only — display as ARN-350272 via AMFI_DISCLOSURE */
+  amfiArn: '350272',
   supportEmail: 'support@financiallyfree.in',
   businessEmail: 'hello@financiallyfree.in',
   /** Placeholder until ops confirms registered office line — keep non-misleading */
@@ -14,6 +15,7 @@ export const SITE = {
   url: process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || 'https://financiallyfree.in',
   tagline: 'Goal-based mutual fund investing & Techno-Funda research',
 } as const;
+
 
 export const NAV_LINKS = [
   { href: '/', label: 'Home' },
@@ -65,8 +67,10 @@ export const PLANS = [
       'Inflation-adjusted projections',
       'Introductory LMS lessons',
       'Market Mood overview',
+      'Paperless KYC',
+      'MF execution via BSE StAR MF*',
     ],
-    cta: 'Get Started Free',
+    cta: 'Get Starter',
     href: '/auth/register',
     highlighted: false,
   },
@@ -81,8 +85,9 @@ export const PLANS = [
       '9 valuation models',
       'Order Tracker, PEAD, F&O, Insider feeds',
       'Sector heatmap & deal trackers',
+      'Paperless KYC + MF execution*',
     ],
-    cta: 'Unlock Research',
+    cta: 'Get Tools Annual',
     href: '/checkout/tools-annual',
     highlighted: true,
   },
@@ -114,12 +119,13 @@ export const PLANS = [
       'Direct Q&A support',
       'Priority updates',
     ],
-    cta: 'Go All-Access',
+    cta: 'Get All-Access',
     href: '/checkout/all-access-bundle',
     highlighted: false,
   },
 ] as const;
 
+/** Canonical FAQ set — single source of truth for home + /faq. */
 export const HOME_FAQS = [
   {
     question: 'Is FinanciallyFree a SEBI-registered investment adviser?',
@@ -129,7 +135,7 @@ export const HOME_FAQS = [
   {
     question: 'What is included in the free Starter plan?',
     answer:
-      'Starter includes goal-based SIP calculators (Emergency Fund, Retirement/FIRE, Child Education, Wealth Creation), a basic dashboard, and introductory Academy lessons. Paid plans unlock the full research suite and course library.',
+      'Starter includes goal-based SIP calculators (Emergency Fund, Retirement/FIRE, Child Education, Wealth Creation), a basic dashboard, introductory Academy lessons, paperless KYC, and MF execution after KYC. Paid plans unlock the full research suite and course library.',
   },
   {
     question: 'How do mutual fund investments get executed?',
@@ -151,6 +157,22 @@ export const HOME_FAQS = [
     answer:
       'Yes. Start free, then upgrade to Tools Annual, DIY Wealth Bundle, or All-Access Mastermind from Pricing or Billing whenever you need research or Academy access.',
   },
+] as const;
+
+/** Pricing-page scoped FAQs (subset) — full set lives in HOME_FAQS /faq. */
+export const PRICING_FAQS = [
+  HOME_FAQS[1],
+  HOME_FAQS[5],
+  HOME_FAQS[2],
+  HOME_FAQS[0],
+] as const;
+
+/** Unified platform journey — reused on Track A flow + How it works. */
+export const PLATFORM_STEPS = [
+  { title: 'Plan', detail: 'Set a goal and size your SIP with the shared calc engine' },
+  { title: 'Learn', detail: 'Academy lessons and compliance context' },
+  { title: 'Research', detail: 'Unlock Techno-Funda desks when you need deeper analysis' },
+  { title: 'Invest', detail: 'Complete paperless KYC and route via BSE StAR MF' },
 ] as const;
 
 export const MF_RISK_DISCLAIMER =

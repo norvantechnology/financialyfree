@@ -12,11 +12,9 @@ import {
 } from 'lucide-react';
 import { buildPageMetadata } from '../../lib/marketing/seo';
 import {
-  AMFI_DISCLOSURE,
   HOME_FAQS,
-  MF_RISK_DISCLAIMER,
-  NOT_ADVICE_DISCLAIMER,
   PLANS,
+  PLATFORM_STEPS,
   SITE,
   VERIFIED_STATS,
 } from '../../lib/marketing/site';
@@ -93,9 +91,9 @@ export default function HomePage() {
 
       <section className="mkt-hero">
         <div className="mkt-container">
-          <div className="mkt-badge">
+            <div className="mkt-badge">
             <ShieldCheck size={16} aria-hidden />
-            AMFI Registered MFD · ARN-350272 · {SITE.legalEntity}
+            AMFI Registered MFD · ARN-{SITE.amfiArn} · {SITE.legalEntity}
           </div>
           <h1 className="mkt-serif">Invest with purpose. Research with discipline.</h1>
           <p className="mkt-hero-sub">
@@ -156,9 +154,7 @@ export default function HomePage() {
       <section className="mkt-section mkt-section-dark" aria-labelledby="track-a-heading">
         <div className="mkt-container">
           <Reveal>
-            <span className="mkt-kicker" style={{ color: '#fbbf24' }}>
-              Track A · Wealth
-            </span>
+            <span className="mkt-kicker">Track A · Wealth</span>
             <h2 id="track-a-heading">Goal-based investing, end to end</h2>
             <p className="mkt-lead">
               From horizon planning to KYC to exchange-routed SIPs — built for disciplined wealth
@@ -192,17 +188,12 @@ export default function HomePage() {
             />
           </div>
           <Reveal>
-            <div className="mkt-flow" aria-label="Track A flow">
-              {[
-                { t: 'Set a goal', d: 'Pick horizon & target corpus' },
-                { t: 'Plan SIP', d: 'Use the shared calc engine' },
-                { t: 'Complete KYC', d: 'Paperless verification' },
-                { t: 'Execute', d: 'Route via BSE StAR MF' },
-              ].map((step, i) => (
-                <div key={step.t} className="mkt-flow-step">
+            <div className="mkt-flow" aria-label="How FinanciallyFree works">
+              {PLATFORM_STEPS.map((step, i) => (
+                <div key={step.title} className="mkt-flow-step">
                   <div className="n">{i + 1}</div>
-                  <strong style={{ display: 'block', marginBottom: 4 }}>{step.t}</strong>
-                  <span style={{ opacity: 0.75, fontSize: '0.9rem' }}>{step.d}</span>
+                  <strong>{step.title}</strong>
+                  <span className="detail">{step.detail}</span>
                 </div>
               ))}
             </div>
@@ -235,24 +226,33 @@ export default function HomePage() {
           <Reveal>
             <span className="mkt-kicker">How it works</span>
             <h2 id="how-heading">Four steps to clarity</h2>
+            <p className="mkt-lead">
+              The same journey across Track A wealth tools and Track B research — plan, learn,
+              research, then invest.
+            </p>
           </Reveal>
           <div className="mkt-grid-4">
-            {[
-              { icon: <Target size={20} />, t: 'Plan', d: 'Model goals with free calculators' },
-              { icon: <BookOpen size={20} />, t: 'Learn', d: 'Academy lessons & compliance context' },
-              { icon: <BarChart3 size={20} />, t: 'Research', d: 'Unlock Techno-Funda desks' },
-              { icon: <LineChart size={20} />, t: 'Invest', d: 'KYC + BSE StAR MF execution' },
-            ].map((s) => (
-              <Reveal key={s.t}>
-                <article className="mkt-card">
-                  <div style={{ color: '#0f766e', marginBottom: 10 }}>{s.icon}</div>
-                  <h3 className="mkt-serif" style={{ margin: '0 0 6px', fontSize: '1.15rem' }}>
-                    {s.t}
-                  </h3>
-                  <p style={{ margin: 0, color: 'var(--mkt-muted)' }}>{s.d}</p>
-                </article>
-              </Reveal>
-            ))}
+            {PLATFORM_STEPS.map((s, i) => {
+              const icons = [
+                <Target key="t" size={20} />,
+                <BookOpen key="b" size={20} />,
+                <BarChart3 key="c" size={20} />,
+                <LineChart key="l" size={20} />,
+              ];
+              return (
+                <Reveal key={s.title}>
+                  <article className="mkt-card">
+                    <div className="mkt-card-icon">{icons[i]}</div>
+                    <h3 className="mkt-serif mkt-card-title">
+                      {i + 1}. {s.title}
+                    </h3>
+                    <p className="mkt-text-muted" style={{ margin: 0 }}>
+                      {s.detail}
+                    </p>
+                  </article>
+                </Reveal>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -269,21 +269,16 @@ export default function HomePage() {
               <Reveal key={plan.id}>
                 <article className={`mkt-card mkt-plan ${plan.highlighted ? 'popular' : ''}`}>
                   {plan.highlighted ? <span className="mkt-plan-badge">Popular</span> : null}
-                  <h3 className="mkt-serif" style={{ margin: '0 0 4px', fontSize: '1.15rem' }}>
-                    {plan.name}
-                  </h3>
+                  <h3 className="mkt-serif mkt-card-title">{plan.name}</h3>
                   <div className="mkt-price tabular">
                     {plan.priceLabel}
-                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--mkt-muted)' }}>
-                      {' '}
-                      {plan.period}
-                    </span>
+                    <span className="mkt-price-period"> {plan.period}</span>
                   </div>
-                  <p style={{ color: 'var(--mkt-muted)', fontSize: '0.9rem', flex: 1 }}>{plan.description}</p>
+                  <p className="mkt-plan-desc">{plan.description}</p>
                   <Link
                     href={plan.href}
-                    className={`mkt-btn ${plan.highlighted ? 'mkt-btn-primary' : 'mkt-btn-outline-dark'}`}
-                    style={{ width: '100%', marginTop: 12 }}
+                    className={`mkt-btn mkt-btn-block ${plan.highlighted ? 'mkt-btn-primary' : 'mkt-btn-outline-dark'}`}
+                    style={{ marginTop: 12 }}
                   >
                     {plan.cta}
                   </Link>
@@ -307,23 +302,14 @@ export default function HomePage() {
           </Reveal>
           <FAQAccordion items={HOME_FAQS} idPrefix="home-faq" />
           <p style={{ marginTop: 16 }}>
-            <Link href="/faq">Browse the full FAQ</Link>
+            <Link href="/faq" className="mkt-btn mkt-btn-outline-dark">
+              Browse the full FAQ
+            </Link>
           </p>
         </div>
       </section>
 
       <CtaSection />
-
-      <section className="mkt-section" style={{ paddingTop: 0 }}>
-        <div
-          className="mkt-container"
-          style={{ fontSize: '0.85rem', color: 'var(--mkt-muted)', lineHeight: 1.55 }}
-        >
-          <p style={{ margin: '0 0 8px' }}>{AMFI_DISCLOSURE}</p>
-          <p style={{ margin: '0 0 8px' }}>{NOT_ADVICE_DISCLAIMER}</p>
-          <p style={{ margin: 0 }}>{MF_RISK_DISCLAIMER}</p>
-        </div>
-      </section>
     </>
   );
 }

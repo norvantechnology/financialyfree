@@ -30,7 +30,7 @@ export default function ContactPage() {
           <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Contact' }]} />
           <Reveal>
             <span className="mkt-kicker">Contact</span>
-            <h1 className="mkt-serif" style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)', marginTop: 0 }}>
+            <h1 className="mkt-serif mkt-page-title">
               We are here to help
             </h1>
             <p className="mkt-lead">

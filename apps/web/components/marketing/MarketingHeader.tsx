@@ -82,15 +82,15 @@ export function MarketingHeader({ forceSolid = false }: { forceSolid?: boolean }
 
           <div className="mkt-header-actions">
             {loggedIn ? (
-              <Link href="/dashboard" className="mkt-btn mkt-btn-primary">
+              <Link href="/dashboard" className="mkt-btn mkt-btn-primary mkt-header-cta-desktop">
                 Go to Dashboard
               </Link>
             ) : (
               <>
-                <Link href="/auth/login" className="mkt-btn mkt-btn-ghost">
+                <Link href="/auth/login" className="mkt-btn mkt-btn-ghost mkt-header-cta-desktop">
                   Log In
                 </Link>
-                <Link href="/auth/register" className="mkt-btn mkt-btn-primary">
+                <Link href="/auth/register" className="mkt-btn mkt-btn-primary mkt-header-cta-desktop">
                   Get Started Free
                 </Link>
               </>
@@ -115,10 +115,8 @@ export function MarketingHeader({ forceSolid = false }: { forceSolid?: boolean }
         aria-label="Mobile navigation"
         hidden={!drawerOpen}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <span className="mkt-brand-name" style={{ color: '#fff' }}>
-            Menu
-          </span>
+        <div className="mkt-drawer-head">
+          <span className="mkt-brand-name">Menu</span>
           <button
             type="button"
             className="mkt-menu-btn"
@@ -140,17 +138,29 @@ export function MarketingHeader({ forceSolid = false }: { forceSolid?: boolean }
             </Link>
           ))}
         </nav>
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 24 }}>
+        <div className="mkt-drawer-actions">
           {loggedIn ? (
-            <Link href="/dashboard" className="mkt-btn mkt-btn-primary" onClick={() => setDrawerOpen(false)}>
+            <Link
+              href="/dashboard"
+              className="mkt-btn mkt-btn-primary mkt-btn-block"
+              onClick={() => setDrawerOpen(false)}
+            >
               Go to Dashboard
             </Link>
           ) : (
             <>
-              <Link href="/auth/login" className="mkt-btn mkt-btn-ghost" onClick={() => setDrawerOpen(false)}>
+              <Link
+                href="/auth/login"
+                className="mkt-btn mkt-btn-ghost mkt-btn-block"
+                onClick={() => setDrawerOpen(false)}
+              >
                 Log In
               </Link>
-              <Link href="/auth/register" className="mkt-btn mkt-btn-primary" onClick={() => setDrawerOpen(false)}>
+              <Link
+                href="/auth/register"
+                className="mkt-btn mkt-btn-primary mkt-btn-block"
+                onClick={() => setDrawerOpen(false)}
+              >
                 Get Started Free
               </Link>
             </>

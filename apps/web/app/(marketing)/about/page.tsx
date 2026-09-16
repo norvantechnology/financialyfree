@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { buildPageMetadata } from '../../../lib/marketing/seo';
 import {
   AMFI_DISCLOSURE,
-  MF_RISK_DISCLAIMER,
   NOT_ADVICE_DISCLAIMER,
   SITE,
 } from '../../../lib/marketing/site';
@@ -36,7 +35,7 @@ export default function AboutPage() {
           <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'About' }]} />
           <Reveal>
             <span className="mkt-kicker">About</span>
-            <h1 className="mkt-serif" style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)', marginTop: 0 }}>
+            <h1 className="mkt-serif mkt-page-title">
               Built for purposeful wealth — and honest research
             </h1>
             <p className="mkt-lead">
@@ -97,10 +96,6 @@ export default function AboutPage() {
               <Link href="/contact">Contact</Link>.
             </p>
           </article>
-
-          <p style={{ marginTop: 24, fontSize: '0.9rem', color: 'var(--mkt-muted)' }}>
-            {MF_RISK_DISCLAIMER}
-          </p>
         </div>
       </section>
       <CtaSection title="Meet the platform in practice" />

@@ -1,7 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
 import {
-  AMFI_DISCLOSURE,
   MF_RISK_DISCLAIMER,
   NAV_LINKS,
   NOT_ADVICE_DISCLAIMER,
@@ -16,6 +15,14 @@ const LEGAL = [
   { href: '/faq', label: 'FAQ' },
 ];
 
+/** Product-feature links only — site pages stay under Explore (no Pricing/Academy dupes). */
+const PRODUCT_LINKS = [
+  { href: '/dashboard/goals', label: 'Goal Planner' },
+  { href: '/techno-funda', label: 'Research Suite' },
+  { href: '/kyc', label: 'Paperless KYC' },
+  { href: '/dashboard/invest', label: 'Invest / SIP' },
+] as const;
+
 export function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
@@ -29,12 +36,9 @@ export function MarketingFooter() {
               </span>
               <span className="mkt-brand-name">{SITE.name}</span>
             </Link>
-            <p style={{ margin: '0 0 12px', lineHeight: 1.55, maxWidth: '36ch' }}>
+            <p style={{ margin: 0, lineHeight: 1.55, maxWidth: '36ch' }}>
               Goal-based mutual fund investing (Track A) and Techno-Funda research (Track B) —
               built by {SITE.legalEntity}.
-            </p>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: '#fde68a', fontWeight: 650 }}>
-              {AMFI_DISCLOSURE}
             </p>
           </div>
 
@@ -52,21 +56,11 @@ export function MarketingFooter() {
           <div>
             <h3>Product</h3>
             <ul>
-              <li>
-                <Link href="/dashboard/goals">Goal Planner</Link>
-              </li>
-              <li>
-                <Link href="/techno-funda">Research Suite</Link>
-              </li>
-              <li>
-                <Link href="/courses">Academy</Link>
-              </li>
-              <li>
-                <Link href="/pricing">Pricing</Link>
-              </li>
-              <li>
-                <Link href="/kyc">Paperless KYC</Link>
-              </li>
+              {PRODUCT_LINKS.map((l) => (
+                <li key={l.href}>
+                  <Link href={l.href}>{l.label}</Link>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -85,9 +79,12 @@ export function MarketingFooter() {
           </div>
         </div>
 
+        {/* Single footer compliance block (top banner is the other instance) */}
         <div className="mkt-legal-strip">
-          <p style={{ margin: 0 }}>{MF_RISK_DISCLAIMER}</p>
-          <p style={{ margin: 0 }}>{NOT_ADVICE_DISCLAIMER}</p>
+          <p style={{ margin: 0 }}>
+            AMFI-registered Mutual Fund Distributor — ARN-{SITE.amfiArn} — {SITE.legalEntity}.{' '}
+            {NOT_ADVICE_DISCLAIMER} {MF_RISK_DISCLAIMER}
+          </p>
           <p style={{ margin: 0 }}>
             © {year} {SITE.legalEntity}. All rights reserved. {SITE.name} is a product of{' '}
             {SITE.legalEntity}.

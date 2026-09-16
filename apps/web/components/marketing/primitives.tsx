@@ -110,7 +110,7 @@ export function FAQAccordion({
         <details key={item.question} id={`${idPrefix}-${i}`}>
           <summary>
             <span>{item.question}</span>
-            <span aria-hidden style={{ color: '#94a3b8', fontSize: 18 }}>
+            <span aria-hidden className="mkt-text-muted" style={{ fontSize: 18 }}>
               +
             </span>
           </summary>
@@ -134,16 +134,12 @@ export function FeatureCard({
 }) {
   return (
     <article className="mkt-card">
-      {badge ? (
-        <div className="mkt-kicker" style={{ marginBottom: 8 }}>
-          {badge}
-        </div>
-      ) : null}
-      {icon ? <div style={{ marginBottom: 12, color: '#0f766e' }}>{icon}</div> : null}
-      <h3 className="mkt-serif" style={{ margin: '0 0 8px', fontSize: '1.2rem' }}>
-        {title}
-      </h3>
-      <p style={{ margin: 0, color: 'var(--mkt-muted)', lineHeight: 1.55 }}>{description}</p>
+      {badge ? <div className="mkt-kicker">{badge}</div> : null}
+      {icon ? <div className="mkt-card-icon">{icon}</div> : null}
+      <h3 className="mkt-serif mkt-card-title">{title}</h3>
+      <p className="mkt-text-muted" style={{ margin: 0, lineHeight: 1.55 }}>
+        {description}
+      </p>
     </article>
   );
 }
@@ -165,14 +161,14 @@ export function CtaSection({
 }) {
   return (
     <section className="mkt-section mkt-section-dark" aria-labelledby="mkt-final-cta">
-      <div className="mkt-container" style={{ textAlign: 'center' }}>
+      <div className="mkt-container mkt-cta-center">
         <h2 id="mkt-final-cta" style={{ marginBottom: 12 }}>
           {title}
         </h2>
-        <p className="mkt-lead" style={{ margin: '0 auto 24px' }}>
+        <p className="mkt-lead" style={{ marginBottom: 24 }}>
           {subtitle}
         </p>
-        <div className="mkt-hero-ctas" style={{ justifyContent: 'center' }}>
+        <div className="mkt-hero-ctas">
           <a href={primaryHref} className="mkt-btn mkt-btn-primary">
             {primaryLabel}
           </a>

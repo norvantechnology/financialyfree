@@ -10,6 +10,54 @@ type IndexRow = {
   changePct?: number;
 };
 
+const PREFERRED: Array<{ label: string; match: (s: string) => boolean }> = [
+  {
+    label: 'NIFTY 50',
+    match: (s) => /\bNIFTY\s*50\b/.test(s) || s === 'NIFTY' || s === '^NSEI',
+  },
+  {
+    label: 'SENSEX',
+    match: (s) => /\bSENSEX\b/.test(s) || s.includes('BSESN') || s.includes('BSE SENSEX'),
+  },
+  {
+    label: 'NIFTY BANK',
+    match: (s) => /\bBANK\b/.test(s) && /\bNIFTY\b/.test(s),
+  },
+  {
+    label: 'INDIA VIX',
+    match: (s) => /\bVIX\b/.test(s),
+  },
+];
+
+function pickDistinct(list: IndexRow[]): IndexRow[] {
+  const used = new Set<number>();
+  const out: IndexRow[] = [];
+
+  for (const pref of PREFERRED) {
+    const idx = list.findIndex((row, i) => {
+      if (used.has(i)) return false;
+      const key = `${row.symbol || ''} ${row.name || ''}`.toUpperCase();
+      return pref.match(key);
+    });
+    if (idx >= 0) {
+      used.add(idx);
+      out.push({ ...list[idx], symbol: pref.label });
+    }
+    if (out.length >= 3) break;
+  }
+
+  // Fill remaining slots with unused rows (no duplicates by symbol label)
+  for (let i = 0; i < list.length && out.length < 3; i++) {
+    if (used.has(i)) continue;
+    const label = (list[i].symbol || list[i].name || `Index ${i + 1}`).toUpperCase();
+    if (out.some((r) => (r.symbol || '').toUpperCase() === label)) continue;
+    used.add(i);
+    out.push(list[i]);
+  }
+
+  return out;
+}
+
 export function IndicesRibbon() {
   const [rows, setRows] = useState<IndexRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,12 +74,9 @@ export function IndicesRibbon() {
         if (!res.ok) throw new Error('indices failed');
         const data = await res.json();
         const list: IndexRow[] = Array.isArray(data?.indices) ? data.indices : [];
-        const prefer = ['NIFTY 50', 'SENSEX', 'NIFTY BANK', 'INDIA VIX'];
-        const picked = prefer
-          .map((sym) => list.find((i) => (i.symbol || i.name || '').toUpperCase().includes(sym.split(' ')[0])))
-          .filter(Boolean) as IndexRow[];
+        const picked = pickDistinct(list);
         if (!cancelled) {
-          setRows(picked.length ? picked.slice(0, 4) : list.slice(0, 4));
+          setRows(picked);
           setLoading(false);
         }
       } catch {
@@ -49,7 +94,7 @@ export function IndicesRibbon() {
   if (loading) {
     return (
       <div className="mkt-indices" aria-busy="true" aria-label="Loading market indices">
-        {[0, 1, 2, 3].map((i) => (
+        {[0, 1, 2].map((i) => (
           <div key={i} className="mkt-index-chip">
             <div className="mkt-skeleton" style={{ width: '40%', marginBottom: 8 }} />
             <div className="mkt-skeleton" style={{ width: '70%' }} />
@@ -70,11 +115,11 @@ export function IndicesRibbon() {
   return (
     <>
       <div className="mkt-indices" aria-label="Delayed market indices">
-        {rows.map((idx) => {
+        {rows.map((idx, i) => {
           const pct = typeof idx.changePct === 'number' ? idx.changePct : 0;
           const up = pct >= 0;
           return (
-            <div key={idx.symbol} className="mkt-index-chip">
+            <div key={`${idx.symbol}-${i}`} className="mkt-index-chip">
               <div className="name">{idx.symbol || idx.name}</div>
               <div className="val tabular">
                 {Number(idx.current).toLocaleString('en-IN', { maximumFractionDigits: 2 })}

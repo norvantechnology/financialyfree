@@ -6,15 +6,17 @@ import { PLANS } from '../../lib/marketing/site';
 
 type Focus = 'goals' | 'research' | 'academy' | 'all';
 
+const FOCUS_TO_PLAN: Record<Focus, (typeof PLANS)[number]> = {
+  goals: PLANS[0],
+  research: PLANS[1],
+  academy: PLANS[2],
+  all: PLANS[3],
+};
+
 export function PlanRecommender() {
   const [focus, setFocus] = useState<Focus>('goals');
 
-  const recommendation = useMemo(() => {
-    if (focus === 'goals') return PLANS[0];
-    if (focus === 'research') return PLANS[1];
-    if (focus === 'academy') return PLANS[2];
-    return PLANS[3];
-  }, [focus]);
+  const recommendation = useMemo(() => FOCUS_TO_PLAN[focus], [focus]);
 
   return (
     <div className="mkt-card">
@@ -36,6 +38,7 @@ export function PlanRecommender() {
               type="button"
               role="radio"
               aria-checked={focus === id}
+              aria-selected={focus === id}
               className="mkt-tab"
               onClick={() => setFocus(id)}
             >
@@ -44,12 +47,11 @@ export function PlanRecommender() {
           ))}
         </div>
       </fieldset>
-      <p style={{ marginTop: 16, color: 'var(--mkt-muted)' }}>
-        Suggested: <strong style={{ color: 'var(--mkt-ink)' }}>{recommendation.name}</strong> —{' '}
-        {recommendation.description}
+      <p className="mkt-text-muted" style={{ marginTop: 16 }} key={recommendation.id}>
+        Suggested: <strong>{recommendation.name}</strong> — {recommendation.description}
       </p>
       <Link href={recommendation.href} className="mkt-btn mkt-btn-primary">
-        Continue with {recommendation.name}
+        Get {recommendation.name}
       </Link>
     </div>
   );

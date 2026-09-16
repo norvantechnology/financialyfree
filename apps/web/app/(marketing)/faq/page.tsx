@@ -56,7 +56,7 @@ export default function FaqPage() {
           <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'FAQ' }]} />
           <Reveal>
             <span className="mkt-kicker">FAQ</span>
-            <h1 className="mkt-serif" style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)', marginTop: 0 }}>
+            <h1 className="mkt-serif mkt-page-title">
               Frequently asked questions
             </h1>
             <p className="mkt-lead">{NOT_ADVICE_DISCLAIMER}</p>
@@ -65,7 +65,7 @@ export default function FaqPage() {
           <p style={{ marginTop: 20 }}>
             Still stuck? <Link href="/contact">Contact support</Link>.
           </p>
-          <p style={{ fontSize: '0.85rem', color: 'var(--mkt-muted)' }}>{MF_RISK_DISCLAIMER}</p>
+          <p className="mkt-text-muted" style={{ fontSize: '0.85rem' }}>{MF_RISK_DISCLAIMER}</p>
         </div>
       </section>
     </>

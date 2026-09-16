@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { buildPageMetadata } from '../../../lib/marketing/seo';
-import { MF_RISK_DISCLAIMER, NOT_ADVICE_DISCLAIMER } from '../../../lib/marketing/site';
 import { absoluteUrl } from '../../../lib/marketing/blog';
 import { JsonLd } from '../../../components/marketing/JsonLd';
 import { Breadcrumbs, CtaSection, FeatureCard, Reveal } from '../../../components/marketing/primitives';
@@ -43,10 +42,13 @@ export default function FeaturesPage() {
           <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Features' }]} />
           <Reveal>
             <span className="mkt-kicker">Features</span>
-            <h1 className="mkt-serif" style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)', marginTop: 0 }}>
+            <h1 className="mkt-serif mkt-page-title">
               Two tracks. One disciplined platform.
             </h1>
-            <p className="mkt-lead">{NOT_ADVICE_DISCLAIMER}</p>
+            <p className="mkt-lead">
+              Track A covers goal planning through mutual fund execution. Track B is the Techno-Funda
+              research suite for DIY investors.
+            </p>
           </Reveal>
         </div>
       </section>
@@ -90,7 +92,6 @@ export default function FeaturesPage() {
               Launch Research Suite
             </Link>
           </div>
-          <p style={{ marginTop: 24, fontSize: '0.9rem', color: 'var(--mkt-muted)' }}>{MF_RISK_DISCLAIMER}</p>
         </div>
       </section>
       <CtaSection />

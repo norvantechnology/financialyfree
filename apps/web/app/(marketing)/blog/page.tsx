@@ -33,7 +33,7 @@ export default function BlogIndexPage() {
           <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Blog' }]} />
           <Reveal>
             <span className="mkt-kicker">Blog</span>
-            <h1 className="mkt-serif" style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)', marginTop: 0 }}>
+            <h1 className="mkt-serif mkt-page-title">
               Notes for disciplined investors
             </h1>
             <p className="mkt-lead">{NOT_ADVICE_DISCLAIMER}</p>

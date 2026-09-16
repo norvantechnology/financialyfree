@@ -26,17 +26,17 @@ export function SipCalculatorPreview() {
   );
 
   return (
-    <div className="mkt-card" style={{ background: '#fff' }}>
+    <div className="mkt-card">
       <div className="mkt-kicker">Interactive preview</div>
-      <h3 className="mkt-serif" style={{ marginTop: 0, fontSize: '1.35rem' }}>
+      <h3 className="mkt-serif mkt-card-title" style={{ marginTop: 0, fontSize: '1.35rem' }}>
         SIP required for your goal
       </h3>
-      <p style={{ color: 'var(--mkt-muted)', marginTop: 0, lineHeight: 1.5 }}>
+      <p className="mkt-text-muted" style={{ marginTop: 0, lineHeight: 1.5 }}>
         Powered by the same <code>@ff/calc</code> engine used in the Goal Planner — illustrative only,
         not advice.
       </p>
 
-      <div className="mkt-grid-2" style={{ gap: 14 }}>
+      <div className="mkt-grid-2">
         <div className="mkt-field">
           <label className="mkt-label" htmlFor="sip-target">
             Target corpus (₹)
@@ -96,31 +96,14 @@ export function SipCalculatorPreview() {
         </div>
       </div>
 
-      <div
-        style={{
-          marginTop: 8,
-          padding: 16,
-          borderRadius: 12,
-          background: '#0f172a',
-          color: '#fff',
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 16,
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
+      <div className="mkt-sip-result">
         <div>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>Monthly SIP</div>
-          <div className="tabular mkt-serif" style={{ fontSize: '1.8rem', color: '#fbbf24' }}>
-            {formatINR(result.monthlySip)}
-          </div>
+          <div className="label">Monthly SIP</div>
+          <div className="tabular mkt-serif sip-val">{formatINR(result.monthlySip)}</div>
         </div>
         <div>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>Projected corpus</div>
-          <div className="tabular" style={{ fontSize: '1.15rem', fontWeight: 700 }}>
-            {formatINR(result.projectedCorpus)}
-          </div>
+          <div className="label">Projected corpus</div>
+          <div className="tabular corpus-val">{formatINR(result.projectedCorpus)}</div>
         </div>
         <Link href="/dashboard/goals" className="mkt-btn mkt-btn-primary">
           Open full Goal Planner
