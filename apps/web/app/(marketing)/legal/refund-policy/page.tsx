@@ -31,8 +31,8 @@ export default function RefundPolicyPage() {
       </p>
       <h2>4. Mutual fund investments</h2>
       <p>
-        Mutual fund purchase/SIP amounts are governed by scheme and exchange rules — not this
-        subscription refund policy.
+        Mutual fund purchase and SIP amounts are governed directly by AMC scheme and exchange rules, not by this
+        platform subscription refund policy.
       </p>
       <h2>5. Contact</h2>
       <p>

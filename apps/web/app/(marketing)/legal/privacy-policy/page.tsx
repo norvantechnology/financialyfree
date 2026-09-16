@@ -26,8 +26,8 @@ export default function PrivacyPolicyPage() {
       <h2>2. Purpose</h2>
       <p>
         We process data to provide Platform services, complete KYC/distributor obligations, process
-        subscriptions, secure accounts, and respond to support requests — consistent with applicable
-        Indian law including the Digital Personal Data Protection Act, 2023 where applicable.
+        subscriptions, secure accounts, and respond to support requests, consistent with applicable
+        Indian law including the Digital Personal Data Protection (DPDP) Act, 2023.
       </p>
       <h2>3. Sharing</h2>
       <p>

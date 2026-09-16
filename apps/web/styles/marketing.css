@@ -23,7 +23,7 @@
   --mkt-muted: var(--text-on-light-muted);
   --mkt-border: rgba(15, 23, 42, 0.1);
   --mkt-radius: 14px;
-  --mkt-max: 1120px;
+  --mkt-max: 1280px;
 
   /* Semantic text (default = light surface; dark surfaces override) */
   --mkt-text: var(--text-on-light);
@@ -87,7 +87,51 @@
   color: var(--mkt-text);
 }
 
-/* Defeat global globals.css h1–h6 { color: --text-primary } on dark surfaces */
+/*
+ * HIGH-SPECIFICITY DARK-SURFACE HEADING OVERRIDES
+ * Uses `.mkt` parent prefix to defeat globals.css `h1–h6 { color: var(--text-primary) }`
+ * regardless of CSS chunk load order in Next.js App Router builds.
+ * The `.mkt` wrapper scope ensures these rules always have higher specificity.
+ */
+.mkt .mkt-hero h1,
+.mkt .mkt-hero h2,
+.mkt .mkt-hero h3,
+.mkt .mkt-hero h4,
+.mkt .mkt-hero h5,
+.mkt .mkt-hero h6,
+.mkt .mkt-section-dark h1,
+.mkt .mkt-section-dark h2,
+.mkt .mkt-section-dark h3,
+.mkt .mkt-section-dark h4,
+.mkt .mkt-section-dark h5,
+.mkt .mkt-section-dark h6,
+.mkt .mkt-footer h1,
+.mkt .mkt-footer h2,
+.mkt .mkt-footer h3,
+.mkt .mkt-footer h4,
+.mkt .mkt-footer h5,
+.mkt .mkt-footer h6,
+.mkt .mkt-drawer h1,
+.mkt .mkt-drawer h2,
+.mkt .mkt-drawer h3,
+.mkt .mkt-sip-result h1,
+.mkt .mkt-sip-result h2,
+.mkt .mkt-sip-result h3,
+.mkt .mkt-surface-dark h1,
+.mkt .mkt-surface-dark h2,
+.mkt .mkt-surface-dark h3 {
+  color: var(--text-on-dark) !important;
+}
+
+/* Also ensure inline color via CSS custom property responds to context */
+.mkt .mkt-hero,
+.mkt .mkt-section-dark,
+.mkt .mkt-footer,
+.mkt .mkt-drawer {
+  --mkt-text-heading: var(--text-on-dark);
+}
+
+/* Backward compat: single-level selectors still apply (lower specificity) */
 .mkt-hero h1,
 .mkt-hero h2,
 .mkt-hero h3,
@@ -116,6 +160,9 @@
   border-color: var(--mkt-border);
 }
 
+.mkt .mkt-section-dark .mkt-card h1,
+.mkt .mkt-section-dark .mkt-card h2,
+.mkt .mkt-section-dark .mkt-card h3,
 .mkt-section-dark .mkt-card h1,
 .mkt-section-dark .mkt-card h2,
 .mkt-section-dark .mkt-card h3 {
@@ -153,7 +200,12 @@
 }
 
 .mkt-header.is-top {
-  background: transparent;
+  /* Dark navy background so white text is always readable.
+   * The hero section is BELOW the header in DOM flow (not behind it),
+   * so a fully transparent header shows the cream page bg — making
+   * white nav/brand text invisible. We use a solid dark bg instead.
+   * When scrolled (is-scrolled), a blurred frosted glass effect takes over. */
+  background: var(--bg-dark, #0a0f1d);
 }
 
 .mkt-header.is-scrolled {
@@ -187,7 +239,8 @@
   align-items: center;
   gap: 0.625rem;
   text-decoration: none;
-  color: var(--text-on-dark);
+  /* Explicit white — never inherits a color that could be invisible */
+  color: var(--text-on-dark, #ffffff);
   min-height: 44px;
   min-width: 0;
   flex-shrink: 1;
@@ -199,7 +252,7 @@
   flex-shrink: 0;
   border-radius: 10px;
   background: linear-gradient(135deg, var(--mkt-gold), var(--mkt-gold-dark));
-  color: var(--text-on-brand);
+  color: var(--text-on-brand, #0a0f1d);
   font-weight: 800;
   display: grid;
   place-items: center;
@@ -213,6 +266,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Explicit white so it's always visible on the dark header */
+  color: var(--text-on-dark, #ffffff);
 }
 
 /* Desktop nav: hidden until lg */
@@ -229,7 +284,8 @@
 }
 
 .mkt-nav-link {
-  color: var(--text-on-dark-muted);
+  /* Readable white-ish — always on dark header background */
+  color: rgba(255, 255, 255, 0.82);
   text-decoration: none;
   font-size: 0.9375rem;
   font-weight: 600;
@@ -243,8 +299,8 @@
 
 .mkt-nav-link:hover,
 .mkt-nav-link[aria-current='page'] {
-  color: var(--text-on-dark);
-  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .mkt-header-actions {
@@ -452,7 +508,7 @@
   font-size: clamp(1.75rem, 6vw, 3.4rem);
   line-height: 1.15;
   margin: 0 0 1rem;
-  max-width: 18ch;
+  max-width: 28ch;
   color: var(--text-on-dark) !important;
 }
 
@@ -460,7 +516,7 @@
   font-size: clamp(1rem, 2.8vw, 1.2rem);
   line-height: 1.55;
   color: var(--text-on-dark-muted);
-  max-width: 42rem;
+  max-width: 48rem;
   margin: 0 0 1.5rem;
 }
 
@@ -552,15 +608,16 @@
   line-height: 1.4;
 }
 
-/* ── Sections ───────────────────────────────────────────────────────── */
+/* ── Sections ─────────────────────────────────────────────────────────── */
 
 .mkt-section {
-  padding: 3rem 0;
+  /* Tighter base padding so dark sections don't produce massive voids */
+  padding: 2.5rem 0;
 }
 
 @media (min-width: 768px) {
   .mkt-section {
-    padding: 4rem 0;
+    padding: 3.5rem 0;
   }
 }
 
@@ -572,13 +629,18 @@
   background: var(--bg-dark-elevated);
 }
 
+/* Compact variant for the final CTA section before footer */
+.mkt-section-cta {
+  padding: 3rem 0 2.5rem !important;
+}
+
 .mkt-kicker {
   display: inline-block;
   font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--mkt-gold-dark);
+  color: #b45309; /* High contrast amber-800: WCAG AA on cream */
   margin-bottom: 0.625rem;
 }
 
@@ -602,7 +664,7 @@
   color: var(--mkt-text-muted);
   font-size: clamp(1rem, 2.2vw, 1.05rem);
   line-height: 1.6;
-  max-width: 40rem;
+  max-width: 48rem;
   margin: 0 0 1.5rem;
 }
 
@@ -680,19 +742,20 @@
 
 .mkt-stat .num {
   font-size: clamp(1.75rem, 5vw, 2.6rem);
-  color: var(--text-on-light);
+  /* Use context-responsive token so stat cards work on both light and dark surfaces */
+  color: var(--mkt-text, var(--text-on-light));
   margin-bottom: 0.25rem;
 }
 
 .mkt-stat .label {
   font-weight: 700;
   font-size: 0.9375rem;
-  color: var(--text-on-light);
+  color: var(--mkt-text, var(--text-on-light));
 }
 
 .mkt-stat .detail {
   font-size: 0.8125rem;
-  color: var(--text-on-light-muted);
+  color: var(--mkt-text-muted, var(--text-on-light-muted));
   margin-top: 0.25rem;
 }
 
@@ -755,42 +818,68 @@
 
 .mkt-footer {
   background: #070b14;
-  padding: 3rem 0 1.75rem;
+  /* Gold accent line visually separates footer from the dark CTA section above */
+  border-top: 2px solid rgba(245, 158, 11, 0.35);
+  padding: 2.75rem 0 1.75rem;
   font-size: 0.9375rem;
+  color: var(--text-on-dark-muted);
+}
+
+/* Fix: globals.css `p { color: var(--text-secondary) }` overrides footer text. */
+.mkt-footer p,
+.mkt .mkt-footer p {
+  color: var(--text-on-dark-muted) !important;
 }
 
 .mkt-footer a {
-  color: var(--text-on-dark-muted);
+  color: rgba(203, 213, 225, 0.8); /* slate-300 at 80% — readable but subtle */
   text-decoration: none;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
+  transition: color 0.15s ease;
 }
 
 .mkt-footer a:hover {
-  color: var(--text-on-dark);
+  color: #ffffff;
 }
 
 .mkt-footer h3 {
-  color: var(--text-on-dark) !important;
-  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.85) !important; /* clearly readable uppercase section labels */
+  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin: 0 0 0.875rem;
+  letter-spacing: 0.1em;
+  margin: 0 0 1rem;
   font-family: var(--font-inter), Inter, sans-serif !important;
   font-weight: 700;
 }
 
+/* Brand description inside footer */
+.mkt-footer-brand-desc {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: rgba(203, 213, 225, 0.85);
+  max-width: 32ch;
+  margin: 0.75rem 0 0;
+}
+
 .mkt-footer-grid {
   display: grid;
-  gap: 1.75rem;
+  gap: 2rem;
   grid-template-columns: 1fr;
   margin-bottom: 2rem;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
   .mkt-footer-grid {
-    grid-template-columns: 1.4fr 1fr 1fr 1fr;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .mkt-footer-grid {
+    grid-template-columns: 1.6fr 1fr 1fr 1fr;
+    gap: 1.5rem;
   }
 }
 
@@ -800,7 +889,14 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.125rem; /* tighter link list */
+}
+
+/* Compact footer links */
+.mkt-footer ul a {
+  font-size: 0.9rem;
+  padding: 0.3rem 0;
+  min-height: 36px;
 }
 
 .mkt-legal-strip {
@@ -808,9 +904,9 @@
   padding-top: 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
+  gap: 0.5rem;
   font-size: 0.8125rem;
-  color: var(--text-on-dark-muted);
+  color: rgba(203, 213, 225, 0.78); /* crisp and readable legal text */
   line-height: 1.55;
 }
 

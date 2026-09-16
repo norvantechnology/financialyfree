@@ -48,7 +48,7 @@ export function PlanRecommender() {
         </div>
       </fieldset>
       <p className="mkt-text-muted" style={{ marginTop: 16 }} key={recommendation.id}>
-        Suggested: <strong>{recommendation.name}</strong> — {recommendation.description}
+        Suggested: <strong>{recommendation.name}</strong>: {recommendation.description}
       </p>
       <Link href={recommendation.href} className="mkt-btn mkt-btn-primary">
         Get {recommendation.name}

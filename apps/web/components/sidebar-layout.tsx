@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
   LayoutDashboard,
+  Home,
   Sliders,
   Target,
   ChevronRight,
@@ -81,24 +82,24 @@ interface NavItem {
 
 // 1. Guest Workspace Nav: Full platform overview
 const guestWorkspaceNav: NavItem[] = [
-  { label: 'Overview', href: '/', icon: LayoutDashboard },
-  { label: 'Goals & FIRE', href: '/dashboard/goals', icon: Target },
+  { label: 'Overview', href: '/dashboard/goals', icon: LayoutDashboard },
   { label: 'Portfolio', href: '/dashboard/portfolio', icon: Briefcase },
   { label: 'Watchlist', href: '/dashboard/watchlist', icon: Bookmark },
   { label: 'Invest', href: '/dashboard/invest', icon: Sliders },
   { label: 'Academy', href: '/courses', icon: GraduationCap },
   { label: 'Pricing', href: '/pricing', icon: CreditCard },
+  { label: 'Home Page', href: '/', icon: Home },
 ];
 
 // 2. Authenticated Investor Workspace Nav: Adds Portfolio and Invest
 const authenticatedWorkspaceNav: NavItem[] = [
-  { label: 'Overview', href: '/', icon: LayoutDashboard },
-  { label: 'Goals & FIRE', href: '/dashboard/goals', icon: Target },
+  { label: 'Overview', href: '/dashboard/goals', icon: LayoutDashboard },
   { label: 'Portfolio', href: '/dashboard/portfolio', icon: Briefcase },
   { label: 'Watchlist', href: '/dashboard/watchlist', icon: Bookmark },
   { label: 'Invest', href: '/dashboard/invest', icon: Sliders },
   { label: 'Academy', href: '/courses', icon: GraduationCap },
   { label: 'Pricing', href: '/pricing', icon: CreditCard },
+  { label: 'Home Page', href: '/', icon: Home },
 ];
 
 // 3. Techno-Funda Research: Logical, workflow-based research arrangement
@@ -165,6 +166,13 @@ function SidebarNavLinks({
     }
     if (isTechnoFunda) {
       return false;
+    }
+    if (item.href === '/dashboard/goals' || item.href === '/dashboard' || item.href === '/dashboard/overview') {
+      return (
+        currentPath === '/dashboard' ||
+        currentPath === '/dashboard/goals' ||
+        currentPath === '/dashboard/overview'
+      );
     }
     return currentPath === item.href;
   };
@@ -639,6 +647,7 @@ export function SidebarLayout({
             <Link
               href="/"
               onClick={() => setMobileMenuOpen(false)}
+              title="FinanciallyFree Home"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1173,6 +1182,14 @@ export function SidebarLayout({
                         >
                           <Settings size={15} style={{ color: '#0F766E' }} />
                           <span>Account & Privacy</span>
+                        </Link>
+                        <Link
+                          href="/"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="user-popover-link-item"
+                        >
+                          <Home size={15} style={{ color: '#0F766E' }} />
+                          <span>Website Homepage</span>
                         </Link>
                         {accessTier === 'admin' && (
                           <Link

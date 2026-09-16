@@ -133,8 +133,7 @@ export function IndicesRibbon() {
         })}
       </div>
       <p className="mkt-delayed-note">
-        Delayed exchange quotes for research display — not for real-time trading. See platform
-        delayed-data notice.
+        Delayed exchange quotes for educational display (not for real-time order execution).
       </p>
     </>
   );

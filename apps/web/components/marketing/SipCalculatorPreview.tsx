@@ -32,8 +32,8 @@ export function SipCalculatorPreview() {
         SIP required for your goal
       </h3>
       <p className="mkt-text-muted" style={{ marginTop: 0, lineHeight: 1.5 }}>
-        Powered by the same <code>@ff/calc</code> engine used in the Goal Planner — illustrative only,
-        not advice.
+        Powered by the same <code>@ff/calc</code> engine used in the Goal Planner (illustrative only,
+        not investment advice).
       </p>
 
       <div className="mkt-grid-2">

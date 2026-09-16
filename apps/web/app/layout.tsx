@@ -33,11 +33,11 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: {
-    default: 'FinanciallyFree — Invest with Purpose',
+    default: 'FinanciallyFree: Invest with Purpose',
     template: '%s | FinanciallyFree',
   },
   description:
-    'Goal-based mutual fund investing, Techno-Funda research tools, and an investing academy — AMFI-registered distributor (ARN-350272). Educational decision-support only.',
+    'Goal-based mutual fund investing, Techno-Funda research tools, and an investing academy. AMFI-registered distributor (ARN-350272). Educational decision-support only.',
   keywords: [
     'mutual funds',
     'SIP',

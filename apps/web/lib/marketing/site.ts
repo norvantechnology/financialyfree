@@ -130,32 +130,32 @@ export const HOME_FAQS = [
   {
     question: 'Is FinanciallyFree a SEBI-registered investment adviser?',
     answer:
-      'No. FinanciallyFree / FutureZenith Insights LLP is an AMFI-registered Mutual Fund Distributor (ARN-350272). Techno-Funda tools are educational decision-support only — not investment advice, and not SEBI RA/IA services.',
+      'No. FinanciallyFree / FutureZenith Insights LLP is an AMFI-registered Mutual Fund Distributor (ARN-350272). Techno-Funda tools are educational decision-support only (not investment advice, and not SEBI RA or IA advisory services).',
   },
   {
     question: 'What is included in the free Starter plan?',
     answer:
-      'Starter includes goal-based SIP calculators (Emergency Fund, Retirement/FIRE, Child Education, Wealth Creation), a basic dashboard, introductory Academy lessons, paperless KYC, and MF execution after KYC. Paid plans unlock the full research suite and course library.',
+      'Starter includes goal-based SIP calculators (Emergency Fund, Retirement/FIRE, Child Education, Wealth Creation), a personal dashboard, introductory Academy lessons, paperless KYC, and mutual fund order routing after KYC. Paid plans unlock the full research suite and complete course library.',
   },
   {
     question: 'How do mutual fund investments get executed?',
     answer:
-      'After paperless KYC, orders are routed through BSE StAR MF for lumpsum and SIP execution with e-NACH / UPI Autopay mandate support — under our AMFI distributor relationship.',
+      'After paperless KYC, orders are routed securely through BSE StAR MF for lumpsum and SIP execution with e-NACH / UPI Autopay mandate support under our AMFI distributor relationship.',
   },
   {
     question: 'What is Techno-Funda?',
     answer:
-      'Techno-Funda is our research suite with 20 institutional tabs: Market Mood, Valuation Lab (9 models), PEAD, Order Tracker, Sector Heatmap, F&O OI/PCR, Bulk & Block Deals, Insider Trading, 52W screener, IPO Tracker, and more.',
+      'Techno-Funda is our research suite with 20 institutional desks: Market Mood Index, Valuation Lab (9 models), PEAD Screener, Order Tracker, Sector Heatmap, F&O Open Interest and Put-Call Ratio, Bulk & Block Deals, Insider Trading, 52-Week screener, IPO Tracker, and more.',
   },
   {
     question: 'Are mutual fund investments risk-free?',
     answer:
-      'No. Mutual fund investments are subject to market risks. Read all scheme-related documents carefully. Past performance does not guarantee future results.',
+      'No. Mutual fund investments are subject to market risks. Read all scheme-related documents carefully before investing. Past performance does not guarantee future results.',
   },
   {
     question: 'Can I upgrade or change plans later?',
     answer:
-      'Yes. Start free, then upgrade to Tools Annual, DIY Wealth Bundle, or All-Access Mastermind from Pricing or Billing whenever you need research or Academy access.',
+      'Yes. Start free, then upgrade to Tools Annual, DIY Wealth Bundle, or All-Access Mastermind from Pricing or Billing whenever you need advanced research or Academy access.',
   },
 ] as const;
 
@@ -181,4 +181,4 @@ export const MF_RISK_DISCLAIMER =
 export const NOT_ADVICE_DISCLAIMER =
   'Educational and decision-support only. Not investment advice. Not a SEBI-registered Research Analyst or Investment Adviser.';
 
-export const AMFI_DISCLOSURE = `AMFI-registered Mutual Fund Distributor — ARN-${SITE.amfiArn} — ${SITE.legalEntity}.`;
+export const AMFI_DISCLOSURE = `AMFI-registered Mutual Fund Distributor · ARN-${SITE.amfiArn} · ${SITE.legalEntity}.`;

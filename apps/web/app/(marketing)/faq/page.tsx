@@ -7,7 +7,7 @@ import { JsonLd } from '../../../components/marketing/JsonLd';
 import { Breadcrumbs, FAQAccordion, Reveal } from '../../../components/marketing/primitives';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'FAQ — Goals, Research, Pricing & Compliance',
+  title: 'FAQ: Goals, Research, Pricing & Compliance',
   description:
     'Frequently asked questions about FinanciallyFree plans, Techno-Funda research, AMFI distribution, and compliance.',
   path: '/faq',

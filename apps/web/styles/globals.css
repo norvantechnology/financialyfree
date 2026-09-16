@@ -8107,3 +8107,60 @@ tr:hover .tf-sticky-symbol-cell {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   Marketing Layer Safety Block
+   Placed at the END of globals.css so these rules always have the
+   highest cascade position regardless of Next.js CSS chunk ordering.
+   This guarantees WCAG AA contrast on all dark-surface marketing sections.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Hero, CTA bands, and dark sections: headings must be white */
+.mkt .mkt-hero h1,
+.mkt .mkt-hero h2,
+.mkt .mkt-hero h3,
+.mkt .mkt-hero h4,
+.mkt .mkt-hero h5,
+.mkt .mkt-hero h6,
+.mkt .mkt-section-dark h1,
+.mkt .mkt-section-dark h2,
+.mkt .mkt-section-dark h3,
+.mkt .mkt-section-dark h4,
+.mkt .mkt-section-dark h5,
+.mkt .mkt-section-dark h6,
+.mkt .mkt-footer h1,
+.mkt .mkt-footer h2,
+.mkt .mkt-footer h3,
+.mkt .mkt-footer h4,
+.mkt .mkt-footer h5,
+.mkt .mkt-footer h6,
+.mkt .mkt-drawer h1,
+.mkt .mkt-drawer h2,
+.mkt .mkt-drawer h3,
+.mkt .mkt-surface-dark h1,
+.mkt .mkt-surface-dark h2,
+.mkt .mkt-surface-dark h3 {
+  color: #ffffff !important; /* var(--text-on-dark) = #fff */
+}
+
+/* Paragraphs inside dark marketing surfaces must not inherit --text-secondary */
+.mkt .mkt-footer p,
+.mkt .mkt-hero p,
+.mkt .mkt-section-dark p,
+.mkt .mkt-drawer p {
+  color: var(--text-on-dark-muted) !important; /* #CBD5E1 ≥4.5:1 on dark navy */
+}
+
+/* Light cards inside dark sections stay light-text */
+.mkt .mkt-section-dark .mkt-card h1,
+.mkt .mkt-section-dark .mkt-card h2,
+.mkt .mkt-section-dark .mkt-card h3,
+.mkt .mkt-section-dark .mkt-card p {
+  color: var(--text-on-light) !important;  /* #0F172A on white card */
+}
+
+/* Compliance banner has its own readable colour — don't override */
+.mkt .mkt-compliance-bar,
+.mkt .mkt-compliance-bar p {
+  color: #9a3412 !important; /* 4.8:1 on #fff7ed background */
+}
+

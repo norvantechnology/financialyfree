@@ -11,7 +11,7 @@ import { JsonLd } from '../../../components/marketing/JsonLd';
 import { Breadcrumbs, CtaSection, Reveal } from '../../../components/marketing/primitives';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'About Us — AMFI Distributor & Research Platform',
+  title: 'About Us: AMFI Distributor & Research Platform',
   description:
     'FutureZenith Insights LLP (ARN-350272) builds FinanciallyFree: goal-based mutual fund distribution and Techno-Funda educational research tools.',
   path: '/about',
@@ -36,7 +36,7 @@ export default function AboutPage() {
           <Reveal>
             <span className="mkt-kicker">About</span>
             <h1 className="mkt-serif mkt-page-title">
-              Built for purposeful wealth — and honest research
+              Built for purposeful wealth and honest research
             </h1>
             <p className="mkt-lead">
               FinanciallyFree is a product of <strong>{SITE.legalEntity}</strong>, an AMFI-registered
@@ -52,7 +52,7 @@ export default function AboutPage() {
               </h2>
               <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6 }}>
                 Help Indian investors plan clear goals, learn with discipline, and access
-                institutional-style market context — without pretending we are a SEBI research
+                institutional-style market context, without pretending we are a SEBI research
                 analyst or investment adviser.
               </p>
             </article>
@@ -67,7 +67,7 @@ export default function AboutPage() {
             </article>
             <article className="mkt-card">
               <h2 className="mkt-serif" style={{ fontSize: '1.3rem', marginTop: 0 }}>
-                Track A — Wealth
+                Track A: Wealth Planning
               </h2>
               <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6 }}>
                 Goal planners, paperless KYC, Academy courses, and BSE StAR MF order routing under
@@ -76,10 +76,10 @@ export default function AboutPage() {
             </article>
             <article className="mkt-card">
               <h2 className="mkt-serif" style={{ fontSize: '1.3rem', marginTop: 0 }}>
-                Track B — Research
+                Track B: Market Research
               </h2>
               <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6 }}>
-                Twenty Techno-Funda desks — valuation models, filings, screeners, and market
+                Twenty Techno-Funda desks for valuation models, corporate filings, screeners, and market
                 structure tools for self-directed study.
               </p>
             </article>

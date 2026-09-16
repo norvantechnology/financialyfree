@@ -7,7 +7,7 @@ import { Breadcrumbs, Reveal } from '../../../components/marketing/primitives';
 import { ContactForm } from '../../../components/marketing/ContactForm';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'Contact — Support & Partnerships',
+  title: 'Contact: Support & Partnerships',
   description: `Contact FinanciallyFree / ${SITE.legalEntity}. Support email ${SITE.supportEmail}. AMFI ARN-350272.`,
   path: '/contact',
 });

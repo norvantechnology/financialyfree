@@ -8,7 +8,7 @@ import { Breadcrumbs, Reveal } from '../../../components/marketing/primitives';
 import { NOT_ADVICE_DISCLAIMER } from '../../../lib/marketing/site';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'Blog — Goals, Research & Compliance Explainers',
+  title: 'Blog: Goals, Research & Compliance Explainers',
   description:
     'Educational articles on goal-based SIPs, Techno-Funda research, and AMFI distributor compliance from FinanciallyFree.',
   path: '/blog',

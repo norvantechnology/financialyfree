@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, Loader2, CheckCircle2, ShieldAlert, Check } from 'lucide-react';
@@ -314,7 +315,7 @@ export function RegisterForm() {
           }}
         />
         <label htmlFor="reg-terms" style={{ fontSize: '12px', color: '#64748B', cursor: 'pointer', lineHeight: 1.45 }}>
-          I agree to the <a href="/terms" style={{ color: '#0F766E', textDecoration: 'none' }}>Terms of Service</a> and <a href="/privacy" style={{ color: '#0F766E', textDecoration: 'none' }}>Privacy Policy</a>
+          I agree to the <Link href="/legal/terms" target="_blank" style={{ color: '#0F766E', textDecoration: 'none', fontWeight: 600 }}>Terms of Service</Link> and <Link href="/legal/privacy-policy" target="_blank" style={{ color: '#0F766E', textDecoration: 'none', fontWeight: 600 }}>Privacy Policy</Link>
         </label>
       </div>
 

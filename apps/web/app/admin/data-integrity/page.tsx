@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import {
   Database,
+  ArrowLeft,
   RefreshCw,
   ExternalLink,
   CheckCircle2,
@@ -418,6 +420,29 @@ export default function DataIntegrityPage() {
         />
 
         {/* Header Strip */}
+        <div style={{ marginBottom: '16px' }}>
+          <Link
+            href="/admin"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              color: '#0F766E',
+              textDecoration: 'none',
+              padding: '6px 10px',
+              borderRadius: '6px',
+              background: '#F0FDFA',
+              border: '1px solid #CCFBF1',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            <ArrowLeft size={14} />
+            <span>Back to Admin Console</span>
+          </Link>
+        </div>
+
         <div
           style={{
             display: 'flex',

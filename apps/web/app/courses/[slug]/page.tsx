@@ -8,6 +8,7 @@ import {
   Lock,
   PlayCircle,
   Award,
+  ArrowLeft,
 } from 'lucide-react';
 import { SidebarLayout } from '../../../components/sidebar-layout';
 import { StaticSnapshotBanner } from '../../../components/static-snapshot-banner';
@@ -123,6 +124,30 @@ export default function CourseDetailPage() {
           datasetName="Aureus Syllabus Architecture"
           sourceNotes="Structured curriculum designed for retail investor education and systematic wealth building."
         />
+
+        {/* Back navigation */}
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <Link
+            href="/courses"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '13px',
+              fontWeight: 600,
+              color: '#0F766E',
+              textDecoration: 'none',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              background: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            <ArrowLeft size={15} />
+            <span>Back to All Courses</span>
+          </Link>
+        </div>
 
         {/* Course Hero Banner */}
         <div

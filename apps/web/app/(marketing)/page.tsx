@@ -34,7 +34,7 @@ import {
 export const metadata: Metadata = buildPageMetadata({
   title: 'Goal-Based Mutual Funds & Techno-Funda Research',
   description:
-    'AMFI-registered mutual fund distributor (ARN-350272). Plan SIPs for FIRE, education & wealth — plus 20 Techno-Funda research tools. Educational decision-support, not investment advice.',
+    'AMFI-registered mutual fund distributor (ARN-350272). Plan SIPs for FIRE, education, and wealth, plus 20 Techno-Funda research tools. Educational decision-support, not investment advice.',
   path: '/',
 });
 
@@ -97,9 +97,9 @@ export default function HomePage() {
           </div>
           <h1 className="mkt-serif">Invest with purpose. Research with discipline.</h1>
           <p className="mkt-hero-sub">
-            Track A: goal-based SIPs, paperless KYC, and BSE StAR MF execution. Track B: 20
-            Techno-Funda research desks — valuation, PEAD, order filings, F&O, and more.
-            Educational decision-support only — not investment advice.
+            Track A offers goal-based SIPs, paperless KYC, and BSE StAR MF execution. Track B provides 20
+            Techno-Funda research desks for valuation, PEAD, order filings, F&O analytics, and market sentiment.
+            Educational decision-support only (not investment advice).
           </p>
           <div className="mkt-hero-ctas">
             <Link href="/dashboard/goals" className="mkt-btn mkt-btn-primary">
@@ -157,7 +157,7 @@ export default function HomePage() {
             <span className="mkt-kicker">Track A · Wealth</span>
             <h2 id="track-a-heading">Goal-based investing, end to end</h2>
             <p className="mkt-lead">
-              From horizon planning to KYC to exchange-routed SIPs — built for disciplined wealth
+              From horizon planning to KYC to exchange-routed SIPs, built for disciplined wealth
               creation.
             </p>
           </Reveal>
@@ -166,7 +166,7 @@ export default function HomePage() {
               icon={<Target size={22} />}
               badge="Goals"
               title="Four wealth horizons"
-              description="Emergency Fund, Retirement/FIRE, Child Education, and Wealth Creation — inflation-aware SIP maths."
+              description="Emergency Fund, Retirement/FIRE, Child Education, and Wealth Creation with inflation-aware SIP calculations."
             />
             <FeatureCard
               icon={<ShieldCheck size={22} />}
@@ -208,7 +208,7 @@ export default function HomePage() {
             <h2 id="track-b-heading">Techno-Funda research suite</h2>
             <p className="mkt-lead">
               Twenty institutional desks for DIY investors who want filings, valuation, and market
-              structure in one workspace — not a tip shop.
+              structure in one workspace (not a tip shop).
             </p>
           </Reveal>
           <TrackBTabsClient items={TRACK_B_PREVIEWS} />
@@ -227,7 +227,7 @@ export default function HomePage() {
             <span className="mkt-kicker">How it works</span>
             <h2 id="how-heading">Four steps to clarity</h2>
             <p className="mkt-lead">
-              The same journey across Track A wealth tools and Track B research — plan, learn,
+              A structured roadmap across Track A wealth tools and Track B research: plan, learn,
               research, then invest.
             </p>
           </Reveal>

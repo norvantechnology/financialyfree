@@ -146,7 +146,7 @@ export function FeatureCard({
 
 export function CtaSection({
   title = 'Start with a free goal plan',
-  subtitle = 'Use the same SIP engine as the dashboard — then unlock research when you are ready.',
+  subtitle = 'Use the same SIP engine as the dashboard, then unlock research tools when you are ready.',
   primaryHref = '/auth/register',
   primaryLabel = 'Get Started Free',
   secondaryHref = '/techno-funda',
@@ -160,7 +160,7 @@ export function CtaSection({
   secondaryLabel?: string;
 }) {
   return (
-    <section className="mkt-section mkt-section-dark" aria-labelledby="mkt-final-cta">
+    <section className="mkt-section mkt-section-dark mkt-section-cta" aria-labelledby="mkt-final-cta">
       <div className="mkt-container mkt-cta-center">
         <h2 id="mkt-final-cta" style={{ marginBottom: 12 }}>
           {title}

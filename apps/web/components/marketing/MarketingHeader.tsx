@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { NAV_LINKS, SITE } from '../../lib/marketing/site';
@@ -56,14 +55,7 @@ export function MarketingHeader({ forceSolid = false }: { forceSolid?: boolean }
       <header className={`mkt-header ${solid ? 'is-scrolled' : 'is-top'}`}>
         <div className="mkt-header-inner">
           <Link href="/" className="mkt-brand" aria-label={`${SITE.name} home`}>
-            <Image
-              src="/og-default.svg"
-              alt={`${SITE.name} logo`}
-              width={36}
-              height={36}
-              priority
-              style={{ borderRadius: 10 }}
-            />
+            <span className="mkt-brand-mark" aria-hidden="true">FF</span>
             <span className="mkt-brand-name">{SITE.name}</span>
           </Link>
 

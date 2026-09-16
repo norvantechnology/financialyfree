@@ -106,8 +106,7 @@ export function ContactForm() {
       </button>
       {status === 'ok' ? (
         <div className="mkt-toast ok" role="status">
-          Thanks — your message was queued via our notification email channel. We typically reply
-          within 2 business days.
+          Thank you! Your message was received successfully. We typically reply within 1 to 2 business days.
         </div>
       ) : null}
       {status === 'err' ? (

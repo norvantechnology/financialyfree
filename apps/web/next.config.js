@@ -23,6 +23,18 @@ const nextConfig = {
     NEXT_PUBLIC_FEATURE_TRACK_B_ENABLED:
       process.env.NEXT_PUBLIC_FEATURE_TRACK_B_ENABLED ?? 'false',
   },
+  async redirects() {
+    return [
+      { source: '/terms', destination: '/legal/terms', permanent: true },
+      { source: '/privacy', destination: '/legal/privacy-policy', permanent: true },
+      { source: '/privacy-policy', destination: '/legal/privacy-policy', permanent: true },
+      { source: '/disclaimer', destination: '/legal/disclaimer', permanent: true },
+      { source: '/refund', destination: '/legal/refund-policy', permanent: true },
+      { source: '/refund-policy', destination: '/legal/refund-policy', permanent: true },
+      { source: '/dashboard', destination: '/dashboard/goals', permanent: false },
+      { source: '/dashboard/overview', destination: '/dashboard/goals', permanent: false },
+    ];
+  },
   async rewrites() {
     const apiOrigin = (
       process.env.INTERNAL_API_URL ||

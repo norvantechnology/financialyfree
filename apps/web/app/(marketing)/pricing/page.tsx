@@ -13,7 +13,7 @@ import { Breadcrumbs, FAQAccordion, Reveal } from '../../../components/marketing
 import { PlanRecommender } from '../../../components/marketing/PlanRecommender';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'Pricing — Starter, Tools, DIY Bundle & All-Access',
+  title: 'Pricing: Starter, Tools, DIY Bundle & All-Access',
   description:
     'Compare FinanciallyFree plans: Free Starter, Tools Annual ₹9,999, DIY Wealth Bundle ₹14,999, All-Access Mastermind ₹24,999. AMFI ARN-350272.',
   path: '/pricing',
@@ -23,9 +23,9 @@ const MATRIX: Array<{ feature: string; starter: string; tools: string; diy: stri
   { feature: 'Goal SIP calculators', starter: 'Yes', tools: 'Yes', diy: 'Yes', all: 'Yes' },
   { feature: 'Introductory Academy lessons', starter: 'Yes', tools: 'Yes', diy: 'Full library', all: 'Full library' },
   { feature: 'Techno-Funda (20 tools)', starter: 'Overview', tools: 'Full', diy: 'Full', all: 'Full' },
-  { feature: 'Valuation Lab (9 models)', starter: '—', tools: 'Yes', diy: 'Yes', all: 'Yes' },
+  { feature: 'Valuation Lab (9 models)', starter: 'No', tools: 'Yes', diy: 'Yes', all: 'Yes' },
   { feature: 'Paperless KYC + MF execution', starter: 'Yes*', tools: 'Yes*', diy: 'Yes*', all: 'Yes*' },
-  { feature: 'Research community / Q&A', starter: '—', tools: '—', diy: '—', all: 'Yes' },
+  { feature: 'Research community / Q&A', starter: 'No', tools: 'No', diy: 'No', all: 'Yes' },
 ];
 
 export default function PricingPage() {

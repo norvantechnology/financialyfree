@@ -18,9 +18,9 @@ import {
 } from 'lucide-react';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'Features — Wealth Track & Techno-Funda Research',
+  title: 'Features: Wealth Track & Techno-Funda Research',
   description:
-    'Explore Track A goal investing, KYC, BSE StAR MF execution, Academy — and Track B with 20 research tools including Valuation Lab, Order Tracker, PEAD, and F&O.',
+    'Explore Track A goal investing, KYC, BSE StAR MF execution, and Academy, alongside Track B with 20 research tools including Valuation Lab, Order Tracker, PEAD, and F&O.',
   path: '/features',
 });
 
@@ -56,13 +56,13 @@ export default function FeaturesPage() {
       <section className="mkt-section mkt-section-alt" id="track-a" aria-labelledby="fa">
         <div className="mkt-container">
           <h2 id="fa" className="mkt-serif">
-            Track A — Wealth
+            Track A: Wealth Planning
           </h2>
           <p className="mkt-lead">Goal planning, learning, KYC, and mutual fund execution.</p>
           <div className="mkt-grid-2">
-            <FeatureCard icon={<Target size={22} />} title="Goal-based SIP engine" description="Emergency, FIRE/Retirement, Child Education, Wealth Creation — inflation-aware monthly SIP maths via @ff/calc." />
+            <FeatureCard icon={<Target size={22} />} title="Goal-based SIP engine" description="Emergency, FIRE/Retirement, Child Education, and Wealth Creation with inflation-aware monthly SIP calculations." />
             <FeatureCard icon={<ShieldCheck size={22} />} title="Paperless KYC" description="Digital onboarding before exchange-routed investments." />
-            <FeatureCard icon={<Landmark size={22} />} title="BSE StAR MF execution" description="Lumpsum & SIP with e-NACH / UPI Autopay under our AMFI ARN." />
+            <FeatureCard icon={<Landmark size={22} />} title="BSE StAR MF execution" description="Lumpsum and SIP with e-NACH / UPI Autopay under our AMFI ARN." />
             <FeatureCard icon={<GraduationCap size={22} />} title="Academy LMS" description="Zero-to-Hero curriculum with lesson progress and quizzes." />
           </div>
           <div style={{ marginTop: 20 }}>
@@ -76,7 +76,7 @@ export default function FeaturesPage() {
       <section className="mkt-section" id="track-b" aria-labelledby="fb">
         <div className="mkt-container">
           <h2 id="fb" className="mkt-serif">
-            Track B — Techno-Funda Research
+            Track B: Techno-Funda Research
           </h2>
           <p className="mkt-lead">Twenty institutional desks. Educational decision-support only.</p>
           <div className="mkt-grid-3">

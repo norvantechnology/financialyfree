@@ -15,7 +15,7 @@ const LEGAL = [
   { href: '/faq', label: 'FAQ' },
 ];
 
-/** Product-feature links only — site pages stay under Explore (no Pricing/Academy dupes). */
+/** Product-feature links only: site pages stay under Explore (no Pricing/Academy dupes). */
 const PRODUCT_LINKS = [
   { href: '/dashboard/goals', label: 'Goal Planner' },
   { href: '/techno-funda', label: 'Research Suite' },
@@ -36,8 +36,8 @@ export function MarketingFooter() {
               </span>
               <span className="mkt-brand-name">{SITE.name}</span>
             </Link>
-            <p style={{ margin: 0, lineHeight: 1.55, maxWidth: '36ch' }}>
-              Goal-based mutual fund investing (Track A) and Techno-Funda research (Track B) —
+            <p className="mkt-footer-brand-desc">
+              Goal-based mutual fund investing (Track A) and Techno-Funda research tools (Track B),
               built by {SITE.legalEntity}.
             </p>
           </div>
@@ -82,11 +82,11 @@ export function MarketingFooter() {
         {/* Single footer compliance block (top banner is the other instance) */}
         <div className="mkt-legal-strip">
           <p style={{ margin: 0 }}>
-            AMFI-registered Mutual Fund Distributor — ARN-{SITE.amfiArn} — {SITE.legalEntity}.{' '}
+            AMFI-registered Mutual Fund Distributor · ARN-{SITE.amfiArn} · {SITE.legalEntity}.{' '}
             {NOT_ADVICE_DISCLAIMER} {MF_RISK_DISCLAIMER}
           </p>
           <p style={{ margin: 0 }}>
-            © {year} {SITE.legalEntity}. All rights reserved. {SITE.name} is a product of{' '}
+            © {year} {SITE.legalEntity}. All rights reserved. {SITE.name} is an educational and execution platform by{' '}
             {SITE.legalEntity}.
           </p>
         </div>
