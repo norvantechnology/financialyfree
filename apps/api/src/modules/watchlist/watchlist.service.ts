@@ -73,6 +73,25 @@ export class WatchlistService implements OnModuleInit {
     }, 60000);
   }
 
+  /** Bound parallel quote fetches so alert sweeps cannot open dozens of upstream sockets */
+  private async mapPool<T, R>(
+    items: T[],
+    concurrency: number,
+    fn: (item: T, index: number) => Promise<R>,
+  ): Promise<R[]> {
+    if (items.length === 0) return [];
+    const results = new Array<R>(items.length);
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(Math.max(1, concurrency), items.length) }, async () => {
+      while (cursor < items.length) {
+        const i = cursor++;
+        results[i] = await fn(items[i], i);
+      }
+    });
+    await Promise.all(workers);
+    return results;
+  }
+
   async getWatchlist(userId: string): Promise<{ items: WatchlistEnrichedItem[]; totalCount: number }> {
     const rawItems = await this.watchlistRepo.find({
       where: { userId },
@@ -83,18 +102,20 @@ export class WatchlistService implements OnModuleInit {
       return { items: [], totalCount: 0 };
     }
 
-    // Resolve live prices for each unique symbol in parallel
+    // Resolve live prices for each unique symbol (bounded concurrency)
     const uniqueSymbols = Array.from(new Set(rawItems.map((i) => i.symbol.toUpperCase())));
     const quotesMap = new Map<string, any>();
 
-    await Promise.allSettled(
-      uniqueSymbols.map(async (sym) => {
+    await this.mapPool(uniqueSymbols, 6, async (sym) => {
+      try {
         const quote = await this.resolveQuote(sym);
         if (quote) {
           quotesMap.set(sym, quote);
         }
-      }),
-    );
+      } catch {
+        /* skip failed quote */
+      }
+    });
 
     const enriched: WatchlistEnrichedItem[] = rawItems.map((item) => {
       const symUpper = item.symbol.toUpperCase();
@@ -331,18 +352,20 @@ export class WatchlistService implements OnModuleInit {
       return { checkedCount: 0, triggeredCount: 0, triggeredAlerts: [] };
     }
 
-    // 2. Fetch live prices for distinct symbols
+    // 2. Fetch live prices for distinct symbols (bounded concurrency)
     const uniqueSymbols = Array.from(new Set(items.map((i) => i.symbol.toUpperCase())));
     const quotes = new Map<string, number>();
 
-    await Promise.allSettled(
-      uniqueSymbols.map(async (sym) => {
+    await this.mapPool(uniqueSymbols, 6, async (sym) => {
+      try {
         const q = await this.resolveQuote(sym);
         if (q && q.current > 0) {
           quotes.set(sym, q.current);
         }
-      }),
-    );
+      } catch {
+        /* skip */
+      }
+    });
 
     const triggeredAlerts: Array<{
       symbol: string;
@@ -353,6 +376,7 @@ export class WatchlistService implements OnModuleInit {
 
     const now = Date.now();
     const ONE_HOUR = 60 * 60 * 1000;
+    const toSave: WatchlistItemEntity[] = [];
 
     for (const item of items) {
       const sym = item.symbol.toUpperCase();
@@ -399,7 +423,7 @@ export class WatchlistService implements OnModuleInit {
           );
 
           item.lastTriggeredAt = new Date();
-          await this.watchlistRepo.save(item);
+          toSave.push(item);
 
           triggeredAlerts.push({
             symbol: item.symbol,
@@ -413,6 +437,10 @@ export class WatchlistService implements OnModuleInit {
           this.logger.error(`Failed to dispatch alert notification: ${err.message}`);
         }
       }
+    }
+
+    if (toSave.length > 0) {
+      await this.watchlistRepo.save(toSave);
     }
 
     return {

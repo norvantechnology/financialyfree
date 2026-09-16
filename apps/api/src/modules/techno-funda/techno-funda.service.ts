@@ -143,6 +143,16 @@ export class TechnoFundaService {
   ) {}
 
   private screenerPlCache = new Map<string, { data: any; timestamp: number }>();
+  /** PDF annexure text — same extractors, avoids re-download within TTL */
+  private announcementPdfCache = new Map<string, { text: string; timestamp: number }>();
+  private newsFeedInFlight: Promise<{
+    source: string;
+    feedSourceUrl: string;
+    totalHeadlines: number;
+    headlines: any[];
+    lastUpdated: string;
+  }> | null = null;
+  private orderTrackerInFlight: Promise<any> | null = null;
 
   /** Bound parallel scrapes so mount storms cannot open dozens of upstream sockets */
   private async mapPool<T, R>(
@@ -1887,6 +1897,7 @@ export class TechnoFundaService {
   async fetchAnnouncementPdfText(link?: string | null): Promise<string> {
     const urls = this.resolveAnnouncementPdfUrls(link);
     if (!urls.length) return '';
+    const PDF_TTL_MS = 6 * 60 * 60 * 1000; // 6h — annexure amounts do not change
     const headers = {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
@@ -1894,13 +1905,27 @@ export class TechnoFundaService {
       Accept: 'application/pdf,*/*',
     };
     for (const url of urls) {
+      const cached = this.announcementPdfCache.get(url);
+      if (cached && Date.now() - cached.timestamp < PDF_TTL_MS) {
+        if (cached.text) return cached.text;
+        continue;
+      }
       try {
         const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
         if (!res.ok) continue;
         const buf = Buffer.from(await res.arrayBuffer());
         if (buf.length < 200) continue;
         const text = await this.extractTextFromPdfBuffer(buf);
-        if (text && text.trim().length > 40) return text;
+        if (text && text.trim().length > 40) {
+          this.announcementPdfCache.set(url, { text, timestamp: Date.now() });
+          // Bound memory: drop oldest when oversized
+          if (this.announcementPdfCache.size > 200) {
+            const oldest = this.announcementPdfCache.keys().next().value;
+            if (oldest) this.announcementPdfCache.delete(oldest);
+          }
+          return text;
+        }
+        this.announcementPdfCache.set(url, { text: '', timestamp: Date.now() });
       } catch (err: any) {
         this.logger.debug?.(`PDF extract failed for ${url}: ${err?.message || err}`);
       }
@@ -2026,27 +2051,30 @@ export class TechnoFundaService {
 
       const dayCount = 14;
       const pageCount = 2;
-      const fetchJobs: Array<Promise<any[]>> = [];
+      const jobs: Array<{ url: string }> = [];
 
       for (let dayOffset = 0; dayOffset < dayCount; dayOffset++) {
         const day = new Date();
         day.setDate(day.getDate() - dayOffset);
         const d = yyyymmdd(day);
         for (let page = 1; page <= pageCount; page++) {
-          const url = `https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=${page}&strCat=-1&strPrevDate=${d}&strScrip=&strSearch=P&strToDate=${d}&strType=C`;
-          fetchJobs.push(
-            fetch(url, { headers, signal: AbortSignal.timeout(10000) })
-              .then(async (res) => {
-                if (!res.ok) return [];
-                const json = (await res.json()) as any;
-                return Array.isArray(json?.Table) ? json.Table : [];
-              })
-              .catch(() => []),
-          );
+          jobs.push({
+            url: `https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=${page}&strCat=-1&strPrevDate=${d}&strScrip=&strSearch=P&strToDate=${d}&strType=C`,
+          });
         }
       }
 
-      const settled = await Promise.all(fetchJobs);
+      // Same 14×2 window as before — bound sockets to avoid BSE rate-limit storms
+      const settled = await this.mapPool(jobs, 6, async ({ url }) => {
+        try {
+          const res = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+          if (!res.ok) return [] as any[];
+          const json = (await res.json()) as any;
+          return Array.isArray(json?.Table) ? json.Table : [];
+        } catch {
+          return [] as any[];
+        }
+      });
       const seen = new Set<string>();
       const list: any[] = [];
       for (const batch of settled) {
@@ -2188,6 +2216,39 @@ export class TechnoFundaService {
   }
 
   async getNewsFeed(forceRefresh = false): Promise<{
+    source: string;
+    feedSourceUrl: string;
+    totalHeadlines: number;
+    headlines: Array<{
+      title: string;
+      link: string;
+      pubDate: string;
+      description: string;
+      source: 'NSE Filing' | 'BSE Filing' | 'Market News';
+      company?: string;
+      symbol?: string;
+      isOrderWin?: boolean;
+      orderValue?: string;
+      category?: string;
+    }>;
+    lastUpdated: string;
+  }> {
+    // Coalesce concurrent refreshes so NSE/BSE/ET are not stampeded
+    if (!forceRefresh && this.newsFeedInFlight) {
+      return this.newsFeedInFlight;
+    }
+
+    const run = this.executeNewsFeed(forceRefresh);
+    if (!forceRefresh) {
+      this.newsFeedInFlight = run.finally(() => {
+        this.newsFeedInFlight = null;
+      });
+      return this.newsFeedInFlight;
+    }
+    return run;
+  }
+
+  private async executeNewsFeed(forceRefresh = false): Promise<{
     source: string;
     feedSourceUrl: string;
     totalHeadlines: number;
@@ -2757,77 +2818,75 @@ export class TechnoFundaService {
     > = {};
 
     const universe = await this.loadNseEquityUniverse(50);
-    await Promise.all(
-      universe.map(async (item) => {
-        const symbol = item.symbol;
-        const yahooSymbol = item.yahooTicker;
-        try {
-          const resp = await fetch(
-            `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=3mo`,
-            {
-              headers: {
-                'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
-                Accept: 'application/json',
-              },
-              signal: AbortSignal.timeout(6000),
+    await this.mapPool(universe, 8, async (item) => {
+      const symbol = item.symbol;
+      const yahooSymbol = item.yahooTicker;
+      try {
+        const resp = await fetch(
+          `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=3mo`,
+          {
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
+              Accept: 'application/json',
             },
-          );
+            signal: AbortSignal.timeout(6000),
+          },
+        );
 
-          if (!resp.ok) return;
-          const json = (await resp.json()) as any;
-          const result = json?.chart?.result?.[0];
-          const meta = result?.meta;
-          const validCloses = extractYahooCloses(result);
-          const session = parseYahooSessionChange(meta, validCloses);
+        if (!resp.ok) return;
+        const json = (await resp.json()) as any;
+        const result = json?.chart?.result?.[0];
+        const meta = result?.meta;
+        const validCloses = extractYahooCloses(result);
+        const session = parseYahooSessionChange(meta, validCloses);
 
-          if (validCloses.length > 0 || session) {
-            const currentPrice = session?.current
-              ?? (meta?.regularMarketPrice
-                ? Math.round(meta.regularMarketPrice * 100) / 100
-                : Math.round(validCloses[validCloses.length - 1] * 100) / 100);
-            const dailyRet = session?.changePct
-              ?? (validCloses.length > 1
-                ? Math.round(
-                    ((currentPrice - validCloses[validCloses.length - 2]) /
-                      validCloses[validCloses.length - 2]) *
-                      10000,
-                  ) / 100
-                : 0);
-            const price20dAgo =
-              validCloses.length > 20
-                ? Math.round(validCloses[validCloses.length - 21] * 100) / 100
-                : Math.round((validCloses[0] || currentPrice) * 100) / 100;
-            const drift20d =
-              price20dAgo > 0
-                ? Math.round(((currentPrice - price20dAgo) / price20dAgo) * 10000) / 100
-                : 0;
-            const sma50Slice = validCloses.slice(-50);
-            const sma50 =
-              sma50Slice.length > 0
-                ? Math.round(
-                    (sma50Slice.reduce((a, b) => a + b, 0) / sma50Slice.length) * 100,
-                  ) / 100
-                : currentPrice;
-            const stage: 'Stage 2 Breakout' | 'Consolidating' =
-              currentPrice >= sma50 ? 'Stage 2 Breakout' : 'Consolidating';
+        if (validCloses.length > 0 || session) {
+          const currentPrice = session?.current
+            ?? (meta?.regularMarketPrice
+              ? Math.round(meta.regularMarketPrice * 100) / 100
+              : Math.round(validCloses[validCloses.length - 1] * 100) / 100);
+          const dailyRet = session?.changePct
+            ?? (validCloses.length > 1
+              ? Math.round(
+                  ((currentPrice - validCloses[validCloses.length - 2]) /
+                    validCloses[validCloses.length - 2]) *
+                    10000,
+                ) / 100
+              : 0);
+          const price20dAgo =
+            validCloses.length > 20
+              ? Math.round(validCloses[validCloses.length - 21] * 100) / 100
+              : Math.round((validCloses[0] || currentPrice) * 100) / 100;
+          const drift20d =
+            price20dAgo > 0
+              ? Math.round(((currentPrice - price20dAgo) / price20dAgo) * 10000) / 100
+              : 0;
+          const sma50Slice = validCloses.slice(-50);
+          const sma50 =
+            sma50Slice.length > 0
+              ? Math.round(
+                  (sma50Slice.reduce((a, b) => a + b, 0) / sma50Slice.length) * 100,
+                ) / 100
+              : currentPrice;
+          const stage: 'Stage 2 Breakout' | 'Consolidating' =
+            currentPrice >= sma50 ? 'Stage 2 Breakout' : 'Consolidating';
 
-            results[symbol] = {
-              currentPrice,
-              price20dAgo,
-              drift20d,
-              dailyRet,
-              sma50,
-              stage,
-            };
-          }
-        } catch (err: any) {
-          this.logger.warn(
-            `Failed to fetch live PEAD prices for ${symbol} (${yahooSymbol}): ${err.message}`,
-          );
+          results[symbol] = {
+            currentPrice,
+            price20dAgo,
+            drift20d,
+            dailyRet,
+            sma50,
+            stage,
+          };
         }
-      }),
-    );
+      } catch (err: any) {
+        this.logger.warn(
+          `Failed to fetch live PEAD prices for ${symbol} (${yahooSymbol}): ${err.message}`,
+        );
+      }
+    });
 
     if (Object.keys(results).length > 0) {
       this.peadPriceCache = {
@@ -2977,7 +3036,21 @@ export class TechnoFundaService {
     if (!forceRefresh && this.orderTrackerCache && Date.now() - this.orderTrackerCache.timestamp < 15 * 60 * 1000) {
       return this.orderTrackerCache.data;
     }
+    if (!forceRefresh && this.orderTrackerInFlight) {
+      return this.orderTrackerInFlight;
+    }
 
+    const run = this.executeOrderTracker(forceRefresh);
+    if (!forceRefresh) {
+      this.orderTrackerInFlight = run.finally(() => {
+        this.orderTrackerInFlight = null;
+      });
+      return this.orderTrackerInFlight;
+    }
+    return run;
+  }
+
+  private async executeOrderTracker(forceRefresh = false) {
     // Pull real announcements feed to extract live order wins
     const newsFeed = await this.getNewsFeed(forceRefresh);
     const allWins = (newsFeed.headlines || []).filter((h) => h.isOrderWin);
@@ -2998,8 +3071,8 @@ export class TechnoFundaService {
     });
     const universe = await this.loadNseEquityUniverse(80);
 
-    // Resolve live announcements into orders using dynamic financial metrics
-    const liveOrderPromises = orderAnnouncements.map(async (ann, idx) => {
+    // Bound Screener fan-out (same resolution logic; concurrency 5)
+    const liveOrders = await this.mapPool(orderAnnouncements, 5, async (ann, idx) => {
       let sym = (ann.symbol || '').toUpperCase().trim();
       // Ignore pure BSE numeric scrip codes for Screener lookups
       if (/^\d+$/.test(sym)) sym = '';
@@ -3079,7 +3152,7 @@ export class TechnoFundaService {
       };
     });
 
-    const orders = (await Promise.all(liveOrderPromises)).filter((ord): ord is NonNullable<typeof ord> => ord !== null);
+    const orders = liveOrders.filter((ord): ord is NonNullable<typeof ord> => ord !== null);
 
     const allOrders = orders;
 
@@ -3764,19 +3837,17 @@ export class TechnoFundaService {
     ].filter(Boolean);
 
     const topOiGainers = (
-      await Promise.all(
-        universe.map(async (item) => {
-          const detail = await this.fetchLiveStockDetail(item.yahooTicker);
-          if (!detail) return null;
-          return {
-            symbol: item.symbol,
-            cmp: detail.cmp,
-            oiChangePct: null,
-            priceChangePct: detail.dayChangePct,
-            interpretation: null,
-          };
-        }),
-      )
+      await this.mapPool(universe, 6, async (item) => {
+        const detail = await this.fetchLiveStockDetail(item.yahooTicker);
+        if (!detail) return null;
+        return {
+          symbol: item.symbol,
+          cmp: detail.cmp,
+          oiChangePct: null,
+          priceChangePct: detail.dayChangePct,
+          interpretation: null,
+        };
+      })
     ).filter((m): m is NonNullable<typeof m> => m !== null);
 
     const result = {
