@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { OptionChainDto, LiveTickDto, BrokerType } from '@ff/types';
+import { OptionChainDto, BrokerType } from '@ff/types';
 import {
   calculateGreeks,
   impliedVolatility,
@@ -9,7 +8,7 @@ import {
   classifyOiBuildup,
 } from '@ff/calc';
 import { BrokerAuthService } from './broker-auth.service';
-import { InstrumentsService, POPULAR_FO_SYMBOLS } from './instruments.service';
+import { POPULAR_FO_SYMBOLS } from './instruments.service';
 
 @Injectable()
 export class MarketDataService {
@@ -18,9 +17,7 @@ export class MarketDataService {
   private nseSessionInFlight: Promise<string> | null = null;
 
   constructor(
-    private readonly configService: ConfigService,
     private readonly brokerAuthService: BrokerAuthService,
-    private readonly instrumentsService: InstrumentsService,
   ) {}
 
   /**

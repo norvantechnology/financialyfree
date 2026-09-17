@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BullModule } from '@nestjs/bullmq';
 
 import { BrokerConnectionEntity } from '../../database/entities/broker-connection.entity';
 import { InstrumentEntity } from '../../database/entities/instrument.entity';
@@ -22,8 +23,13 @@ import { FyersAdapter } from './adapters/fyers.adapter';
 import { BrokerAuthService } from './broker-auth.service';
 import { InstrumentsService } from './instruments.service';
 import { MarketDataService } from './market-data.service';
+import { OptionsAnalyticsService } from './options-analytics.service';
+import { OiTrackerProcessor } from './oi-tracker.processor';
 import { OptionsGateway } from './options.gateway';
 import { OptionsController } from './options.controller';
+import { isRedisConfigured } from '../../config/redis.config';
+
+const useBull = isRedisConfigured();
 
 @Module({
   imports: [
@@ -36,6 +42,13 @@ import { OptionsController } from './options.controller';
       DataSourceHealthEntity,
       UserEntity,
     ]),
+    ...(useBull
+      ? [
+          BullModule.registerQueue({
+            name: 'oi-tracker',
+          }),
+        ]
+      : []),
     ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -57,6 +70,8 @@ import { OptionsController } from './options.controller';
     BrokerAuthService,
     InstrumentsService,
     MarketDataService,
+    OptionsAnalyticsService,
+    ...(useBull ? [OiTrackerProcessor] : []),
     OptionsGateway,
   ],
   controllers: [OptionsController],
@@ -64,8 +79,10 @@ import { OptionsController } from './options.controller';
     BrokerAuthService,
     InstrumentsService,
     MarketDataService,
+    OptionsAnalyticsService,
     OptionsGateway,
     EncryptionService,
   ],
 })
 export class OptionsModule {}
+

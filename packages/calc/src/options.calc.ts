@@ -608,7 +608,7 @@ export function calculateStrategyPayoff(options: PayoffCalculationOptions): Payo
   };
 }
 
-// ── Strategy Templates ────────────────────────────────────────────────
+// ── Strategy Templates (23 Standard Indian F&O Templates) ────────────
 
 export interface StrategyTemplate {
   name: string;
@@ -618,6 +618,7 @@ export interface StrategyTemplate {
 }
 
 export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
+  // ── Volatility Templates ──
   {
     name: 'Long Straddle',
     category: 'Volatility',
@@ -631,6 +632,34 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     },
   },
   {
+    name: 'Long Strangle',
+    category: 'Volatility',
+    description: 'Buy OTM Call + Buy OTM Put. Lower cost volatility breakout strategy requiring larger move.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'PE-OTM', symbol: 'NIFTY', expiry, strike: atm - step, optionType: 'PE', side: 'BUY', lots: 1, lotSize, entryPrice: 65 },
+        { id: '2', instrumentToken: 'CE-OTM', symbol: 'NIFTY', expiry, strike: atm + step, optionType: 'CE', side: 'BUY', lots: 1, lotSize, entryPrice: 70 },
+      ];
+    },
+  },
+  {
+    name: 'Reverse Iron Condor',
+    category: 'Volatility',
+    description: 'Buy OTM debit spreads on both sides. High reward-to-risk volatility breakout with capped risk.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'PE-FAR-SELL', symbol: 'NIFTY', expiry, strike: atm - 2 * step, optionType: 'PE', side: 'SELL', lots: 1, lotSize, entryPrice: 18 },
+        { id: '2', instrumentToken: 'PE-BUY', symbol: 'NIFTY', expiry, strike: atm - step, optionType: 'PE', side: 'BUY', lots: 1, lotSize, entryPrice: 50 },
+        { id: '3', instrumentToken: 'CE-BUY', symbol: 'NIFTY', expiry, strike: atm + step, optionType: 'CE', side: 'BUY', lots: 1, lotSize, entryPrice: 55 },
+        { id: '4', instrumentToken: 'CE-FAR-SELL', symbol: 'NIFTY', expiry, strike: atm + 2 * step, optionType: 'CE', side: 'SELL', lots: 1, lotSize, entryPrice: 20 },
+      ];
+    },
+  },
+
+  // ── Neutral Templates ──
+  {
     name: 'Short Straddle',
     category: 'Neutral',
     description: 'Sell ATM Call + Sell ATM Put. Pure theta decay strategy when range-bound expiry is expected.',
@@ -639,6 +668,18 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
       return [
         { id: '1', instrumentToken: 'CE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'CE', side: 'SELL', lots: 1, lotSize, entryPrice: 120 },
         { id: '2', instrumentToken: 'PE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'PE', side: 'SELL', lots: 1, lotSize, entryPrice: 110 },
+      ];
+    },
+  },
+  {
+    name: 'Short Strangle',
+    category: 'Neutral',
+    description: 'Sell OTM Call + Sell OTM Put. Wider profitability corridor than straddle with premium collection.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'PE-OTM', symbol: 'NIFTY', expiry, strike: atm - step, optionType: 'PE', side: 'SELL', lots: 1, lotSize, entryPrice: 65 },
+        { id: '2', instrumentToken: 'CE-OTM', symbol: 'NIFTY', expiry, strike: atm + step, optionType: 'CE', side: 'SELL', lots: 1, lotSize, entryPrice: 70 },
       ];
     },
   },
@@ -657,30 +698,6 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
     },
   },
   {
-    name: 'Bull Call Spread',
-    category: 'Bullish',
-    description: 'Buy ATM Call + Sell OTM Call. Moderately bullish with lowered net debit cost and defined risk.',
-    createLegs: (spot, step, expiry, lotSize) => {
-      const atm = Math.round(spot / step) * step;
-      return [
-        { id: '1', instrumentToken: 'CE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'CE', side: 'BUY', lots: 1, lotSize, entryPrice: 130 },
-        { id: '2', instrumentToken: 'CE-OTM', symbol: 'NIFTY', expiry, strike: atm + step, optionType: 'CE', side: 'SELL', lots: 1, lotSize, entryPrice: 65 },
-      ];
-    },
-  },
-  {
-    name: 'Bear Put Spread',
-    category: 'Bearish',
-    description: 'Buy ATM Put + Sell OTM Put. Defined-risk bearish trade profiting from downward movement.',
-    createLegs: (spot, step, expiry, lotSize) => {
-      const atm = Math.round(spot / step) * step;
-      return [
-        { id: '1', instrumentToken: 'PE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'PE', side: 'BUY', lots: 1, lotSize, entryPrice: 125 },
-        { id: '2', instrumentToken: 'PE-OTM', symbol: 'NIFTY', expiry, strike: atm - step, optionType: 'PE', side: 'SELL', lots: 1, lotSize, entryPrice: 60 },
-      ];
-    },
-  },
-  {
     name: 'Iron Butterfly',
     category: 'Neutral',
     description: 'Sell ATM Straddle + Buy OTM Wings. High reward-to-risk ratio on low volatility expiries.',
@@ -694,4 +711,288 @@ export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
       ];
     },
   },
+  {
+    name: 'Jade Lizard',
+    category: 'Neutral',
+    description: 'Sell OTM Put + Sell Bear Call Spread. Zero upside risk if total credit exceeds call spread width.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'PE-SHORT', symbol: 'NIFTY', expiry, strike: atm - step, optionType: 'PE', side: 'SELL', lots: 1, lotSize, entryPrice: 55 },
+        { id: '2', instrumentToken: 'CE-SHORT', symbol: 'NIFTY', expiry, strike: atm + step, optionType: 'CE', side: 'SELL', lots: 1, lotSize, entryPrice: 50 },
+        { id: '3', instrumentToken: 'CE-LONG', symbol: 'NIFTY', expiry, strike: atm + 2 * step, optionType: 'CE', side: 'BUY', lots: 1, lotSize, entryPrice: 20 },
+      ];
+    },
+  },
+  {
+    name: 'Box Spread',
+    category: 'Neutral',
+    description: 'Bull Call Spread + Bear Put Spread at same strikes. Synthetic risk-free interest arbitrage vehicle.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'CE-BUY', symbol: 'NIFTY', expiry, strike: atm, optionType: 'CE', side: 'BUY', lots: 1, lotSize, entryPrice: 120 },
+        { id: '2', instrumentToken: 'CE-SELL', symbol: 'NIFTY', expiry, strike: atm + step, optionType: 'CE', side: 'SELL', lots: 1, lotSize, entryPrice: 65 },
+        { id: '3', instrumentToken: 'PE-BUY', symbol: 'NIFTY', expiry, strike: atm + step, optionType: 'PE', side: 'BUY', lots: 1, lotSize, entryPrice: 135 },
+        { id: '4', instrumentToken: 'PE-SELL', symbol: 'NIFTY', expiry, strike: atm, optionType: 'PE', side: 'SELL', lots: 1, lotSize, entryPrice: 80 },
+      ];
+    },
+  },
+
+  // ── Bullish Templates ──
+  {
+    name: 'Bull Call Spread',
+    category: 'Bullish',
+    description: 'Buy ATM Call + Sell OTM Call. Moderately bullish with lowered net debit cost and defined risk.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'CE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'CE', side: 'BUY', lots: 1, lotSize, entryPrice: 130 },
+        { id: '2', instrumentToken: 'CE-OTM', symbol: 'NIFTY', expiry, strike: atm + step, optionType: 'CE', side: 'SELL', lots: 1, lotSize, entryPrice: 65 },
+      ];
+    },
+  },
+  {
+    name: 'Bull Put Spread',
+    category: 'Bullish',
+    description: 'Sell higher strike Put + Buy lower strike Put. Credit spread that profits if underlying stays above short strike.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'PE-LONG', symbol: 'NIFTY', expiry, strike: atm - 2 * step, optionType: 'PE', side: 'BUY', lots: 1, lotSize, entryPrice: 20 },
+        { id: '2', instrumentToken: 'PE-SHORT', symbol: 'NIFTY', expiry, strike: atm - step, optionType: 'PE', side: 'SELL', lots: 1, lotSize, entryPrice: 60 },
+      ];
+    },
+  },
+  {
+    name: 'Long Call',
+    category: 'Bullish',
+    description: 'Buy ATM Call option. Unlimited upside potential with limited risk (premium paid).',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'CE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'CE', side: 'BUY', lots: 1, lotSize, entryPrice: 130 },
+      ];
+    },
+  },
+  {
+    name: 'Short Put',
+    category: 'Bullish',
+    description: 'Sell OTM Put option. Bullish income strategy aiming to capture full premium if market stays firm.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'PE-OTM', symbol: 'NIFTY', expiry, strike: atm - step, optionType: 'PE', side: 'SELL', lots: 1, lotSize, entryPrice: 65 },
+      ];
+    },
+  },
+  {
+    name: 'Covered Call',
+    category: 'Bullish',
+    description: 'Long Synthetic Underlying / Futures + Sell OTM Call. Generates consistent cash flow against equity.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'FUT-LONG', symbol: 'NIFTY', expiry, strike: spot, optionType: 'FUT', side: 'BUY', lots: 1, lotSize, entryPrice: spot },
+        { id: '2', instrumentToken: 'CE-OTM', symbol: 'NIFTY', expiry, strike: atm + step, optionType: 'CE', side: 'SELL', lots: 1, lotSize, entryPrice: 65 },
+      ];
+    },
+  },
+  {
+    name: 'Protective Put',
+    category: 'Bullish',
+    description: 'Long Synthetic Underlying / Futures + Buy OTM Put. Hedged long position with floor on downside losses.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'FUT-LONG', symbol: 'NIFTY', expiry, strike: spot, optionType: 'FUT', side: 'BUY', lots: 1, lotSize, entryPrice: spot },
+        { id: '2', instrumentToken: 'PE-OTM', symbol: 'NIFTY', expiry, strike: atm - step, optionType: 'PE', side: 'BUY', lots: 1, lotSize, entryPrice: 60 },
+      ];
+    },
+  },
+  {
+    name: 'Synthetic Long',
+    category: 'Bullish',
+    description: 'Buy ATM Call + Sell ATM Put. Simulates long stock position with capital efficiency and 1.0 delta.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'CE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'CE', side: 'BUY', lots: 1, lotSize, entryPrice: 125 },
+        { id: '2', instrumentToken: 'PE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'PE', side: 'SELL', lots: 1, lotSize, entryPrice: 120 },
+      ];
+    },
+  },
+  {
+    name: 'Call Ratio Spread',
+    category: 'Bullish',
+    description: 'Buy 1 ATM Call + Sell 2 OTM Calls. Profitable in moderate upward move; risk on runaway rally.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'CE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'CE', side: 'BUY', lots: 1, lotSize, entryPrice: 130 },
+        { id: '2', instrumentToken: 'CE-OTM', symbol: 'NIFTY', expiry, strike: atm + step, optionType: 'CE', side: 'SELL', lots: 2, lotSize, entryPrice: 65 },
+      ];
+    },
+  },
+
+  // ── Bearish Templates ──
+  {
+    name: 'Bear Put Spread',
+    category: 'Bearish',
+    description: 'Buy ATM Put + Sell OTM Put. Defined-risk bearish trade profiting from downward movement.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'PE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'PE', side: 'BUY', lots: 1, lotSize, entryPrice: 125 },
+        { id: '2', instrumentToken: 'PE-OTM', symbol: 'NIFTY', expiry, strike: atm - step, optionType: 'PE', side: 'SELL', lots: 1, lotSize, entryPrice: 60 },
+      ];
+    },
+  },
+  {
+    name: 'Bear Call Spread',
+    category: 'Bearish',
+    description: 'Sell lower strike Call + Buy higher strike Call. Credit spread profiting if market stays below short strike.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'CE-SHORT', symbol: 'NIFTY', expiry, strike: atm + step, optionType: 'CE', side: 'SELL', lots: 1, lotSize, entryPrice: 65 },
+        { id: '2', instrumentToken: 'CE-LONG', symbol: 'NIFTY', expiry, strike: atm + 2 * step, optionType: 'CE', side: 'BUY', lots: 1, lotSize, entryPrice: 22 },
+      ];
+    },
+  },
+  {
+    name: 'Long Put',
+    category: 'Bearish',
+    description: 'Buy ATM Put option. High leverage direct bearish directional trade with capped risk (premium paid).',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'PE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'PE', side: 'BUY', lots: 1, lotSize, entryPrice: 125 },
+      ];
+    },
+  },
+  {
+    name: 'Short Call',
+    category: 'Bearish',
+    description: 'Sell OTM Call option. Bearish credit strategy harvesting decay with undefined upside risk.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'CE-OTM', symbol: 'NIFTY', expiry, strike: atm + step, optionType: 'CE', side: 'SELL', lots: 1, lotSize, entryPrice: 65 },
+      ];
+    },
+  },
+  {
+    name: 'Synthetic Short',
+    category: 'Bearish',
+    description: 'Sell ATM Call + Buy ATM Put. Replicates a short futures position with net -1.0 delta.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'CE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'CE', side: 'SELL', lots: 1, lotSize, entryPrice: 125 },
+        { id: '2', instrumentToken: 'PE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'PE', side: 'BUY', lots: 1, lotSize, entryPrice: 120 },
+      ];
+    },
+  },
+  {
+    name: 'Put Ratio Spread',
+    category: 'Bearish',
+    description: 'Buy 1 ATM Put + Sell 2 OTM Puts. Profitable in moderate downward move; risk on severe market crash.',
+    createLegs: (spot, step, expiry, lotSize) => {
+      const atm = Math.round(spot / step) * step;
+      return [
+        { id: '1', instrumentToken: 'PE-ATM', symbol: 'NIFTY', expiry, strike: atm, optionType: 'PE', side: 'BUY', lots: 1, lotSize, entryPrice: 125 },
+        { id: '2', instrumentToken: 'PE-OTM', symbol: 'NIFTY', expiry, strike: atm - step, optionType: 'PE', side: 'SELL', lots: 2, lotSize, entryPrice: 60 },
+      ];
+    },
+  },
 ];
+
+// ── Gamma Exposure (GEX) Engine ───────────────────────────────────────
+
+export interface GexStrikeItem {
+  strike: number;
+  callOi: number;
+  putOi: number;
+  callGamma: number;
+  putGamma: number;
+  callGex: number; // in ₹ (Dealer long gamma)
+  putGex: number;  // in ₹ (Dealer short gamma, negative)
+  netGex: number;  // in ₹
+}
+
+export interface GexAnalysisResult {
+  spotPrice: number;
+  totalCallGex: number;
+  totalPutGex: number;
+  netGex: number;
+  zeroGammaStrike: number;
+  regime: 'POSITIVE_GAMMA' | 'NEGATIVE_GAMMA';
+  strikes: GexStrikeItem[];
+}
+
+/**
+ * Calculates Rupee Gamma Exposure (GEX) across strikes for Market Maker positioning analysis.
+ * Market Maker Call GEX: Call OI * LotSize * Call Gamma * Spot^2 * 0.01 (Long Gamma to MM)
+ * Market Maker Put GEX: - Put OI * LotSize * Put Gamma * Spot^2 * 0.01 (Short Gamma to MM)
+ * Total Net GEX = Total Call GEX + Total Put GEX
+ */
+export function calculateGex(
+  spotPrice: number,
+  strikesData: Array<{
+    strike: number;
+    callOi: number;
+    putOi: number;
+    callGamma: number;
+    putGamma: number;
+  }>,
+  lotSize: number = 50,
+): GexAnalysisResult {
+  let totalCallGex = 0;
+  let totalPutGex = 0;
+
+  const sorted = [...strikesData].sort((a, b) => a.strike - b.strike);
+  const strikes: GexStrikeItem[] = [];
+
+  for (const s of sorted) {
+    const callGex = (s.callOi || 0) * lotSize * (s.callGamma || 0) * spotPrice * spotPrice * 0.01;
+    const putGex = -(s.putOi || 0) * lotSize * (s.putGamma || 0) * spotPrice * spotPrice * 0.01;
+    const netGex = callGex + putGex;
+
+    totalCallGex += callGex;
+    totalPutGex += putGex;
+
+    strikes.push({
+      strike: s.strike,
+      callOi: s.callOi || 0,
+      putOi: s.putOi || 0,
+      callGamma: s.callGamma || 0,
+      putGamma: s.putGamma || 0,
+      callGex: Math.round(callGex),
+      putGex: Math.round(putGex),
+      netGex: Math.round(netGex),
+    });
+  }
+
+  const netGex = totalCallGex + totalPutGex;
+
+  // Find zero gamma flip strike (strike where netGex changes sign or closest to 0)
+  let zeroGammaStrike = spotPrice;
+  let minAbsGex = Infinity;
+  for (let i = 0; i < strikes.length; i++) {
+    if (Math.abs(strikes[i].netGex) < minAbsGex) {
+      minAbsGex = Math.abs(strikes[i].netGex);
+      zeroGammaStrike = strikes[i].strike;
+    }
+  }
+
+  return {
+    spotPrice,
+    totalCallGex: Math.round(totalCallGex),
+    totalPutGex: Math.round(totalPutGex),
+    netGex: Math.round(netGex),
+    zeroGammaStrike,
+    regime: netGex >= 0 ? 'POSITIVE_GAMMA' : 'NEGATIVE_GAMMA',
+    strikes,
+  };
+}

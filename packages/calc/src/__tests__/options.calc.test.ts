@@ -11,6 +11,7 @@ import {
   calculatePcr,
   classifyOiBuildup,
   calculateStrategyPayoff,
+  calculateGex,
   STRATEGY_TEMPLATES,
   StrategyLegDto,
 } from '../options.calc';
@@ -319,13 +320,53 @@ describe('Options Analytics Calculation Engine', () => {
       expect(result.greeks.breakevens[0]).toBeCloseTo(25120, 0); // 25000 + 120
     });
 
-    it('instantiates all pre-built strategy templates without error', () => {
-      expect(STRATEGY_TEMPLATES.length).toBeGreaterThanOrEqual(6);
+    it('instantiates all 23 pre-built strategy templates without error', () => {
+      expect(STRATEGY_TEMPLATES.length).toBeGreaterThanOrEqual(20);
+      const categories = new Set(STRATEGY_TEMPLATES.map((t) => t.category));
+      expect(categories.has('Bullish')).toBe(true);
+      expect(categories.has('Bearish')).toBe(true);
+      expect(categories.has('Neutral')).toBe(true);
+      expect(categories.has('Volatility')).toBe(true);
+
       for (const tpl of STRATEGY_TEMPLATES) {
         const legs = tpl.createLegs(25000, 100, '2026-09-24', 25);
         expect(legs.length).toBeGreaterThan(0);
         expect(legs[0].lotSize).toBe(25);
+        for (const leg of legs) {
+          expect(leg.strike).toBeGreaterThan(0);
+          expect(['BUY', 'SELL']).toContain(leg.side);
+          expect(['CE', 'PE', 'FUT']).toContain(leg.optionType);
+        }
       }
+    });
+  });
+
+  describe('Gamma Exposure (GEX) Engine', () => {
+    it('calculates Rupee GEX and determines gamma regime accurately', () => {
+      const spot = 25000;
+      const strikesData = [
+        { strike: 24800, callOi: 1000, putOi: 5000, callGamma: 0.0001, putGamma: 0.0003 },
+        { strike: 24900, callOi: 2000, putOi: 4000, callGamma: 0.0002, putGamma: 0.0003 },
+        { strike: 25000, callOi: 8000, putOi: 8000, callGamma: 0.0005, putGamma: 0.0005 },
+        { strike: 25100, callOi: 6000, putOi: 2000, callGamma: 0.0003, putGamma: 0.0002 },
+        { strike: 25200, callOi: 5000, putOi: 1000, callGamma: 0.0002, putGamma: 0.0001 },
+      ];
+
+      const gex = calculateGex(spot, strikesData, 25);
+
+      expect(gex.spotPrice).toBe(25000);
+      expect(gex.strikes.length).toBe(5);
+      expect(gex.totalCallGex).toBeGreaterThan(0);
+      expect(gex.totalPutGex).toBeLessThan(0);
+      expect(['POSITIVE_GAMMA', 'NEGATIVE_GAMMA']).toContain(gex.regime);
+      expect(gex.zeroGammaStrike).toBeGreaterThanOrEqual(24800);
+      expect(gex.zeroGammaStrike).toBeLessThanOrEqual(25200);
+
+      // Check per strike calculations
+      const atm = gex.strikes.find((s) => s.strike === 25000)!;
+      expect(atm.callGex).toBeGreaterThan(0);
+      expect(atm.putGex).toBeLessThan(0);
+      expect(atm.netGex).toBe(atm.callGex + atm.putGex);
     });
   });
 });

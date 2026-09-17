@@ -16,6 +16,7 @@ import { JwtAuthGuard, Public } from '../auth/guards/jwt-auth.guard';
 import { BrokerAuthService } from './broker-auth.service';
 import { MarketDataService } from './market-data.service';
 import { InstrumentsService } from './instruments.service';
+import { OptionsAnalyticsService } from './options-analytics.service';
 import { SavedStrategyEntity } from '../../database/entities/saved-strategy.entity';
 import { SandboxPositionEntity } from '../../database/entities/sandbox-position.entity';
 
@@ -26,6 +27,7 @@ export class OptionsController {
     private readonly brokerAuthService: BrokerAuthService,
     private readonly marketDataService: MarketDataService,
     private readonly instrumentsService: InstrumentsService,
+    private readonly analyticsService: OptionsAnalyticsService,
     @InjectRepository(SavedStrategyEntity)
     private readonly strategyRepo: Repository<SavedStrategyEntity>,
     @InjectRepository(SandboxPositionEntity)
@@ -137,7 +139,69 @@ export class OptionsController {
     return { success: true, message: 'Strategy saved successfully', data: saved };
   }
 
+  @Delete('strategies/:id')
+  async deleteStrategy(@Param('id') id: string, @Req() req: any) {
+    const userId = req.user?.id || req.user?.userId;
+    const res = await this.analyticsService.deleteStrategy(userId, id);
+    return { success: res.success, message: res.success ? 'Strategy deleted' : 'Strategy not found' };
+  }
+
+  // ── Advanced Analytics Endpoints ────────────────────────────────────
+
+  @Public()
+  @Get('analytics/iv-smile/:underlying')
+  async getIvSmile(
+    @Param('underlying') underlying: string,
+    @Query('expiry') expiry?: string,
+  ) {
+    const data = await this.analyticsService.getIvSmile(underlying, expiry);
+    return { success: true, data };
+  }
+
+  @Public()
+  @Get('analytics/vol-surface/:underlying')
+  async getVolSurface(@Param('underlying') underlying: string) {
+    const data = await this.analyticsService.getVolSurface(underlying);
+    return { success: true, data };
+  }
+
+  @Public()
+  @Get('analytics/gex/:underlying')
+  async getGex(
+    @Param('underlying') underlying: string,
+    @Query('expiry') expiry?: string,
+  ) {
+    const data = await this.analyticsService.getGex(underlying, expiry);
+    return { success: true, data };
+  }
+
+  @Public()
+  @Get('analytics/oi-history/:underlying')
+  async getOiHistory(
+    @Param('underlying') underlying: string,
+    @Query('expiry') expiry?: string,
+  ) {
+    const data = await this.analyticsService.getOiHistory(underlying, expiry);
+    return { success: true, data };
+  }
+
+  @Post('analytics/oi-snapshot/:underlying')
+  async triggerOiSnapshot(
+    @Param('underlying') underlying: string,
+    @Query('expiry') expiry?: string,
+  ) {
+    const count = await this.analyticsService.recordOiSnapshot(underlying, expiry);
+    return { success: true, message: `Recorded ${count} snapshot rows` };
+  }
+
   // ── Sandbox / Paper Trading ─────────────────────────────────────────
+
+  @Get('sandbox/portfolio')
+  async getSandboxPortfolio(@Req() req: any) {
+    const userId = req.user?.id || req.user?.userId;
+    const portfolio = await this.analyticsService.getSandboxPortfolio(userId);
+    return { success: true, data: portfolio };
+  }
 
   @Get('sandbox/positions')
   async getSandboxPositions(@Req() req: any) {
@@ -186,16 +250,31 @@ export class OptionsController {
     return { success: true, message: 'Sandbox order filled at live market price', data: saved };
   }
 
+  @Post('sandbox/square-off/:id')
+  async squareOffPosition(@Param('id') id: string, @Req() req: any) {
+    const userId = req.user?.id || req.user?.userId;
+    const result = await this.analyticsService.squareOffPosition(userId, id);
+    return result;
+  }
+
   @Delete('sandbox/positions/:id')
   async closeSandboxPosition(@Param('id') id: string, @Req() req: any) {
     const userId = req.user?.id || req.user?.userId;
-    const pos = await this.sandboxRepo.findOne({ where: { id, userId } });
-    if (pos) {
-      pos.status = 'CLOSED';
-      pos.closedAt = new Date();
-      pos.realizedPnl = pos.unrealizedPnl;
-      await this.sandboxRepo.save(pos);
-    }
-    return { success: true, message: 'Sandbox position squared off' };
+    const result = await this.analyticsService.squareOffPosition(userId, id);
+    return result;
+  }
+
+  @Post('sandbox/square-off-all')
+  async squareOffAll(@Req() req: any) {
+    const userId = req.user?.id || req.user?.userId;
+    const result = await this.analyticsService.squareOffAll(userId);
+    return result;
+  }
+
+  @Post('sandbox/reset')
+  async resetSandbox(@Req() req: any) {
+    const userId = req.user?.id || req.user?.userId;
+    const result = await this.analyticsService.resetSandbox(userId);
+    return result;
   }
 }

@@ -222,3 +222,51 @@ export interface SandboxOrderDto {
   orderType: 'MARKET' | 'LIMIT';
   price?: number;
 }
+
+export interface IvSmilePointDto {
+  strike: number;
+  iv: number;
+  callLtp: number;
+  putLtp: number;
+  isAtm: boolean;
+}
+
+export interface VolSurfaceExpiryDto {
+  expiry: string;
+  dte: number;
+  strikes: { strike: number; iv: number }[];
+}
+
+export interface GexStrikeDto {
+  strike: number;
+  callOi: number;
+  putOi: number;
+  callGamma: number;
+  putGamma: number;
+  callGex: number;
+  putGex: number;
+  netGex: number;
+}
+
+export interface GexSummaryDto {
+  underlying: string;
+  spotPrice: number;
+  totalCallGex: number;
+  totalPutGex: number;
+  netGex: number;
+  zeroGammaStrike: number;
+  regime: 'POSITIVE_GAMMA' | 'NEGATIVE_GAMMA';
+  strikes: GexStrikeDto[];
+  timestamp: ISO8601;
+}
+
+export interface SandboxPortfolioDto {
+  totalCapital: number;
+  availableMargin: number;
+  deployedMargin: number;
+  unrealizedPnl: number;
+  realizedPnl: number;
+  totalPnl: number;
+  positions: SandboxPositionDto[];
+}
+
