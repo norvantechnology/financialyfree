@@ -303,6 +303,15 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
             </tr>
           </thead>
           <tbody>
+            {contracts.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="sm-chain-empty-cell">
+                  {spotPrice > 0
+                    ? 'No option rows for this expiry yet. Spot is live — wait for NSE chain or pick another expiry.'
+                    : 'Option chain unavailable. Spot and strikes will appear when the market feed responds.'}
+                </td>
+              </tr>
+            ) : null}
             {contracts.map((row) => {
               const isAtm = row.strike === atmStrike;
               const isCeItm = row.strike < atmStrike;

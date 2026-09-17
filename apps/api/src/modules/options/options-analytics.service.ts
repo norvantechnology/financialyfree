@@ -221,7 +221,12 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
     }>;
   }> {
     const chain = await this.marketDataService.getOptionChain(underlying, expiry);
-    const selectedExpiry = chain.selectedExpiry;
+    const selectedExpiry = chain.selectedExpiry || '';
+
+    // Empty expiry cannot query Postgres date columns — return honestly empty
+    if (!selectedExpiry) {
+      return { underlying, expiry: '', points: [] };
+    }
 
     // Check database for real snapshots from today
     const today = new Date();

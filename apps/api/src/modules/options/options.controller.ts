@@ -74,9 +74,9 @@ export class OptionsController {
   }
 
   // ── Market Data & Option Chain ──────────────────────────────────────
-  // Auth required so connected broker tokens (user-scoped) can be used.
-  // Anonymous / free preview uses delayed index spot only when NSE is down.
+  // Free Yahoo/NSE path is public. Broker live chain uses JWT userId when present.
 
+  @Public()
   @Get('chain/:underlying')
   async getOptionChain(
     @Param('underlying') underlying: string,
@@ -96,6 +96,7 @@ export class OptionsController {
     return { success: true, data: quote };
   }
 
+  @Public()
   @Get('chart/:underlying')
   async getIntradayChart(
     @Param('underlying') underlying: string,

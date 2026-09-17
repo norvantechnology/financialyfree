@@ -287,27 +287,27 @@ export const SandboxPortfolioView: React.FC = () => {
             </table>
           </div>
         ) : (
-          <div style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
+          <div className="opt-sandbox-empty" style={{ padding: '2rem 1rem', textAlign: 'center' }}>
             <div
               style={{
-                width: '3.5rem',
-                height: '3.5rem',
+                width: '2.75rem',
+                height: '2.75rem',
                 borderRadius: '50%',
                 background: '#F1F5F9',
                 color: '#64748B',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '0 auto 1rem auto',
+                margin: '0 auto 0.75rem auto',
               }}
             >
-              <Clock className="w-6 h-6 text-slate-500" />
+              <Clock className="w-5 h-5 text-slate-500" />
             </div>
-            <h4 style={{ fontSize: '0.9375rem', fontWeight: 800, color: '#0F172A', marginBottom: '0.35rem' }}>
+            <h4 style={{ fontSize: '0.875rem', fontWeight: 800, color: '#0F172A', marginBottom: '0.3rem' }}>
               No Open Paper Positions
             </h4>
-            <p style={{ fontSize: '0.8125rem', color: '#64748B', maxWidth: '420px', margin: '0 auto', lineHeight: 1.5 }}>
-              Select contracts in the Option Chain (+B / +S) or build a strategy in the Strategy Builder and click "Paper Trade in Sandbox" to simulate execution.
+            <p style={{ fontSize: '0.75rem', color: '#64748B', maxWidth: '420px', margin: '0 auto', lineHeight: 1.45 }}>
+              Build a strategy and tap Paper Trade to simulate fills with live market prices.
             </p>
           </div>
         )}

@@ -283,27 +283,30 @@ export default function OptionsLabPage() {
       const url = `/api/v1/options/chain/${symbol}${selectedExpiry ? `?expiry=${selectedExpiry}` : ''}`;
       const res = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        cache: 'no-store',
       });
       if (res.ok) {
         const json = await res.json();
         if (json.data) {
           setChainData(json.data);
-          if (!selectedExpiry && json.data.selectedExpiry) {
-            setSelectedExpiry(json.data.selectedExpiry);
+          const nextExpiry = json.data.selectedExpiry as string | undefined;
+          const expiryList: string[] = json.data.expiryDates || [];
+          if (nextExpiry && (!selectedExpiry || !expiryList.includes(selectedExpiry))) {
+            setSelectedExpiry(nextExpiry);
           }
           const source = json.data.source as string | undefined;
           const hasContracts = (json.data.contracts?.length || 0) > 0;
           const isExchangeLive =
             (source === 'NSE_LIVE' || source === 'BROKER_LIVE') && hasContracts;
-          setConnectionStatus(isExchangeLive ? 'connected' : hasContracts ? 'reconnecting' : 'closed');
+          setConnectionStatus(isExchangeLive ? 'connected' : json.data.spotPrice > 0 ? 'reconnecting' : 'closed');
           setLatencyMs(isExchangeLive ? Math.round(performance.now() - started) : 0);
         }
-      } else if (res.status === 401) {
-        setConnectionStatus('reconnecting');
+      } else {
+        setConnectionStatus('closed');
         setLatencyMs(0);
       }
     } catch {
-      setConnectionStatus('reconnecting');
+      setConnectionStatus('closed');
       setLatencyMs(0);
     } finally {
       setIsLoading(false);
@@ -1408,7 +1411,7 @@ export default function OptionsLabPage() {
 
                 {/* Positions Table */}
                 {positionsSubTab === 'positions' && (
-                  <div className="overflow-x-auto">
+                  <div className="sm-positions-table-wrap">
                     {strategyLegs.length > 0 ? (
                       <table className="sm-positions-table">
                         <thead>

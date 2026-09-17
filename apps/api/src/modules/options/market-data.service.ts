@@ -23,39 +23,6 @@ export class MarketDataService {
   ) {}
 
   /**
-   * Fetches real-time India VIX from Yahoo Finance (^INDIAVIX).
-   * Cached in memory for 15 seconds to avoid rate limiting.
-   */
-  async fetchLiveVix(): Promise<number | undefined> {
-    if (this.liveVixCache && this.liveVixCache.expiresAt > Date.now()) {
-      return this.liveVixCache.vix;
-    }
-    try {
-      const url = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EINDIAVIX?interval=1d&range=1d';
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0',
-          Accept: 'application/json',
-        },
-        signal: AbortSignal.timeout(3000),
-      });
-      if (res.ok) {
-        const json = (await res.json()) as any;
-        const price = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
-        if (price) {
-          const vix = parseFloat(Number(price).toFixed(2));
-          this.liveVixCache = { vix, expiresAt: Date.now() + 15000 };
-          return vix;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return undefined;
-  }
-
-  /**
    * Standard Indian F&O contract lot sizes (NSE/BSE).
    */
   getLotSize(symbol: string): number {
@@ -65,7 +32,82 @@ export class MarketDataService {
     if (clean === 'SENSEX') return 10;
     if (clean === 'MIDCPNIFTY') return 75;
     if (clean === 'RELIANCE') return 250;
-    return 50; // Standard NIFTY 50 lot size
+    return 50;
+  }
+
+  /**
+   * Fetches real-time India VIX from Yahoo Finance (^INDIAVIX).
+   * Cached in memory for 15 seconds to avoid rate limiting.
+   */
+  async fetchLiveVix(): Promise<number | undefined> {
+    if (this.liveVixCache && this.liveVixCache.expiresAt > Date.now()) {
+      return this.liveVixCache.vix;
+    }
+    const vix = await this.fetchYahooRegularPrice('^INDIAVIX');
+    if (vix != null) {
+      this.liveVixCache = { vix, expiresAt: Date.now() + 15000 };
+      return vix;
+    }
+    return undefined;
+  }
+
+  /** Try Yahoo chart hosts until one returns a regularMarketPrice. */
+  private async fetchYahooRegularPrice(ticker: string): Promise<number | undefined> {
+    const hosts = [
+      'https://query1.finance.yahoo.com',
+      'https://query2.finance.yahoo.com',
+    ];
+    for (const host of hosts) {
+      try {
+        const url = `${host}/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            Accept: 'application/json',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (!res.ok) continue;
+        const json = (await res.json()) as any;
+        const price = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (price != null && Number(price) > 0) {
+          return parseFloat(Number(price).toFixed(2));
+        }
+      } catch {
+        // try next host
+      }
+    }
+    return undefined;
+  }
+
+  private async fetchYahooChartMeta(ticker: string): Promise<any | null> {
+    const hosts = [
+      'https://query1.finance.yahoo.com',
+      'https://query2.finance.yahoo.com',
+    ];
+    for (const host of hosts) {
+      try {
+        const url = `${host}/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            Accept: 'application/json',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (!res.ok) continue;
+        const json = (await res.json()) as any;
+        const meta = json?.chart?.result?.[0]?.meta;
+        if (meta?.regularMarketPrice) return meta;
+      } catch {
+        // try next
+      }
+    }
+    return null;
   }
 
   /**
@@ -107,45 +149,50 @@ export class MarketDataService {
     }
 
     try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0',
-          Accept: 'application/json',
-        },
-        signal: AbortSignal.timeout(5000),
-      });
+      const meta = await this.fetchYahooChartMeta(ticker);
+      if (meta && meta.regularMarketPrice) {
+        const spotPrice = Number(meta.regularMarketPrice);
+        const previousClose = Number(meta.chartPreviousClose || meta.previousClose || spotPrice);
+        const spotChange = parseFloat((spotPrice - previousClose).toFixed(2));
+        const spotChangePct = previousClose
+          ? parseFloat(((spotChange / previousClose) * 100).toFixed(2))
+          : 0;
+        const dayHigh = Number(meta.regularMarketDayHigh || spotPrice);
+        const dayLow = Number(meta.regularMarketDayLow || spotPrice);
 
-      if (res.ok) {
-        const json = (await res.json()) as any;
-        const meta = json?.chart?.result?.[0]?.meta;
-        if (meta && meta.regularMarketPrice) {
-          const spotPrice = Number(meta.regularMarketPrice);
-          const previousClose = Number(meta.chartPreviousClose || meta.previousClose || spotPrice);
-          const spotChange = parseFloat((spotPrice - previousClose).toFixed(2));
-          const spotChangePct = parseFloat(((spotChange / previousClose) * 100).toFixed(2));
-          const dayHigh = Number(meta.regularMarketDayHigh || spotPrice);
-          const dayLow = Number(meta.regularMarketDayLow || spotPrice);
-
-          return {
-            spotPrice,
-            spotChange,
-            spotChangePct,
-            previousClose,
-            dayHigh,
-            dayLow,
-            timestamp: new Date().toISOString(),
-            source: 'Yahoo Finance Live Feed',
-            vix,
-            lotSize,
-            futures: [],
-            available: true,
-          };
-        }
+        return {
+          spotPrice,
+          spotChange,
+          spotChangePct,
+          previousClose,
+          dayHigh,
+          dayLow,
+          timestamp: new Date().toISOString(),
+          source: 'Yahoo Finance Live Feed',
+          vix,
+          lotSize,
+          futures: [],
+          available: true,
+        };
       }
     } catch (err: any) {
       this.logger.warn(`Failed to fetch live quote for ${symbol} (${ticker}): ${err.message}`);
+    }
+
+    // Secondary free attempt: NSE allIndices (when session cookies work)
+    try {
+      const nseSpot = await this.fetchNseIndexSpot(clean);
+      if (nseSpot) {
+        return {
+          ...nseSpot,
+          vix,
+          lotSize,
+          futures: [],
+          available: true,
+        };
+      }
+    } catch (err: any) {
+      this.logger.debug?.(`NSE spot fallback failed: ${err?.message || err}`);
     }
 
     return {
@@ -233,7 +280,9 @@ export class MarketDataService {
           vix: liveSpot.vix,
           lotSize: liveSpot.lotSize,
           futures: liveSpot.futures,
-          dataNote: 'Official NSE option-chain API (live during market hours)',
+          dataNote:
+            nseLive.dataNote ||
+            'Official NSE option-chain (v3). OI/LTP refresh during market hours.',
         };
         void this.persistLiveInstruments(enriched);
         return enriched;
@@ -326,7 +375,8 @@ export class MarketDataService {
   }
 
   /**
-   * Fetches official live Option Chain from NSE India with 2-step warm cookies.
+   * Fetches official Option Chain from NSE India (v3 API + contract-info expiries).
+   * Legacy option-chain-indices / equities endpoints now 404.
    */
   private async fetchNseOptionChain(
     symbol: string,
@@ -334,39 +384,101 @@ export class MarketDataService {
     liveSpot?: { spotPrice: number; spotChange: number; spotChangePct: number },
   ): Promise<OptionChainDto | null> {
     const cookies = await this.ensureNseSession();
-    const isIndex = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY'].includes(symbol);
-    const endpoint = isIndex
-      ? `https://www.nseindia.com/api/option-chain-indices?symbol=${encodeURIComponent(symbol)}`
-      : `https://www.nseindia.com/api/option-chain-equities?symbol=${encodeURIComponent(symbol)}`;
-
+    const isIndex = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY', 'SENSEX'].includes(symbol);
     const userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0';
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 GoalCompass/1.0';
 
-    const res = await fetch(endpoint, {
-      headers: {
-        'User-Agent': userAgent,
-        Accept: 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        Cookie: cookies,
-        Referer: 'https://www.nseindia.com/option-chain',
-      },
-      signal: AbortSignal.timeout(12000),
+    const nseHeaders = (cookieJar: string) => ({
+      'User-Agent': userAgent,
+      Accept: 'application/json, text/plain, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      Cookie: cookieJar,
+      Referer: 'https://www.nseindia.com/option-chain',
+      'X-Requested-With': 'XMLHttpRequest',
     });
 
-    if (!res.ok) {
-      this.logger.warn(`NSE option chain returned status ${res.status}`);
+    const fetchJson = async (url: string, cookieJar: string): Promise<{ ok: boolean; status: number; json: any }> => {
+      const res = await fetch(url, {
+        headers: nseHeaders(cookieJar),
+        signal: AbortSignal.timeout(12000),
+      });
+      if (res.status === 401 || res.status === 403) {
+        this.logger.warn(`NSE ${url} returned ${res.status} — refreshing session`);
+        this.nseSessionCache = null;
+        const fresh = await this.ensureNseSession();
+        const retry = await fetch(url, {
+          headers: nseHeaders(fresh),
+          signal: AbortSignal.timeout(12000),
+        });
+        if (!retry.ok) {
+          return { ok: false, status: retry.status, json: null };
+        }
+        return { ok: true, status: retry.status, json: await retry.json() };
+      }
+      if (!res.ok) {
+        return { ok: false, status: res.status, json: null };
+      }
+      return { ok: true, status: res.status, json: await res.json() };
+    };
+
+    // 1) Contract info → available expiries (DD-MMM-YYYY)
+    const infoUrl = `https://www.nseindia.com/api/option-chain-contract-info?symbol=${encodeURIComponent(symbol)}`;
+    const info = await fetchJson(infoUrl, cookies);
+    if (!info.ok || !info.json) {
+      this.logger.warn(`NSE contract-info returned status ${info.status}`);
       return null;
     }
 
-    const json = (await res.json()) as any;
+    const rawExpiryDates: string[] = info.json.expiryDates || [];
+    if (!rawExpiryDates.length) {
+      this.logger.warn(`NSE contract-info returned no expiries for ${symbol}`);
+      return null;
+    }
+
+    const expiryDatesIso = rawExpiryDates.map((d) => this.normalizeToIsoDate(d));
+    const targetIso = selectedExpiry
+      ? this.normalizeToIsoDate(selectedExpiry)
+      : expiryDatesIso[0];
+    const targetIdx = Math.max(0, expiryDatesIso.indexOf(targetIso));
+    const nseExpiry = rawExpiryDates[targetIdx] || rawExpiryDates[0];
+
+    // 2) Option chain v3 (requires expiry)
+    const type = isIndex ? 'Indices' : 'Equity';
+    const chainUrl =
+      `https://www.nseindia.com/api/option-chain-v3?type=${type}` +
+      `&symbol=${encodeURIComponent(symbol)}&expiry=${encodeURIComponent(nseExpiry)}`;
+    const chain = await fetchJson(chainUrl, cookies);
+    if (!chain.ok || !chain.json) {
+      this.logger.warn(`NSE option-chain-v3 returned status ${chain.status}`);
+      return null;
+    }
+
+    // Prefer contract-info expiry list (complete); v3 may only echo the selected expiry
+    const merged = {
+      ...chain.json,
+      records: {
+        ...(chain.json.records || {}),
+        expiryDates: rawExpiryDates,
+      },
+    };
+
+    return this.mapNseOptionChainJson(symbol, targetIso || expiryDatesIso[0], liveSpot, merged);
+  }
+
+  private mapNseOptionChainJson(
+    symbol: string,
+    selectedExpiry: string | undefined,
+    liveSpot: { spotPrice: number; spotChange: number; spotChangePct: number } | undefined,
+    json: any,
+  ): OptionChainDto | null {
     const records = json?.records;
     if (!records || !records.data) {
       return null;
     }
 
-    const spotPrice = records.underlyingValue || 0;
+    const spotPrice = records.underlyingValue || liveSpot?.spotPrice || 0;
     const rawExpiryDates: string[] = records.expiryDates || [];
-    const expiryDates: string[] = rawExpiryDates.map((d) => this.normalizeToIsoDate(d));
+    const expiryDates: string[] = rawExpiryDates.map((d: string) => this.normalizeToIsoDate(d));
     const targetExpiry = selectedExpiry ? this.normalizeToIsoDate(selectedExpiry) : expiryDates[0] || '';
 
     const underlyingInfo = POPULAR_FO_SYMBOLS.find((s) => s.symbol === symbol);
@@ -379,8 +491,15 @@ export class MarketDataService {
     const pcrData: Array<{ callOi: number; putOi: number; callVolume: number; putVolume: number }> = [];
 
     for (const item of records.data) {
-      if (this.normalizeToIsoDate(item.expiryDate) !== targetExpiry) continue;
+      // v3 rows use expiryDates / nested CE.expiryDate; legacy used expiryDate
+      const rowExpiryRaw =
+        item.expiryDate || item.expiryDates || item.CE?.expiryDate || item.PE?.expiryDate || '';
+      const rowExpiry = this.normalizeToIsoDate(String(rowExpiryRaw));
+      // When NSE already filtered by expiry (v3), rowExpiry may be empty — keep the row
+      if (targetExpiry && rowExpiry && rowExpiry !== targetExpiry) continue;
+
       const strike = item.strikePrice;
+      if (!strike && strike !== 0) continue;
       strikeMap.set(strike, { ce: item.CE, pe: item.PE });
 
       const cOi = item.CE?.openInterest || 0;
@@ -405,8 +524,11 @@ export class MarketDataService {
       const ceRaw = data.ce || {};
       const peRaw = data.pe || {};
 
-      const ceLtp = ceRaw.lastPrice || 0;
-      const peLtp = peRaw.lastPrice || 0;
+      // After hours lastPrice is often 0 — use bid/ask mid when available (real quotes, not invented)
+      const mid = (bid?: number, ask?: number) =>
+        bid && ask && bid > 0 && ask > 0 ? (bid + ask) / 2 : 0;
+      const ceLtp = ceRaw.lastPrice || mid(ceRaw.buyPrice1, ceRaw.sellPrice1) || 0;
+      const peLtp = peRaw.lastPrice || mid(peRaw.buyPrice1, peRaw.sellPrice1) || 0;
 
       const r = 0.065; // RBI repo-rate class risk-free benchmark
       const tte = this.yearsToExpiry(targetExpiry);
@@ -519,6 +641,10 @@ export class MarketDataService {
       atmIv,
       contracts,
       source: 'NSE_LIVE',
+      dataNote:
+        contracts.some((c) => c.ce.oi > 0 || c.pe.oi > 0)
+          ? 'Official NSE option-chain (v3). OI/LTP refresh during market hours.'
+          : 'Official NSE option-chain (v3). Quotes present; OI/last trade often zero after market close.',
     };
   }
 
@@ -646,27 +772,106 @@ export class MarketDataService {
 
   private async warmNseSession(): Promise<string> {
     const userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0';
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
     let cookies = '';
-    for (const url of ['https://www.nseindia.com', 'https://www.nseindia.com/option-chain']) {
+    const mergeCookies = (res: Response) => {
+      const anyHeaders = res.headers as any;
+      const list: string[] =
+        typeof anyHeaders.getSetCookie === 'function'
+          ? anyHeaders.getSetCookie()
+          : res.headers.get('set-cookie')
+            ? [res.headers.get('set-cookie') as string]
+            : [];
+      for (const raw of list) {
+        const first = raw.split(';')[0]?.trim();
+        if (!first) continue;
+        cookies = cookies ? `${cookies}; ${first}` : first;
+      }
+    };
+
+    for (const url of [
+      'https://www.nseindia.com',
+      'https://www.nseindia.com/option-chain',
+      'https://www.nseindia.com/market-data/live-equity-market',
+    ]) {
       try {
         const res = await fetch(url, {
           headers: {
             'User-Agent': userAgent,
             Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
             Cookie: cookies,
           },
-          signal: AbortSignal.timeout(2000),
+          signal: AbortSignal.timeout(5000),
           redirect: 'follow',
         });
-        const setCookie = res.headers.get('set-cookie');
-        if (setCookie) {
-          cookies = cookies ? `${cookies}; ${setCookie}` : setCookie;
-        }
-      } catch {}
+        mergeCookies(res);
+      } catch {
+        // continue warming
+      }
     }
-    this.nseSessionCache = { cookies, expiresAt: Date.now() + 15 * 60 * 1000 };
+    this.nseSessionCache = { cookies, expiresAt: Date.now() + 10 * 60 * 1000 };
     return cookies;
+  }
+
+  /** Free NSE index spot via allIndices (requires warmed cookies). */
+  private async fetchNseIndexSpot(symbol: string): Promise<{
+    spotPrice: number;
+    spotChange: number;
+    spotChangePct: number;
+    previousClose: number;
+    dayHigh: number;
+    dayLow: number;
+    timestamp: string;
+    source: string;
+  } | null> {
+    const cookies = await this.ensureNseSession();
+    if (!cookies) return null;
+
+    const nameMap: Record<string, string> = {
+      NIFTY: 'Nifty 50',
+      BANKNIFTY: 'Nifty Bank',
+      FINNIFTY: 'Nifty Financial Services',
+      MIDCPNIFTY: 'NIFTY MIDCAP SELECT',
+    };
+    const indexName = nameMap[symbol.toUpperCase()];
+    if (!indexName) return null;
+
+    const res = await fetch('https://www.nseindia.com/api/allIndices', {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        Accept: 'application/json',
+        'Accept-Language': 'en-US,en;q=0.9',
+        Cookie: cookies,
+        Referer: 'https://www.nseindia.com',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as any;
+    const row = (json?.data || []).find(
+      (d: any) => String(d?.index || d?.indexSymbol || '').toLowerCase() === indexName.toLowerCase()
+        || String(d?.index || '').toUpperCase().includes(symbol.toUpperCase()),
+    );
+    if (!row) return null;
+    const spotPrice = Number(row.last || row.lastPrice || 0);
+    if (!spotPrice) return null;
+    const previousClose = Number(row.previousClose || row.prevClose || spotPrice);
+    const spotChange = parseFloat((spotPrice - previousClose).toFixed(2));
+    const spotChangePct = previousClose
+      ? parseFloat(((spotChange / previousClose) * 100).toFixed(2))
+      : Number(row.percentChange || 0);
+    return {
+      spotPrice,
+      spotChange,
+      spotChangePct,
+      previousClose,
+      dayHigh: Number(row.high || spotPrice),
+      dayLow: Number(row.low || spotPrice),
+      timestamp: new Date().toISOString(),
+      source: 'NSE allIndices',
+    };
   }
 
   private normalizeToIsoDate(d: string): string {

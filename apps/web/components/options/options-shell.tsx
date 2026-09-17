@@ -53,7 +53,7 @@ export const POPULAR_UNDERLYINGS = [
 
 const TABS: Array<{ id: OptionsTab; label: string; short: string; icon: typeof Sliders }> = [
   { id: 'strategy', label: 'Strategy Builder', short: 'Strategy', icon: Sliders },
-  { id: 'sandbox', label: 'Simulator', short: 'Simulator', icon: Clock },
+  { id: 'sandbox', label: 'Simulator', short: 'Sim', icon: Clock },
   { id: 'chain', label: 'Option Chain', short: 'Chain', icon: Layers },
   { id: 'oi', label: 'OI Tracker', short: 'OI', icon: TrendingUp },
   { id: 'iv', label: 'IV Smile', short: 'IV', icon: Sparkles },
@@ -105,7 +105,7 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
     <div className="opt-root">
       <header className="opt-header">
         <div className="opt-header-inner">
-          {/* Row 1: brand + tabs + actions — same on every tab */}
+          {/* Row 1: brand + live + actions */}
           <div className="opt-header-top-row">
             <div className="opt-brand-group">
               <div className="opt-brand-icon" aria-hidden>
@@ -115,26 +115,6 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                 Options Lab
                 <span className="opt-brand-badge">F&O</span>
               </div>
-
-              <nav className="opt-tabs-nav" aria-label="Options Lab sections">
-                {TABS.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => onTabChange(tab.id)}
-                      className={`opt-tab-btn ${isActive ? 'active' : ''}`}
-                      title={tab.label}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span className="opt-tab-label-full">{tab.label}</span>
-                      <span className="opt-tab-label-short">{tab.short}</span>
-                    </button>
-                  );
-                })}
-              </nav>
             </div>
 
             <div className="opt-selectors-row opt-header-actions">
@@ -200,7 +180,7 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                     : '—'}
                 </span>
                 {spotPrice > 0 && (
-                  <span className={isPositive ? 'opt-text-green' : 'opt-text-red'}>
+                  <span className={`opt-live-chg ${isPositive ? 'opt-text-green' : 'opt-text-red'}`}>
                     {isPositive ? '+' : ''}
                     {spotChange.toFixed(2)} ({isPositive ? '+' : ''}
                     {spotChangePct.toFixed(2)}%)
@@ -223,12 +203,35 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                 className={`opt-btn-broker ${brokerConnected ? 'connected' : ''}`}
               >
                 <Zap className="w-3.5 h-3.5" />
-                {brokerConnected ? connectedBroker!.toUpperCase() : 'Broker'}
+                <span className="opt-broker-label">
+                  {brokerConnected ? connectedBroker!.toUpperCase() : 'Broker'}
+                </span>
               </button>
             </div>
           </div>
 
-          {/* Row 2: compact metrics — skip on Strategy (chain panel already shows spot) */}
+          {/* Row 2: always-visible scrollable tabs */}
+          <nav className="opt-tabs-nav" aria-label="Options Lab sections">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => onTabChange(tab.id)}
+                  className={`opt-tab-btn ${isActive ? 'active' : ''}`}
+                  title={tab.label}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="opt-tab-label-full">{tab.label}</span>
+                  <span className="opt-tab-label-short">{tab.short}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Row 3: compact metrics — skip on Strategy */}
           {showMetrics && (
             <div className="opt-ticker-grid">
               <div className="opt-ticker-chip">
@@ -268,6 +271,25 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
       </header>
 
       <main className="opt-content-area">{children}</main>
+
+      {/* Mobile sticky bottom tab bar */}
+      <nav className="opt-mobile-tabbar" aria-label="Options Lab mobile navigation">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onTabChange(tab.id)}
+              className={`opt-mobile-tab ${isActive ? 'active' : ''}`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{tab.short}</span>
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 };
