@@ -13,3 +13,4 @@ export * from './techno-funda.types';
 export * from './notification.types';
 export * from './feature-flags';
 export * from './api-response.types';
+export * from './options.types';

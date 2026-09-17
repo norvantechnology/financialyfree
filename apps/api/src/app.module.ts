@@ -21,6 +21,7 @@ import { TechnoFundaModule } from './modules/techno-funda/techno-funda.module';
 import { WatchlistModule } from './modules/watchlist/watchlist.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { SystemConfigModule } from './modules/system-config/system-config.module';
+import { OptionsModule } from './modules/options/options.module';
 
 const redisReady = isRedisConfigured();
 if (!redisReady) {
@@ -72,6 +73,7 @@ if (!redisReady) {
     WatchlistModule,
     AdminModule,
     SystemConfigModule,
+    OptionsModule,
   ],
   providers: [
     {

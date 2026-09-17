@@ -19,8 +19,8 @@ describe('MarketIndexService (NSE/BSE Snapshots & Section 58)', () => {
     expect(overview.licensingNotice).toContain('Section 58');
     expect(overview.indiaVix).toBeGreaterThan(0);
     expect(overview.marketBreadth).toBeDefined();
-    expect(overview.marketBreadth.breadthPct).toBeGreaterThanOrEqual(0);
-    expect(overview.marketBreadth.breadthPct).toBeLessThanOrEqual(100);
+    expect(overview.marketBreadth?.breadthPct).toBeGreaterThanOrEqual(0);
+    expect(overview.marketBreadth?.breadthPct).toBeLessThanOrEqual(100);
 
     const nifty = overview.indices.find((i) => i.symbol === 'NIFTY 50');
     expect(nifty).toBeDefined();

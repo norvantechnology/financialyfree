@@ -17,10 +17,6 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-function round4(n: number): number {
-  return Math.round(n * 10000) / 100;
-}
-
 /** Extract positive closes from a Yahoo chart result quote series. */
 export function extractYahooCloses(result: any): number[] {
   return (result?.indicators?.quote?.[0]?.close || []).filter(
@@ -67,7 +63,7 @@ export function parseYahooSessionChange(
       ),
     );
     changePct =
-      previousClose > 0 ? round4(((current - previousClose) / previousClose) * 100) : 0;
+      previousClose > 0 ? round2(((current - previousClose) / previousClose) * 100) : 0;
   }
 
   return {

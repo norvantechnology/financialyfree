@@ -15,5 +15,6 @@ export * from './retirement-stress-test.calc';
 export * from './benchmark-xirr.calc';
 export * from './aureus-score.calc';
 export * from './sector-rotation.calc';
+export * from './options.calc';
 
 export const CALC_ENGINE_VERSION = '2.0.0';

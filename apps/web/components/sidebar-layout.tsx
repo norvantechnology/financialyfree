@@ -46,6 +46,7 @@ import {
   Coins,
   AlertTriangle,
   Bookmark,
+  Activity,
   type LucideIcon,
 } from 'lucide-react';
 import { useBodyScrollLock } from '../lib/use-body-scroll-lock';
@@ -104,6 +105,7 @@ const authenticatedWorkspaceNav: NavItem[] = [
 
 // 3. Techno-Funda Research: Logical, workflow-based research arrangement
 const researchNav: NavItem[] = [
+  { label: 'Options Lab', href: '/options-lab', icon: Activity, isPro: true },
   { label: 'Market Mood', href: '/techno-funda?tab=mmi', tabKey: 'mmi', icon: Gauge, isPro: true },
   { label: 'Sector Heatmap', href: '/techno-funda?tab=sector-heatmap', tabKey: 'sector-heatmap', icon: PieChart, isPro: true },
   { label: '52W High / Low', href: '/techno-funda?tab=52w-screener', tabKey: '52w-screener', icon: Zap, isPro: true },
