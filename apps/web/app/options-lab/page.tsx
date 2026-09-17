@@ -306,10 +306,20 @@ export default function OptionsLabPage() {
 
   // Real-time WebSocket connection to /options namespace
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    // Only attempt WebSocket on client when API URL is explicitly configured
+    // and avoid localhost sockets on non-localhost domains to prevent 404 polling errors
+    const apiUrl = process.env.NEXT_PUBLIC_WS_URL || process.env.NEXT_PUBLIC_API_URL;
+    if (!apiUrl || typeof window === 'undefined') return;
+
+    if (window.location.hostname !== 'localhost' && apiUrl.includes('localhost')) {
+      return;
+    }
+
     const socket = io(`${apiUrl}/options`, {
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
       autoConnect: true,
+      reconnectionAttempts: 2,
+      timeout: 4000,
     });
 
     socketRef.current = socket;
@@ -317,6 +327,11 @@ export default function OptionsLabPage() {
     socket.on('connect', () => {
       setConnectionStatus('connected');
       socket.emit('subscribe_chain', { underlying: symbol });
+    });
+
+    socket.on('connect_error', () => {
+      // Disconnect cleanly and let the 5-second polling fallback handle data
+      socket.disconnect();
     });
 
     socket.on('connection_ack', () => {
@@ -354,18 +369,8 @@ export default function OptionsLabPage() {
           }
           return row;
         });
-
-        const updatedSpot = tick.symbol === symbol ? tick.ltp : prev.spotPrice;
-        return {
-          ...prev,
-          spotPrice: updatedSpot,
-          contracts: updatedContracts,
-        };
+        return { ...prev, contracts: updatedContracts };
       });
-    });
-
-    socket.on('disconnect', () => {
-      setConnectionStatus('reconnecting');
     });
 
     return () => {
@@ -383,8 +388,6 @@ export default function OptionsLabPage() {
       return next;
     });
   }, [strategyLegs]);
-
-
 
   // Derived Spot & ATM Strike
   const spot = chainData?.spotPrice || 0;
@@ -407,13 +410,13 @@ export default function OptionsLabPage() {
     return chainData.contracts.slice(start, end);
   }, [chainData, strikeFilter]);
 
-  // Strategy Payoff Calculation (Filtered for enabled legs only)
+  // Strategy Payoff Calculation Engine
   const activeEnabledLegs = useMemo(() => {
     return strategyLegs.filter((l) => enabledLegIds.has(l.id));
   }, [strategyLegs, enabledLegIds]);
 
   const payoffResult = useMemo(() => {
-    const currentSpot = (chainData?.spotPrice || 0) * (1 + spotShiftPct / 100);
+    const currentSpot = (chainData?.spotPrice || 23270.6) * (1 + spotShiftPct / 100);
 
     const shiftedLegs = activeEnabledLegs.map((l) => ({
       ...l,
@@ -429,37 +432,33 @@ export default function OptionsLabPage() {
     });
   }, [activeEnabledLegs, chainData?.spotPrice, spotShiftPct, ivShiftPoints, daysForward]);
 
-  // ECharts Option for Payoff Diagram with SD lines and Strike OI distribution
+  // ECharts Option for Payoff Diagram with continuous value coordinate system
   const payoffChartOption = useMemo(() => {
     const currentSpot = chainData?.spotPrice || 23270.6;
     const atmIv = chainData?.atmIv || 13.8;
     const tteYears = (7 + daysForward) / 365;
     const oneSd = currentSpot * (atmIv / 100) * Math.sqrt(tteYears);
-    const sdMinus2 = String(Math.round(currentSpot - 2 * oneSd));
-    const sdMinus1 = String(Math.round(currentSpot - oneSd));
-    const sdPlus1 = String(Math.round(currentSpot + oneSd));
-    const sdPlus2 = String(Math.round(currentSpot + 2 * oneSd));
+    const roundSpot = Math.round(currentSpot);
 
     // Baseline chart when no legs are active
     if (!payoffResult.payoffPoints || payoffResult.payoffPoints.length === 0) {
-      const step = symbol === 'BANKNIFTY' ? 100 : 50;
-      const baselineSpots: string[] = [];
-      for (
-        let s = Math.round((currentSpot - 2.5 * oneSd) / step) * step;
-        s <= Math.round((currentSpot + 2.5 * oneSd) / step) * step;
-        s += step
-      ) {
-        baselineSpots.push(String(s));
-      }
+      const minX = Math.round(currentSpot - 2.5 * oneSd);
+      const maxX = Math.round(currentSpot + 2.5 * oneSd);
 
       return {
         backgroundColor: '#FFFFFF',
         grid: { left: 55, right: 35, bottom: 25, top: 40, containLabel: true },
         xAxis: {
-          type: 'category',
-          data: baselineSpots,
+          type: 'value',
+          min: minX,
+          max: maxX,
           axisLine: { lineStyle: { color: '#CBD5E1' } },
-          axisLabel: { color: '#64748B', fontSize: 10 },
+          axisLabel: {
+            color: '#64748B',
+            fontSize: 10,
+            formatter: (v: number) => `₹${Math.round(v).toLocaleString('en-IN')}`,
+          },
+          splitLine: { show: false },
         },
         yAxis: {
           type: 'value',
@@ -476,17 +475,20 @@ export default function OptionsLabPage() {
           {
             name: 'Zero Baseline',
             type: 'line',
-            data: baselineSpots.map(() => 0),
+            data: [
+              [minX, 0],
+              [maxX, 0],
+            ],
             lineStyle: { width: 1.5, color: '#94A3B8', type: 'dashed' },
             markLine: {
               silent: true,
               symbol: 'none',
               data: [
                 {
-                  xAxis: String(Math.round(currentSpot / step) * step),
+                  xAxis: roundSpot,
                   lineStyle: { color: '#0F172A', type: 'solid', width: 2 },
                   label: {
-                    formatter: `Spot: ${Math.round(currentSpot).toLocaleString('en-IN')}`,
+                    formatter: `Spot: ${roundSpot.toLocaleString('en-IN')}`,
                     position: 'top',
                     color: '#0F172A',
                     fontSize: 10,
@@ -494,22 +496,22 @@ export default function OptionsLabPage() {
                   },
                 },
                 {
-                  xAxis: sdMinus2,
+                  xAxis: Math.round(currentSpot - 2 * oneSd),
                   lineStyle: { color: '#94A3B8', type: 'dashed' },
                   label: { formatter: '-2SD', color: '#64748B', position: 'top', fontSize: 10 },
                 },
                 {
-                  xAxis: sdMinus1,
+                  xAxis: Math.round(currentSpot - oneSd),
                   lineStyle: { color: '#94A3B8', type: 'dashed' },
                   label: { formatter: '-1SD', color: '#64748B', position: 'top', fontSize: 10 },
                 },
                 {
-                  xAxis: sdPlus1,
+                  xAxis: Math.round(currentSpot + oneSd),
                   lineStyle: { color: '#94A3B8', type: 'dashed' },
                   label: { formatter: '+1SD', color: '#64748B', position: 'top', fontSize: 10 },
                 },
                 {
-                  xAxis: sdPlus2,
+                  xAxis: Math.round(currentSpot + 2 * oneSd),
                   lineStyle: { color: '#94A3B8', type: 'dashed' },
                   label: { formatter: '+2SD', color: '#64748B', position: 'top', fontSize: 10 },
                 },
@@ -517,26 +519,13 @@ export default function OptionsLabPage() {
             },
           },
         ],
-        graphic: [
-          {
-            type: 'text',
-            left: 'center',
-            top: 'center',
-            style: {
-              text: 'Click strikes on the Option Chain to add legs\nor choose a strategy template below',
-              fill: '#94A3B8',
-              fontSize: 13,
-              fontWeight: 600,
-              textAlign: 'center',
-            },
-          },
-        ],
       };
     }
 
-    const spots = payoffResult.payoffPoints.map((p) => p.spotPrice);
-    const expiryPayoffs = payoffResult.payoffPoints.map((p) => p.expiryPayoff);
-    const targetPayoffs = payoffResult.payoffPoints.map((p) => p.targetDatePayoff);
+    const expiryData = payoffResult.payoffPoints.map((p) => [Math.round(p.spotPrice), Math.round(p.expiryPayoff)]);
+    const targetData = payoffResult.payoffPoints.map((p) => [Math.round(p.spotPrice), Math.round(p.targetDatePayoff)]);
+    const minSpot = Math.round(payoffResult.payoffPoints[0]?.spotPrice || currentSpot - 2 * oneSd);
+    const maxSpot = Math.round(payoffResult.payoffPoints[payoffResult.payoffPoints.length - 1]?.spotPrice || currentSpot + 2 * oneSd);
 
     return {
       backgroundColor: '#FFFFFF',
@@ -544,11 +533,12 @@ export default function OptionsLabPage() {
         trigger: 'axis',
         formatter: (params: any[]) => {
           if (!params || params.length === 0) return '';
-          const s = params[0].name;
-          let html = `<div style="font-family: monospace; font-size: 11px; padding: 4px;"><strong>Spot: ₹${s}</strong><br/>`;
+          const s = params[0].value ? params[0].value[0] : params[0].name;
+          let html = `<div style="font-family: monospace; font-size: 11px; padding: 4px;"><strong>Spot: ₹${Number(s).toLocaleString('en-IN')}</strong><br/>`;
           params.forEach((p) => {
-            const color = p.value >= 0 ? '#10B981' : '#F43F5E';
-            html += `<span style="color:${p.color}">●</span> ${p.seriesName}: <strong style="color:${color}">₹${Math.round(p.value).toLocaleString('en-IN')}</strong><br/>`;
+            const val = Array.isArray(p.value) ? p.value[1] : p.value;
+            const color = val >= 0 ? '#10B981' : '#F43F5E';
+            html += `<span style="color:${p.color}">●</span> ${p.seriesName}: <strong style="color:${color}">₹${Math.round(val).toLocaleString('en-IN')}</strong><br/>`;
           });
           html += '</div>';
           return html;
@@ -561,10 +551,16 @@ export default function OptionsLabPage() {
       },
       grid: { left: 55, right: 35, bottom: 25, top: 40, containLabel: true },
       xAxis: {
-        type: 'category',
-        data: spots,
+        type: 'value',
+        min: minSpot,
+        max: maxSpot,
         axisLine: { lineStyle: { color: '#CBD5E1' } },
-        axisLabel: { color: '#64748B', fontSize: 10 },
+        axisLabel: {
+          color: '#64748B',
+          fontSize: 10,
+          formatter: (v: number) => `₹${Math.round(v).toLocaleString('en-IN')}`,
+        },
+        splitLine: { show: false },
       },
       yAxis: {
         type: 'value',
@@ -576,40 +572,23 @@ export default function OptionsLabPage() {
           fontSize: 10,
         },
       },
-      visualMap: {
-        show: false,
-        dimension: 1,
-        pieces: [
-          { lte: 0, color: '#DC2626' },
-          { gt: 0, color: '#16A34A' },
-        ],
-      },
       series: [
         {
           name: 'At Expiry Payoff',
           type: 'line',
-          data: expiryPayoffs,
+          data: expiryData,
           smooth: true,
           lineStyle: { width: 2.5 },
-          markArea: {
-            silent: true,
-            data: [
-              [
-                { yAxis: 0, itemStyle: { color: 'rgba(239, 68, 68, 0.04)' } },
-                { yAxis: -100000 },
-              ],
-            ],
-          },
           markLine: {
             silent: true,
             symbol: 'none',
             data: [
               { yAxis: 0, lineStyle: { color: '#94A3B8', type: 'dashed' } },
               {
-                xAxis: String(Math.round(currentSpot)),
+                xAxis: roundSpot,
                 lineStyle: { color: '#0F172A', type: 'solid', width: 2 },
                 label: {
-                  formatter: `Spot: ${Math.round(currentSpot).toLocaleString('en-IN')}`,
+                  formatter: `Spot: ${roundSpot.toLocaleString('en-IN')}`,
                   position: 'top',
                   color: '#0F172A',
                   fontSize: 10,
@@ -617,29 +596,29 @@ export default function OptionsLabPage() {
                 },
               },
               {
-                xAxis: sdMinus2,
+                xAxis: Math.round(currentSpot - 2 * oneSd),
                 lineStyle: { color: '#94A3B8', type: 'dashed' },
                 label: { formatter: '-2SD', color: '#64748B', position: 'top', fontSize: 10 },
               },
               {
-                xAxis: sdMinus1,
+                xAxis: Math.round(currentSpot - oneSd),
                 lineStyle: { color: '#94A3B8', type: 'dashed' },
                 label: { formatter: '-1SD', color: '#64748B', position: 'top', fontSize: 10 },
               },
               {
-                xAxis: sdPlus1,
+                xAxis: Math.round(currentSpot + oneSd),
                 lineStyle: { color: '#94A3B8', type: 'dashed' },
                 label: { formatter: '+1SD', color: '#64748B', position: 'top', fontSize: 10 },
               },
               {
-                xAxis: sdPlus2,
+                xAxis: Math.round(currentSpot + 2 * oneSd),
                 lineStyle: { color: '#94A3B8', type: 'dashed' },
                 label: { formatter: '+2SD', color: '#64748B', position: 'top', fontSize: 10 },
               },
               ...payoffResult.greeks.breakevens.map((b) => ({
-                xAxis: String(Math.round(b)),
+                xAxis: Math.round(b),
                 lineStyle: { color: '#D97706', type: 'dotted' },
-                label: { formatter: `BE: ₹${Math.round(b)}`, color: '#D97706', fontSize: 10 },
+                label: { formatter: `BE: ₹${Math.round(b).toLocaleString('en-IN')}`, color: '#D97706', fontSize: 10 },
               })),
             ],
           },
@@ -647,7 +626,7 @@ export default function OptionsLabPage() {
         {
           name: `Target (T+${daysForward}) Payoff`,
           type: 'line',
-          data: targetPayoffs,
+          data: targetData,
           smooth: true,
           lineStyle: { width: 2, color: '#2563EB', type: 'dashed' },
         },

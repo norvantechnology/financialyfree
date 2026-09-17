@@ -117,19 +117,20 @@ export const IvSurfaceView: React.FC<IvSurfaceViewProps> = ({ symbol, selectedEx
               ],
             },
           },
-          markLine: atmStrike
-            ? {
-                silent: true,
-                symbol: 'none',
-                data: [
-                  {
-                    xAxis: String(atmStrike),
-                    lineStyle: { color: '#D97706', width: 2, type: 'dashed' },
-                    label: { formatter: 'ATM Strike', color: '#D97706', position: 'insideEndTop', fontWeight: 'bold' },
-                  },
-                ],
-              }
-            : undefined,
+          markLine:
+            atmStrike && strikes.includes(String(atmStrike))
+              ? {
+                  silent: true,
+                  symbol: 'none',
+                  data: [
+                    {
+                      xAxis: String(atmStrike),
+                      lineStyle: { color: '#D97706', width: 2, type: 'dashed' },
+                      label: { formatter: 'ATM Strike', color: '#D97706', position: 'insideEndTop', fontWeight: 'bold' },
+                    },
+                  ],
+                }
+              : undefined,
         },
       ],
     };
@@ -240,17 +241,20 @@ export const IvSurfaceView: React.FC<IvSurfaceViewProps> = ({ symbol, selectedEx
             value: v,
             itemStyle: { color: v >= 0 ? '#10B981' : '#F43F5E', borderRadius: v >= 0 ? [4, 4, 0, 0] : [0, 0, 4, 4] },
           })),
-          markLine: {
-            silent: true,
-            symbol: 'none',
-            data: [
-              {
-                xAxis: String(gexData.zeroGammaStrike),
-                lineStyle: { color: '#D97706', width: 2, type: 'dashed' },
-                label: { formatter: 'Zero-Gamma Flip', color: '#D97706', position: 'insideEndTop', fontWeight: 'bold' },
-              },
-            ],
-          },
+          markLine:
+            gexData?.zeroGammaStrike && strikes.includes(String(gexData.zeroGammaStrike))
+              ? {
+                  silent: true,
+                  symbol: 'none',
+                  data: [
+                    {
+                      xAxis: String(gexData.zeroGammaStrike),
+                      lineStyle: { color: '#D97706', width: 2, type: 'dashed' },
+                      label: { formatter: 'Zero-Gamma Flip', color: '#D97706', position: 'insideEndTop', fontWeight: 'bold' },
+                    },
+                  ],
+                }
+              : undefined,
         },
       ],
     };

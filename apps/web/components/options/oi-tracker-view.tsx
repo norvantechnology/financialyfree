@@ -160,17 +160,20 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
           data: callOis,
           itemStyle: { color: '#10B981', borderRadius: [3, 3, 0, 0] },
           barGap: '15%',
-          markLine: {
-            silent: true,
-            symbol: 'none',
-            data: [
-              {
-                xAxis: String(maxPain),
-                lineStyle: { color: '#D97706', width: 2, type: 'dashed' },
-                label: { formatter: 'Max Pain', position: 'insideEndTop', color: '#D97706', fontWeight: 'bold' },
-              },
-            ],
-          },
+          markLine:
+            maxPain && strikes.includes(String(maxPain))
+              ? {
+                  silent: true,
+                  symbol: 'none',
+                  data: [
+                    {
+                      xAxis: String(maxPain),
+                      lineStyle: { color: '#D97706', width: 2, type: 'dashed' },
+                      label: { formatter: 'Max Pain', position: 'insideEndTop', color: '#D97706', fontWeight: 'bold' },
+                    },
+                  ],
+                }
+              : undefined,
         },
         {
           name: 'Put OI (PE Support)',
