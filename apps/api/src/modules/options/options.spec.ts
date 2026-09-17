@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EncryptionService } from './encryption.service';
 import { BrokerAuthService } from './broker-auth.service';
-import { MockBrokerAdapter } from './adapters/mock-broker.adapter';
+import { PaperTradingAdapter } from './adapters/paper-trading.adapter';
 import { ZerodhaAdapter } from './adapters/zerodha.adapter';
 import { UpstoxAdapter } from './adapters/upstox.adapter';
 import { DhanAdapter } from './adapters/dhan.adapter';
@@ -44,7 +44,7 @@ describe('Options Module: Encryption & Broker OAuth Pipeline', () => {
       providers: [
         EncryptionService,
         BrokerAuthService,
-        MockBrokerAdapter,
+        PaperTradingAdapter,
         ZerodhaAdapter,
         UpstoxAdapter,
         DhanAdapter,
@@ -120,31 +120,32 @@ describe('Options Module: Encryption & Broker OAuth Pipeline', () => {
       spotChange: 75.5,
       spotChangePct: 0.3,
       timestamp: new Date().toISOString(),
-      expiryDates: ['2026-09-24', '2026-10-01', '2026-10-29'],
-      selectedExpiry: '2026-09-24',
+      expiryDates: ['2026-09-22', '2026-09-29', '2026-10-06'],
+      selectedExpiry: '2026-09-22',
       pcr: 1.15,
       volumePcr: 1.08,
       maxPain: 25000,
       atmStrike: 25000,
-      atmIv: 0.145,
+      atmIv: 14.5,
       contracts: [
         {
           strike: 24900,
-          ce: { ltp: 180, iv: 0.148, delta: 0.65, gamma: 0.0004, theta: -12, vega: 18, oi: 25000, oiChange: 1500, volume: 50000, buildup: 'Long Buildup' },
-          pe: { ltp: 60, iv: 0.152, delta: -0.35, gamma: 0.0004, theta: -8, vega: 16, oi: 45000, oiChange: 3500, volume: 70000, buildup: 'Short Buildup' },
+          ce: { ltp: 180, iv: 14.8, delta: 0.65, gamma: 0.0004, theta: -12, vega: 18, oi: 25000, oiChange: 1500, volume: 50000, buildup: 'Long Buildup' },
+          pe: { ltp: 60, iv: 15.2, delta: -0.35, gamma: 0.0004, theta: -8, vega: 16, oi: 45000, oiChange: 3500, volume: 70000, buildup: 'Short Buildup' },
         },
         {
           strike: 25000,
-          ce: { ltp: 120, iv: 0.145, delta: 0.51, gamma: 0.0005, theta: -14, vega: 20, oi: 60000, oiChange: 5000, volume: 120000, buildup: 'Long Buildup' },
-          pe: { ltp: 110, iv: 0.146, delta: -0.49, gamma: 0.0005, theta: -14, vega: 20, oi: 65000, oiChange: 6000, volume: 130000, buildup: 'Short Buildup' },
+          ce: { ltp: 120, iv: 14.5, delta: 0.51, gamma: 0.0005, theta: -14, vega: 20, oi: 60000, oiChange: 5000, volume: 120000, buildup: 'Long Buildup' },
+          pe: { ltp: 110, iv: 14.6, delta: -0.49, gamma: 0.0005, theta: -14, vega: 20, oi: 65000, oiChange: 6000, volume: 130000, buildup: 'Short Buildup' },
         },
         {
           strike: 25100,
-          ce: { ltp: 70, iv: 0.142, delta: 0.36, gamma: 0.0004, theta: -10, vega: 17, oi: 48000, oiChange: 4200, volume: 85000, buildup: 'Short Buildup' },
-          pe: { ltp: 175, iv: 0.149, delta: -0.64, gamma: 0.0004, theta: -11, vega: 18, oi: 22000, oiChange: 800, volume: 45000, buildup: 'Long Buildup' },
+          ce: { ltp: 70, iv: 14.2, delta: 0.36, gamma: 0.0004, theta: -10, vega: 17, oi: 48000, oiChange: 4200, volume: 85000, buildup: 'Short Buildup' },
+          pe: { ltp: 175, iv: 14.9, delta: -0.64, gamma: 0.0004, theta: -11, vega: 18, oi: 22000, oiChange: 800, volume: 45000, buildup: 'Long Buildup' },
         },
       ],
-      source: 'SANDBOX' as const,
+      source: 'NSE_LIVE' as const,
+      dataNote: 'test fixture',
     };
 
     const mockMarketDataService = {
@@ -165,7 +166,7 @@ describe('Options Module: Encryption & Broker OAuth Pipeline', () => {
           symbol: 'NIFTY',
           strike: 25000,
           optionType: 'CE',
-          expiry: '2026-09-24',
+          expiry: '2026-09-22',
           side: 'BUY',
           quantity: 2,
           lotSize: 25,
@@ -202,7 +203,22 @@ describe('Options Module: Encryption & Broker OAuth Pipeline', () => {
       const atmPoint = smile.points.find((p) => p.isAtm);
       expect(atmPoint).toBeDefined();
       expect(atmPoint?.strike).toBe(25000);
-      expect(atmPoint?.iv).toBeGreaterThan(0);
+      expect(atmPoint?.iv).toBeGreaterThan(10);
+      expect(atmPoint?.iv).toBeLessThan(30);
+      expect(smile.atmIv).toBe(14.5);
+    });
+
+    it('does not invent OI history when snapshots are empty and chain is delayed-only', async () => {
+      const delayed = {
+        ...mockChain,
+        contracts: [],
+        source: 'DELAYED_SPOT_ONLY' as const,
+        dataNote: 'spot only',
+      };
+      (mockMarketDataService.getOptionChain as jest.Mock).mockResolvedValueOnce(delayed);
+      const history = await analyticsService.getOiHistory('NIFTY');
+      expect(history.points).toEqual([]);
+      (mockMarketDataService.getOptionChain as jest.Mock).mockResolvedValue(mockChain);
     });
 
     it('computes Vol Surface across multi-expiry contracts', async () => {

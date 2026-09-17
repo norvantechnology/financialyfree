@@ -112,7 +112,9 @@ export interface OptionChainDto {
   atmStrike: number;
   atmIv: number | null;
   contracts: OptionChainRowDto[];
-  source: 'BROKER_LIVE' | 'NSE_FALLBACK' | 'SANDBOX' | 'YAHOO_LIVE' | 'NSE_LIVE';
+  source: 'BROKER_LIVE' | 'NSE_LIVE' | 'DELAYED_SPOT_ONLY';
+  /** Human-readable provenance for UI banners */
+  dataNote?: string;
   vix?: number;
   lotSize?: number;
   futures?: Array<{ expiry: string; ltp: number; lots: string }>;

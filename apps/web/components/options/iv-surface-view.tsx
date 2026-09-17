@@ -260,17 +260,16 @@ export const IvSurfaceView: React.FC<IvSurfaceViewProps> = ({ symbol, selectedEx
     };
   }, [gexData]);
 
-  // Clean formatted ATM IV
   const formattedAtmIv = useMemo(() => {
-    if (!ivSmileData?.atmIv) return '13.8%';
+    if (ivSmileData?.atmIv == null) return '—';
     const val = Number(ivSmileData.atmIv);
-    // If greater than 100 (e.g. bug fallback), normalize
-    const normalized = val > 100 ? val / 100 : val;
+    if (!Number.isFinite(val)) return '—';
+    const normalized = val > 5 ? val : val * 100;
     return `${normalized.toFixed(1)}%`;
   }, [ivSmileData?.atmIv]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <div className="opt-view-stack">
       {/* ── Top Row: 4 Metric Cards ── */}
       <div className="opt-kpi-grid cols-4">
         <div className="opt-kpi-card">

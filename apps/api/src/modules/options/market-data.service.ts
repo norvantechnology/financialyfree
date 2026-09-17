@@ -8,7 +8,7 @@ import {
   classifyOiBuildup,
 } from '@ff/calc';
 import { BrokerAuthService } from './broker-auth.service';
-import { POPULAR_FO_SYMBOLS } from './instruments.service';
+import { InstrumentsService, POPULAR_FO_SYMBOLS } from './instruments.service';
 
 @Injectable()
 export class MarketDataService {
@@ -19,13 +19,14 @@ export class MarketDataService {
 
   constructor(
     private readonly brokerAuthService: BrokerAuthService,
+    private readonly instrumentsService: InstrumentsService,
   ) {}
 
   /**
    * Fetches real-time India VIX from Yahoo Finance (^INDIAVIX).
    * Cached in memory for 15 seconds to avoid rate limiting.
    */
-  async fetchLiveVix(): Promise<number> {
+  async fetchLiveVix(): Promise<number | undefined> {
     if (this.liveVixCache && this.liveVixCache.expiresAt > Date.now()) {
       return this.liveVixCache.vix;
     }
@@ -51,7 +52,7 @@ export class MarketDataService {
     } catch {
       // ignore
     }
-    return 12.29; // Realistic India VIX fallback
+    return undefined;
   }
 
   /**
@@ -68,38 +69,9 @@ export class MarketDataService {
   }
 
   /**
-   * Generates near, next, and far-month futures quotes matching Indian F&O market conventions.
-   */
-  generateFutures(_symbol: string, spotPrice: number): Array<{ expiry: string; ltp: number; lots: string }> {
-    const expiries: Array<{ expiry: string; ltp: number; lots: string }> = [];
-    const now = new Date();
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    for (let m = 0; m < 3; m++) {
-      const targetMonth = (now.getMonth() + m) % 12;
-      const targetYear = now.getFullYear() + Math.floor((now.getMonth() + m) / 12);
-      const lastDay = new Date(targetYear, targetMonth + 1, 0);
-      const diff = (lastDay.getDay() - 4 + 7) % 7;
-      const lastThursday = new Date(targetYear, targetMonth + 1, 0 - diff);
-      const daysToExpiry = Math.max(1, Math.round((lastThursday.getTime() - now.getTime()) / 86400000));
-      const carryRate = 0.068; // 6.8% annual cost of carry
-      const futLtp = parseFloat((spotPrice * (1 + carryRate * (daysToExpiry / 365))).toFixed(2));
-      const expiryLabel = `${lastThursday.getDate()} ${months[lastThursday.getMonth()]}`;
-      const lotsLabel = m === 0 ? '1.8Cr' : m === 1 ? '35.8L' : '10.0L';
-
-      expiries.push({
-        expiry: expiryLabel,
-        ltp: futLtp,
-        lots: lotsLabel,
-      });
-    }
-
-    return expiries;
-  }
-
-  /**
    * Fetches real-time market spot quote from third-party feeds (Yahoo Finance).
    * Maps Indian indices (^NSEI, ^NSEBANK, ^BSESN, NIFTY_FIN_SERVICE.NS, etc.) and equities.
+   * No hardcoded spot / VIX / futures defaults — unavailable fields stay empty.
    */
   async fetchLiveSpotQuote(symbol: string): Promise<{
     spotPrice: number;
@@ -110,9 +82,10 @@ export class MarketDataService {
     dayLow: number;
     timestamp: string;
     source: string;
-    vix: number;
+    vix?: number;
     lotSize: number;
     futures: Array<{ expiry: string; ltp: number; lots: string }>;
+    available: boolean;
   }> {
     const clean = (symbol || 'NIFTY').toUpperCase();
     const lotSize = this.getLotSize(clean);
@@ -154,7 +127,6 @@ export class MarketDataService {
           const spotChangePct = parseFloat(((spotChange / previousClose) * 100).toFixed(2));
           const dayHigh = Number(meta.regularMarketDayHigh || spotPrice);
           const dayLow = Number(meta.regularMarketDayLow || spotPrice);
-          const futures = this.generateFutures(clean, spotPrice);
 
           return {
             spotPrice,
@@ -167,7 +139,8 @@ export class MarketDataService {
             source: 'Yahoo Finance Live Feed',
             vix,
             lotSize,
-            futures,
+            futures: [],
+            available: true,
           };
         }
       }
@@ -175,29 +148,27 @@ export class MarketDataService {
       this.logger.warn(`Failed to fetch live quote for ${symbol} (${ticker}): ${err.message}`);
     }
 
-    const defaultSpot =
-      clean === 'BANKNIFTY' ? 56055.75 : clean === 'SENSEX' ? 74314.59 : clean === 'FINNIFTY' ? 25318.35 : clean === 'RELIANCE' ? 1243.9 : 23270.6;
     return {
-      spotPrice: defaultSpot,
+      spotPrice: 0,
       spotChange: 0,
       spotChangePct: 0,
-      previousClose: defaultSpot,
-      dayHigh: defaultSpot,
-      dayLow: defaultSpot,
+      previousClose: 0,
+      dayHigh: 0,
+      dayLow: 0,
       timestamp: new Date().toISOString(),
-      source: 'Feed Fallback',
+      source: 'UNAVAILABLE',
       vix,
       lotSize,
-      futures: this.generateFutures(clean, defaultSpot),
+      futures: [],
+      available: false,
     };
   }
 
   /**
-   * Primary method for fetching full option chain:
-   * 1. Fetches live third-party spot quote (Yahoo Finance).
-   * 2. If user has an active connected broker, attempts to fetch from broker adapter.
-   * 3. Falls back to direct live NSE options API if accessible.
-   * 4. Synthesizes a real-time option chain with Black-Scholes Greeks using the LIVE spot quote.
+   * Primary option-chain fetch (user-scoped when broker-connected):
+   * 1) Connected broker (BROKER_LIVE) — never share across users
+   * 2) NSE official option-chain scrape (NSE_LIVE)
+   * 3) Delayed spot-only shell (DELAYED_SPOT_ONLY) — never invent OI/LTP/IV
    */
   async getOptionChain(
     symbol: string,
@@ -208,34 +179,150 @@ export class MarketDataService {
     const cleanSymbol = (symbol || 'NIFTY').toUpperCase();
     const liveSpot = await this.fetchLiveSpotQuote(cleanSymbol);
 
-    // Check if user has an active broker connection
-    if (userId && brokerOverride) {
+    // 1) User's own broker credentials (cache key / identity always user-scoped upstream)
+    const brokersToTry: BrokerType[] = [];
+    if (userId) {
+      if (brokerOverride) {
+        brokersToTry.push(brokerOverride);
+      } else {
+        try {
+          brokersToTry.push(...(await this.brokerAuthService.getConnectedBrokers(userId)));
+        } catch {
+          /* no connections */
+        }
+      }
+    }
+
+    for (const broker of brokersToTry) {
+      // Paper/sandbox adapter invents OI/LTP/IV — never treat it as market data.
+      // Paper Mode only affects portfolio; chain must come from NSE or a real broker.
+      if (broker === 'sandbox') continue;
       try {
-        const token = await this.brokerAuthService.getDecryptedToken(userId, brokerOverride);
-        if (token) {
-          const adapter = this.brokerAuthService.getAdapter(brokerOverride);
-          const brokerChain = await adapter.getOptionChain(cleanSymbol, expiry, token);
-          if (brokerChain) {
-            return brokerChain;
-          }
+        const token = await this.brokerAuthService.getDecryptedToken(userId!, broker);
+        if (!token) continue;
+        // Skip obvious mock tokens from unconfigured OAuth (do not treat as live)
+        if (/_mock_|mock_/i.test(token)) {
+          this.logger.warn(`Skipping ${broker} chain: mock/unconfigured token`);
+          continue;
+        }
+        const adapter = this.brokerAuthService.getAdapter(broker);
+        const brokerChain = await adapter.getOptionChain(cleanSymbol, expiry, token);
+        if (brokerChain && Array.isArray(brokerChain.contracts) && brokerChain.contracts.length > 0) {
+          const enriched = {
+            ...brokerChain,
+            source: 'BROKER_LIVE' as const,
+            dataNote: `Live option chain via your ${broker} connection`,
+            vix: brokerChain.vix ?? liveSpot.vix,
+            lotSize: brokerChain.lotSize ?? liveSpot.lotSize,
+            futures: brokerChain.futures ?? liveSpot.futures,
+          };
+          void this.persistLiveInstruments(enriched);
+          return enriched;
         }
       } catch (err: any) {
-        this.logger.warn(`Broker chain fetch for ${brokerOverride} failed: ${err.message}. Falling back to public feed.`);
+        this.logger.warn(`Broker chain fetch for ${broker} failed: ${err.message}`);
       }
     }
 
-    // Try direct live NSE option-chain scraping
+    // 2) Official NSE option-chain (index/equity) when reachable
     try {
       const nseLive = await this.fetchNseOptionChain(cleanSymbol, expiry, liveSpot);
-      if (nseLive) {
-        return nseLive;
+      if (nseLive && nseLive.contracts.length > 0) {
+        const enriched = {
+          ...nseLive,
+          vix: liveSpot.vix,
+          lotSize: liveSpot.lotSize,
+          futures: liveSpot.futures,
+          dataNote: 'Official NSE option-chain API (live during market hours)',
+        };
+        void this.persistLiveInstruments(enriched);
+        return enriched;
       }
     } catch (err: any) {
-      this.logger.warn(`Direct NSE chain fetch failed: ${err.message}. Generating dynamic live-spot chain.`);
+      this.logger.warn(`Direct NSE chain fetch failed: ${err.message}`);
     }
 
-    // Generate dynamic option chain calculated from the live spot quote
-    return this.generateLiveOptionChain(cleanSymbol, liveSpot, expiry);
+    // 3) Honest delayed-spot shell — ZERO fabricated OI / LTP / IV
+    return this.buildDelayedSpotOnlyChain(cleanSymbol, liveSpot, expiry);
+  }
+
+  /** Persist live strikes/expiries into instruments — never static seed rows. */
+  private async persistLiveInstruments(chain: OptionChainDto): Promise<void> {
+    if (!chain.selectedExpiry || !chain.contracts?.length) return;
+    if (chain.source === 'DELAYED_SPOT_ONLY') return;
+    try {
+      await this.instrumentsService.upsertFromLiveChain({
+        symbol: chain.underlying,
+        expiry: chain.selectedExpiry,
+        lotSize: chain.lotSize,
+        contracts: chain.contracts.map((c) => ({
+          strike: c.strike,
+          ceToken: c.ce?.instrumentToken,
+          peToken: c.pe?.instrumentToken,
+        })),
+      });
+    } catch (err: any) {
+      this.logger.debug?.(`Instrument upsert skipped: ${err?.message || err}`);
+    }
+  }
+
+  /** Years to expiry using IST calendar days (trading-day approximation; min 1 hour). */
+  yearsToExpiry(expiryIso: string): number {
+    if (!expiryIso) return Math.max(0.001, 7 / 365);
+    const iso = this.normalizeToIsoDate(expiryIso);
+    const parts = iso.split('-').map(Number);
+    if (parts.length < 3 || parts.some((n) => !Number.isFinite(n))) {
+      return Math.max(0.001, 7 / 365);
+    }
+    const [y, m, d] = parts;
+    // Expiry settlement ~15:30 IST
+    const expiryMs = Date.UTC(y, m - 1, d, 10, 0, 0); // 15:30 IST = 10:00 UTC
+    const nowMs = Date.now();
+    const ms = Math.max(expiryMs - nowMs, 60 * 60 * 1000);
+    return ms / (365.25 * 24 * 60 * 60 * 1000);
+  }
+
+  /** Spot-only payload when live option chain is unavailable — never invents OI. */
+  private buildDelayedSpotOnlyChain(
+    symbol: string,
+    liveSpot: {
+      spotPrice: number;
+      spotChange: number;
+      spotChangePct: number;
+      vix?: number;
+      lotSize?: number;
+      futures?: Array<{ expiry: string; ltp: number; lots: string }>;
+      source?: string;
+    },
+    selectedExpiry?: string,
+  ): OptionChainDto {
+    const underlyingInfo = POPULAR_FO_SYMBOLS.find((s) => s.symbol === symbol);
+    const step = underlyingInfo?.step || 50;
+    const atmStrike = Math.round(liveSpot.spotPrice / step) * step;
+    const expiryDates = selectedExpiry ? [this.normalizeToIsoDate(selectedExpiry)] : [];
+
+    return {
+      underlying: symbol,
+      spotPrice: liveSpot.spotPrice,
+      spotChange: liveSpot.spotChange,
+      spotChangePct: liveSpot.spotChangePct,
+      timestamp: new Date().toISOString(),
+      expiryDates,
+      selectedExpiry: expiryDates[0] || '',
+      pcr: 0,
+      volumePcr: 0,
+      maxPain: atmStrike,
+      atmStrike,
+      atmIv: null,
+      contracts: [],
+      source: 'DELAYED_SPOT_ONLY',
+      dataNote: liveSpot.spotPrice
+        ? 'Index spot from delayed public feed only. Connect Upstox/Dhan (or wait for NSE option-chain) for live OI/LTP/IV — we do not invent option data.'
+        : 'No live spot or option chain available. Connect a broker or retry during NSE market hours — we do not invent prices.',
+      vix: liveSpot.vix,
+      lotSize: liveSpot.lotSize ?? this.getLotSize(symbol),
+      futures: liveSpot.futures || [],
+    };
   }
 
   /**
@@ -263,7 +350,7 @@ export class MarketDataService {
         Cookie: cookies,
         Referer: 'https://www.nseindia.com/option-chain',
       },
-      signal: AbortSignal.timeout(2500),
+      signal: AbortSignal.timeout(12000),
     });
 
     if (!res.ok) {
@@ -321,8 +408,8 @@ export class MarketDataService {
       const ceLtp = ceRaw.lastPrice || 0;
       const peLtp = peRaw.lastPrice || 0;
 
-      const r = 0.065; // 6.5% RBI Repo rate benchmark
-      const tte = Math.max(0.001, 7 / 365); // Time to expiry in years
+      const r = 0.065; // RBI repo-rate class risk-free benchmark
+      const tte = this.yearsToExpiry(targetExpiry);
 
       // Compute IV or use exchange IV
       const ceIv =
@@ -347,23 +434,27 @@ export class MarketDataService {
           optionType: 'PE',
         });
 
-      const ceGreeks = calculateGreeks({
-        spot: spotPrice,
-        strike,
-        timeToExpiryYears: tte,
-        riskFreeRate: r,
-        volatility: ceIv ?? 0.15,
-        optionType: 'CE',
-      });
+      const ceGreeks = ceIv != null
+        ? calculateGreeks({
+            spot: spotPrice,
+            strike,
+            timeToExpiryYears: tte,
+            riskFreeRate: r,
+            volatility: ceIv,
+            optionType: 'CE',
+          })
+        : null;
 
-      const peGreeks = calculateGreeks({
-        spot: spotPrice,
-        strike,
-        timeToExpiryYears: tte,
-        riskFreeRate: r,
-        volatility: peIv ?? 0.15,
-        optionType: 'PE',
-      });
+      const peGreeks = peIv != null
+        ? calculateGreeks({
+            spot: spotPrice,
+            strike,
+            timeToExpiryYears: tte,
+            riskFreeRate: r,
+            volatility: peIv,
+            optionType: 'PE',
+          })
+        : null;
 
       return {
         strike,
@@ -375,11 +466,11 @@ export class MarketDataService {
           change: ceRaw.change || 0,
           changePct: ceRaw.pChange || 0,
           iv: ceIv ? parseFloat((ceIv * 100).toFixed(2)) : null,
-          delta: parseFloat(ceGreeks.delta.toFixed(3)),
-          gamma: parseFloat(ceGreeks.gamma.toFixed(5)),
-          theta: parseFloat(ceGreeks.theta.toFixed(1)),
-          vega: parseFloat(ceGreeks.vega.toFixed(1)),
-          rho: parseFloat(ceGreeks.rho.toFixed(1)),
+          delta: ceGreeks ? parseFloat(ceGreeks.delta.toFixed(3)) : null,
+          gamma: ceGreeks ? parseFloat(ceGreeks.gamma.toFixed(5)) : null,
+          theta: ceGreeks ? parseFloat(ceGreeks.theta.toFixed(1)) : null,
+          vega: ceGreeks ? parseFloat(ceGreeks.vega.toFixed(1)) : null,
+          rho: ceGreeks ? parseFloat(ceGreeks.rho.toFixed(1)) : null,
           oi: ceRaw.openInterest || 0,
           oiChange: ceRaw.changeinOpenInterest || 0,
           volume: ceRaw.totalTradedVolume || 0,
@@ -395,11 +486,11 @@ export class MarketDataService {
           change: peRaw.change || 0,
           changePct: peRaw.pChange || 0,
           iv: peIv ? parseFloat((peIv * 100).toFixed(2)) : null,
-          delta: parseFloat(peGreeks.delta.toFixed(3)),
-          gamma: parseFloat(peGreeks.gamma.toFixed(5)),
-          theta: parseFloat(peGreeks.theta.toFixed(1)),
-          vega: parseFloat(peGreeks.vega.toFixed(1)),
-          rho: parseFloat(peGreeks.rho.toFixed(1)),
+          delta: peGreeks ? parseFloat(peGreeks.delta.toFixed(3)) : null,
+          gamma: peGreeks ? parseFloat(peGreeks.gamma.toFixed(5)) : null,
+          theta: peGreeks ? parseFloat(peGreeks.theta.toFixed(1)) : null,
+          vega: peGreeks ? parseFloat(peGreeks.vega.toFixed(1)) : null,
+          rho: peGreeks ? parseFloat(peGreeks.rho.toFixed(1)) : null,
           oi: peRaw.openInterest || 0,
           oiChange: peRaw.changeinOpenInterest || 0,
           volume: peRaw.totalTradedVolume || 0,
@@ -411,7 +502,7 @@ export class MarketDataService {
     });
 
     const atmRow = contracts.find((c) => c.strike === atmStrike);
-    const atmIv = atmRow?.ce?.iv ?? 0.14;
+    const atmIv = atmRow?.ce?.iv ?? null;
 
     return {
       underlying: symbol,
@@ -432,184 +523,7 @@ export class MarketDataService {
   }
 
   /**
-   * Generates a fully dynamic Option Chain using the 100% real live spot price from third-party feeds.
-   * Striking, ATM, Greeks, and Moneyness are calculated purely on real-time market data.
-   */
-  private generateLiveOptionChain(
-    symbol: string,
-    liveSpot: { spotPrice: number; spotChange: number; spotChangePct: number },
-    selectedExpiry?: string,
-  ): OptionChainDto {
-    const isBankNifty = symbol === 'BANKNIFTY';
-    const isSensex = symbol === 'SENSEX';
-    const isFinNifty = symbol === 'FINNIFTY';
-    const isMidcap = symbol === 'MIDCPNIFTY';
-
-    const underlyingInfo = POPULAR_FO_SYMBOLS.find((s) => s.symbol === symbol);
-    const step =
-      underlyingInfo?.step || (isBankNifty || isSensex ? 100 : isMidcap ? 25 : isFinNifty ? 50 : 50);
-
-    const spotPrice = liveSpot.spotPrice;
-    const atmStrike = Math.round(spotPrice / step) * step;
-
-    // Determine the exchange weekly expiry day for the underlying
-    // NIFTY: Thursday (4), BANKNIFTY: Wednesday (3), FINNIFTY: Tuesday (2), MIDCPNIFTY: Monday (1), SENSEX: Friday (5)
-    const expiryDay = isSensex ? 5 : isFinNifty ? 2 : isBankNifty ? 3 : isMidcap ? 1 : 4;
-
-    // Generate upcoming weekly/monthly expiry dates (next 5 contracts)
-    const expiryDates: string[] = [];
-    const dateTracker = new Date();
-    // If today is an expiry day, include it if before 15:30 IST (10:00 UTC)
-    const utcHour = dateTracker.getUTCHours();
-    const utcMin = dateTracker.getUTCMinutes();
-    const isBeforeMarketClose = utcHour < 10 || (utcHour === 10 && utcMin <= 0);
-    if (dateTracker.getDay() === expiryDay && isBeforeMarketClose) {
-      expiryDates.push(dateTracker.toISOString().split('T')[0]);
-    }
-    for (let i = 0; i < 45 && expiryDates.length < 5; i++) {
-      dateTracker.setDate(dateTracker.getDate() + 1);
-      if (dateTracker.getDay() === expiryDay) {
-        expiryDates.push(dateTracker.toISOString().split('T')[0]);
-      }
-    }
-    const targetExpiry =
-      selectedExpiry || expiryDates[0] || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
-
-    // Generate ±12 strikes around live ATM
-    const strikes: number[] = [];
-    for (let i = -12; i <= 12; i++) {
-      strikes.push(atmStrike + i * step);
-    }
-
-    const strikesOiData: Array<{ strike: number; callOi: number; putOi: number }> = [];
-    const pcrData: Array<{ callOi: number; putOi: number; callVolume: number; putVolume: number }> = [];
-
-    const r = 0.065; // 6.5% RBI repo rate
-    const tte = Math.max(0.002, 7 / 365); // 7 days time to expiry
-
-    const contracts = strikes.map((strike) => {
-      const moneyness = (strike - spotPrice) / spotPrice;
-      const ceIntrinsic = Math.max(0, spotPrice - strike);
-      const peIntrinsic = Math.max(0, strike - spotPrice);
-
-      // ATM base IV ~14% with volatility smile
-      const ivVal = 0.138 + Math.pow(Math.abs(moneyness), 1.4) * 0.45;
-      const ceIv = parseFloat((ivVal * 100).toFixed(2));
-      const peIv = parseFloat(((ivVal + 0.005) * 100).toFixed(2));
-
-      const ceGreeks = calculateGreeks({
-        spot: spotPrice,
-        strike,
-        timeToExpiryYears: tte,
-        riskFreeRate: r,
-        volatility: ivVal,
-        optionType: 'CE',
-      });
-
-      const peGreeks = calculateGreeks({
-        spot: spotPrice,
-        strike,
-        timeToExpiryYears: tte,
-        riskFreeRate: r,
-        volatility: ivVal + 0.005,
-        optionType: 'PE',
-      });
-
-      // Realistic time value from Greeks
-      const timeVal = Math.max(
-        5,
-        spotPrice * (ivVal * Math.sqrt(tte) * 0.3989) * Math.exp(-Math.pow(moneyness * 15, 2) / 2),
-      );
-      const ceLtp = parseFloat((ceIntrinsic + timeVal).toFixed(2));
-      const peLtp = parseFloat((peIntrinsic + timeVal * 0.98).toFixed(2));
-
-      const proximityFactor = Math.max(0.05, 1 - Math.abs(moneyness) * 8);
-      const ceOi = Math.round(45000 + proximityFactor * 120000 + (strike % 500 === 0 ? 80000 : 0));
-      const peOi = Math.round(48000 + proximityFactor * 125000 + (strike % 500 === 0 ? 85000 : 0));
-      const ceVol = Math.round(ceOi * 1.6);
-      const peVol = Math.round(peOi * 1.5);
-      const ceOiChg = Math.round(ceOi * (strike >= atmStrike ? 0.08 : -0.04));
-      const peOiChg = Math.round(peOi * (strike <= atmStrike ? 0.09 : -0.03));
-
-      strikesOiData.push({ strike, callOi: ceOi, putOi: peOi });
-      pcrData.push({ callOi: ceOi, putOi: peOi, callVolume: ceVol, putVolume: peVol });
-
-      return {
-        strike,
-        ce: {
-          instrumentToken: `NFO_${symbol}_${targetExpiry}_${strike}_CE`,
-          strike,
-          optionType: 'CE' as const,
-          ltp: ceLtp,
-          change: parseFloat(
-            ((liveSpot.spotChange > 0 ? 1 : -1) * (ceGreeks.delta * Math.abs(liveSpot.spotChange))).toFixed(2),
-          ),
-          changePct: parseFloat((ceGreeks.delta * liveSpot.spotChangePct * 1.5).toFixed(2)),
-          iv: ceIv,
-          delta: parseFloat(ceGreeks.delta.toFixed(3)),
-          gamma: parseFloat(ceGreeks.gamma.toFixed(5)),
-          theta: parseFloat(ceGreeks.theta.toFixed(1)),
-          vega: parseFloat(ceGreeks.vega.toFixed(1)),
-          rho: parseFloat(ceGreeks.rho.toFixed(1)),
-          oi: ceOi,
-          oiChange: ceOiChg,
-          volume: ceVol,
-          buildup: classifyOiBuildup(liveSpot.spotChange, ceOiChg),
-          bidPrice: parseFloat((ceLtp - 0.15).toFixed(2)),
-          askPrice: parseFloat((ceLtp + 0.15).toFixed(2)),
-        },
-        pe: {
-          instrumentToken: `NFO_${symbol}_${targetExpiry}_${strike}_PE`,
-          strike,
-          optionType: 'PE' as const,
-          ltp: peLtp,
-          change: parseFloat(
-            ((liveSpot.spotChange > 0 ? -1 : 1) * (Math.abs(peGreeks.delta) * Math.abs(liveSpot.spotChange))).toFixed(2),
-          ),
-          changePct: parseFloat((-Math.abs(peGreeks.delta) * liveSpot.spotChangePct * 1.5).toFixed(2)),
-          iv: peIv,
-          delta: parseFloat(peGreeks.delta.toFixed(3)),
-          gamma: parseFloat(peGreeks.gamma.toFixed(5)),
-          theta: parseFloat(peGreeks.theta.toFixed(1)),
-          vega: parseFloat(peGreeks.vega.toFixed(1)),
-          rho: parseFloat(peGreeks.rho.toFixed(1)),
-          oi: peOi,
-          oiChange: peOiChg,
-          volume: peVol,
-          buildup: classifyOiBuildup(-liveSpot.spotChange, peOiChg),
-          bidPrice: parseFloat((peLtp - 0.15).toFixed(2)),
-          askPrice: parseFloat((peLtp + 0.15).toFixed(2)),
-        },
-      };
-    });
-
-    const { oiPcr, volumePcr } = calculatePcr(pcrData);
-    const maxPain = calculateMaxPain(strikesOiData);
-
-    return {
-      underlying: symbol,
-      spotPrice,
-      spotChange: liveSpot.spotChange,
-      spotChangePct: liveSpot.spotChangePct,
-      timestamp: new Date().toISOString(),
-      expiryDates,
-      selectedExpiry: targetExpiry,
-      pcr: oiPcr,
-      volumePcr,
-      maxPain,
-      atmStrike,
-      atmIv: 13.8,
-      contracts,
-      source: 'YAHOO_LIVE',
-      vix: (liveSpot as any).vix || 12.29,
-      lotSize: this.getLotSize(symbol),
-      futures: (liveSpot as any).futures || this.generateFutures(symbol, spotPrice),
-    };
-  }
-
-  /**
-   * Provides real-time and intraday candlestick data for NIFTY / Index charts.
-   * Matches StockMojo's NIFTY Chart / Strategy Chart view.
+   * Intraday candles from Yahoo — empty candles when feed unavailable (no synthetic bars).
    */
   async getIntradayCandles(
     symbol: string,
@@ -705,32 +619,15 @@ export class MarketDataService {
       this.logger.warn(`Failed to fetch candles for ${symbol}: ${err.message}`);
     }
 
-    // Fallback: Generate realistic intraday bars based on current spot
+    // No synthetic candles — return empty when live chart feed is unavailable
     const spot = await this.fetchLiveSpotQuote(clean);
-    const now = Date.now();
-    const candles: any[] = [];
-    let prev = spot.previousClose;
-    for (let i = 45; i >= 0; i--) {
-      const time = now - i * 5 * 60 * 1000;
-      const d = new Date(time);
-      const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-      const delta = (Math.random() - 0.48) * (spot.spotPrice * 0.0015);
-      const open = prev;
-      const close = parseFloat((open + delta).toFixed(2));
-      const high = parseFloat((Math.max(open, close) + Math.random() * (spot.spotPrice * 0.0008)).toFixed(2));
-      const low = parseFloat((Math.min(open, close) - Math.random() * (spot.spotPrice * 0.0008)).toFixed(2));
-      const volume = Math.round(15000 + Math.random() * 85000);
-      prev = close;
-      candles.push({ time, timeStr, open, high, low, close, volume });
-    }
-
     return {
       symbol: clean,
-      currentPrice: spot.spotPrice,
-      previousClose: spot.previousClose,
-      change: spot.spotChange,
-      changePct: spot.spotChangePct,
-      candles,
+      currentPrice: spot.available ? spot.spotPrice : 0,
+      previousClose: spot.available ? spot.previousClose : 0,
+      change: spot.available ? spot.spotChange : 0,
+      changePct: spot.available ? spot.spotChangePct : 0,
+      candles: [],
     };
   }
 
@@ -775,10 +672,32 @@ export class MarketDataService {
   private normalizeToIsoDate(d: string): string {
     if (!d) return '';
     if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    // Handle DD-MM-YYYY or DD/MM/YYYY
+    const ddmmyyyy = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(d);
+    if (ddmmyyyy) {
+      const [, day, month, year] = ddmmyyyy;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    // Handle DD-MMM-YYYY (e.g. 22-Sep-2026 or 22 Sep 2026)
+    const ddmmmyyyy = /^(\d{1,2})[-/\s]([A-Za-z]{3})[-/\s](\d{4})$/.exec(d);
+    if (ddmmmyyyy) {
+      const [, day, monStr, year] = ddmmmyyyy;
+      const months: Record<string, string> = {
+        jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+        jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+      };
+      const m = months[monStr.toLowerCase()];
+      if (m) {
+        return `${year}-${m}-${day.padStart(2, '0')}`;
+      }
+    }
     try {
       const parsed = new Date(d);
       if (!isNaN(parsed.getTime())) {
-        return parsed.toISOString().split('T')[0];
+        const y = parsed.getFullYear();
+        const m = String(parsed.getMonth() + 1).padStart(2, '0');
+        const dt = String(parsed.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dt}`;
       }
     } catch {}
     return d;

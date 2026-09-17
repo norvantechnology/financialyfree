@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { BrokerType, LiveTickDto, OptionChainDto } from '@ff/types';
 import { IBrokerAdapter, BrokerTokenResult } from './broker.interface';
 
+/** Stub until Dhan option-chain is wired — fails closed without credentials. */
 @Injectable()
 export class DhanAdapter implements IBrokerAdapter {
   readonly broker: BrokerType = 'dhan';
@@ -10,18 +11,15 @@ export class DhanAdapter implements IBrokerAdapter {
   constructor(private readonly configService: ConfigService) {}
 
   getAuthUrl(state: string): string {
-    const clientId = this.configService.get<string>('DHAN_CLIENT_ID') || 'mock_dhan_client';
+    const clientId = this.configService.get<string>('DHAN_CLIENT_ID') || '';
+    if (!clientId) {
+      throw new Error('DHAN_CLIENT_ID not configured');
+    }
     return `https://auth.dhan.co/login?client_id=${encodeURIComponent(clientId)}&state=${encodeURIComponent(state)}`;
   }
 
-  async exchangeToken(code: string): Promise<BrokerTokenResult> {
-    const clientId = this.configService.get<string>('DHAN_CLIENT_ID') || 'DHAN_MOCK_CLIENT';
-    return {
-      accessToken: `dhan_tok_${Date.now()}`,
-      clientId,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      metadata: { broker: 'dhan', codeReceived: code.substring(0, 6) },
-    };
+  async exchangeToken(_code: string): Promise<BrokerTokenResult> {
+    throw new Error('Dhan OAuth token exchange is not implemented yet. Use Upstox or NSE free feed.');
   }
 
   async getQuotes(_tokens: string[], _accessToken?: string): Promise<Map<string, LiveTickDto>> {

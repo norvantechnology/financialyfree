@@ -7,7 +7,7 @@ import { BrokerConnectionEntity } from '../../database/entities/broker-connectio
 import { DataSourceHealthEntity } from '../../database/entities/data-source-health.entity';
 import { EncryptionService } from './encryption.service';
 import { IBrokerAdapter } from './adapters/broker.interface';
-import { MockBrokerAdapter } from './adapters/mock-broker.adapter';
+import { PaperTradingAdapter } from './adapters/paper-trading.adapter';
 import { ZerodhaAdapter } from './adapters/zerodha.adapter';
 import { UpstoxAdapter } from './adapters/upstox.adapter';
 import { DhanAdapter } from './adapters/dhan.adapter';
@@ -25,14 +25,14 @@ export class BrokerAuthService {
     @InjectRepository(DataSourceHealthEntity)
     private readonly healthRepo: Repository<DataSourceHealthEntity>,
     private readonly encryptionService: EncryptionService,
-    private readonly mockAdapter: MockBrokerAdapter,
+    private readonly paperAdapter: PaperTradingAdapter,
     private readonly zerodhaAdapter: ZerodhaAdapter,
     private readonly upstoxAdapter: UpstoxAdapter,
     private readonly dhanAdapter: DhanAdapter,
     private readonly angelAdapter: AngelOneAdapter,
     private readonly fyersAdapter: FyersAdapter,
   ) {
-    this.adapters.set('sandbox', this.mockAdapter);
+    this.adapters.set('sandbox', this.paperAdapter);
     this.adapters.set('zerodha', this.zerodhaAdapter);
     this.adapters.set('upstox', this.upstoxAdapter);
     this.adapters.set('dhan', this.dhanAdapter);
@@ -53,7 +53,7 @@ export class BrokerAuthService {
     const connMap = new Map(userConns.map((c) => [c.broker, c]));
 
     const brokersList: Array<{ broker: BrokerType; name: string }> = [
-      { broker: 'sandbox', name: 'Sandbox / Paper Trading (Free Simulated Feed)' },
+      { broker: 'sandbox', name: 'Paper Trading (portfolio only — market data from NSE/broker)' },
       { broker: 'zerodha', name: 'Zerodha (Kite Connect v3)' },
       { broker: 'upstox', name: 'Upstox (v2)' },
       { broker: 'dhan', name: 'Dhan HQ (v2)' },
@@ -162,6 +162,18 @@ export class BrokerAuthService {
     }
   }
 
+  /** Active connected brokers for a user (never cross-user). Prefer real brokers before sandbox. */
+  async getConnectedBrokers(userId: string): Promise<BrokerType[]> {
+    const rows = await this.brokerConnRepo.find({
+      where: { userId, isActive: true, status: 'connected' as any },
+      order: { lastConnectedAt: 'DESC' },
+    });
+    const brokers = rows.map((r) => r.broker as BrokerType);
+    const real = brokers.filter((b) => b !== 'sandbox');
+    const sand = brokers.filter((b) => b === 'sandbox');
+    return [...real, ...sand];
+  }
+
   async disconnectBroker(userId: string, broker: BrokerType): Promise<boolean> {
     const conn = await this.brokerConnRepo.findOne({ where: { userId, broker } });
     if (!conn) return false;
@@ -183,12 +195,17 @@ export class BrokerAuthService {
           sourceName: `Options Broker: ${broker.toUpperCase()}`,
         });
       }
-      health.mode = broker === 'sandbox' ? 'MOCK_PROVIDER' : 'LIVE_FETCH';
+      health.mode = 'LIVE_FETCH';
       health.status = 'SUCCESS';
-      health.upstreamRef = `https://api.${broker}.com`;
+      health.upstreamRef = broker === 'sandbox' ? 'paper-trading' : `https://api.${broker}.com`;
       health.lastFetchedAt = new Date();
-      health.durationMs = 120;
-      health.rawResponseSnippet = JSON.stringify({ broker, clientId, status: 'CONNECTED', authenticated: true });
+      health.durationMs = 0;
+      health.rawResponseSnippet = JSON.stringify({
+        broker,
+        clientId,
+        status: 'CONNECTED',
+        marketData: broker === 'sandbox' ? 'none' : 'broker',
+      });
       health.errorMessage = undefined;
       await this.healthRepo.save(health);
     } catch (err: any) {

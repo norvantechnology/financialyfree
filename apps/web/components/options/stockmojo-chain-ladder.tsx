@@ -25,7 +25,7 @@ interface StockMojoChainLadderProps {
   spotPrice: number;
   spotChange: number;
   spotChangePct: number;
-  vix: number;
+  vix: number | null;
   futures: FuturesItem[];
   selectedExpiry: string;
   expiryDates: string[];
@@ -110,12 +110,15 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
     }
   }, [contracts.length, symbol]);
 
-  // Calculate days to expiry for each date
+  // Calculate days to expiry for each date using calendar-day difference
   const formatExpiryLabel = (dateStr: string) => {
     try {
-      const target = new Date(dateStr);
+      const [y, m, d] = dateStr.split('-').map(Number);
+      if (!y || !m || !d) return dateStr;
+      const target = new Date(y, m - 1, d);
       const now = new Date();
-      const diffDays = Math.max(0, Math.round((target.getTime() - now.getTime()) / 86400000));
+      const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffDays = Math.max(0, Math.round((target.getTime() - nowDate.getTime()) / 86400000));
       const day = target.getDate();
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const month = months[target.getMonth()];
@@ -125,11 +128,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
     }
   };
 
-  const selectedFut = futures[selectedFutIndex] || futures[0] || {
-    expiry: 'Near',
-    ltp: spotPrice,
-    lots: '1.8Cr',
-  };
+  const selectedFut = futures[selectedFutIndex] || futures[0] || null;
 
   return (
     <div className={`sm-chain-panel ${isCollapsed ? 'collapsed' : ''}`}>
@@ -182,50 +181,59 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
 
         <div className="sm-ticker-item">
           <span className="sm-ticker-label">VIX:</span>
-          <span className="sm-ticker-value">{vix.toFixed(2)}</span>
+          <span className="sm-ticker-value">{vix != null ? vix.toFixed(2) : '—'}</span>
         </div>
 
         <div className="sm-ticker-divider" />
 
         {/* Futures Dropdown */}
         <div className="sm-futures-dropdown-wrapper">
-          <button
-            onClick={() => setIsFutDropdownOpen((p) => !p)}
-            className="sm-fut-trigger-btn"
-          >
-            <span className="sm-ticker-label">FUT ({selectedFut.expiry}):</span>
-            <span className="sm-ticker-value font-mono">
-              {selectedFut.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </span>
-            <ChevronDown className="w-3 h-3 ml-0.5 text-slate-500" />
-          </button>
+          {selectedFut ? (
+            <>
+              <button
+                onClick={() => setIsFutDropdownOpen((p) => !p)}
+                className="sm-fut-trigger-btn"
+              >
+                <span className="sm-ticker-label">FUT ({selectedFut.expiry}):</span>
+                <span className="sm-ticker-value font-mono">
+                  {selectedFut.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+                <ChevronDown className="w-3 h-3 ml-0.5 text-slate-500" />
+              </button>
 
-          {isFutDropdownOpen && (
-            <div className="sm-fut-popover">
-              <div className="sm-fut-popover-header">
-                <span>Expiry</span>
-                <span>LTP</span>
-                <span>Lots</span>
-              </div>
-              {futures.map((fut, idx) => (
-                <div
-                  key={fut.expiry}
-                  onClick={() => {
-                    setSelectedFutIndex(idx);
-                    setIsFutDropdownOpen(false);
-                  }}
-                  className={`sm-fut-popover-row ${idx === selectedFutIndex ? 'active' : ''}`}
-                >
-                  <span className="flex items-center gap-1">
-                    <span className={`w-1.5 h-1.5 rounded-full ${idx === selectedFutIndex ? 'bg-teal-600' : 'bg-slate-300'}`} />
-                    {fut.expiry}
-                  </span>
-                  <span className="font-mono font-bold">
-                    {fut.ltp.toLocaleString('en-IN', { minimumFractionDigits: 1 })}
-                  </span>
-                  <span className="text-slate-500 font-mono text-[11px]">{fut.lots}</span>
+              {isFutDropdownOpen && (
+                <div className="sm-fut-popover">
+                  <div className="sm-fut-popover-header">
+                    <span>Expiry</span>
+                    <span>LTP</span>
+                    <span>Lots</span>
+                  </div>
+                  {futures.map((fut, idx) => (
+                    <div
+                      key={fut.expiry}
+                      onClick={() => {
+                        setSelectedFutIndex(idx);
+                        setIsFutDropdownOpen(false);
+                      }}
+                      className={`sm-fut-popover-row ${idx === selectedFutIndex ? 'active' : ''}`}
+                    >
+                      <span className="flex items-center gap-1">
+                        <span className={`w-1.5 h-1.5 rounded-full ${idx === selectedFutIndex ? 'bg-teal-600' : 'bg-slate-300'}`} />
+                        {fut.expiry}
+                      </span>
+                      <span className="font-mono font-bold">
+                        {fut.ltp.toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                      </span>
+                      <span className="text-slate-500 font-mono text-[11px]">{fut.lots}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+            </>
+          ) : (
+            <div className="sm-ticker-item">
+              <span className="sm-ticker-label">FUT:</span>
+              <span className="sm-ticker-value">—</span>
             </div>
           )}
         </div>

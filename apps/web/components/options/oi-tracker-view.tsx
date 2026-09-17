@@ -326,7 +326,7 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
   }, [oiHistory]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <div className="opt-view-stack">
       {/* ── Top Row: 5 Metric Cards ── */}
       <div className="opt-kpi-grid cols-5">
         <div className="opt-kpi-card">

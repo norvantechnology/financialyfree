@@ -74,8 +74,9 @@ export class OptionsController {
   }
 
   // ── Market Data & Option Chain ──────────────────────────────────────
+  // Auth required so connected broker tokens (user-scoped) can be used.
+  // Anonymous / free preview uses delayed index spot only when NSE is down.
 
-  @Public()
   @Get('chain/:underlying')
   async getOptionChain(
     @Param('underlying') underlying: string,
@@ -95,7 +96,6 @@ export class OptionsController {
     return { success: true, data: quote };
   }
 
-  @Public()
   @Get('chart/:underlying')
   async getIntradayChart(
     @Param('underlying') underlying: string,
@@ -235,17 +235,25 @@ export class OptionsController {
   async placeSandboxOrder(@Body() order: SandboxOrderDto, @Req() req: any) {
     const userId = req.user?.id || req.user?.userId;
 
-    // Fetch real live price for execution fill
-    const chain = await this.marketDataService.getOptionChain(order.symbol, order.expiry);
-    let fillPrice = order.price || 100;
+    const chain = await this.marketDataService.getOptionChain(order.symbol, order.expiry, userId);
+    let fillPrice: number | null = order.price && order.price > 0 ? order.price : null;
 
     if (order.strike && order.optionType) {
       const row = chain.contracts.find((c) => c.strike === order.strike);
       if (row) {
-        fillPrice = order.optionType === 'CE' ? row.ce.ltp : row.pe.ltp;
+        const ltp = order.optionType === 'CE' ? row.ce.ltp : row.pe.ltp;
+        if (ltp > 0) fillPrice = ltp;
       }
-    } else {
+    } else if (chain.spotPrice > 0) {
       fillPrice = chain.spotPrice;
+    }
+
+    if (fillPrice == null || fillPrice <= 0) {
+      return {
+        success: false,
+        message:
+          'No live LTP available to fill paper order. Wait for NSE_LIVE/BROKER_LIVE chain or pass an explicit price.',
+      };
     }
 
     const position = this.sandboxRepo.create({
@@ -256,7 +264,7 @@ export class OptionsController {
       expiry: order.expiry,
       side: order.side,
       quantity: order.quantity,
-      lotSize: 25,
+      lotSize: chain.lotSize || this.marketDataService.getLotSize(order.symbol),
       entryPrice: fillPrice,
       currentPrice: fillPrice,
       unrealizedPnl: 0,

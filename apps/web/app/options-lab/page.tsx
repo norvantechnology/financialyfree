@@ -227,11 +227,11 @@ export default function OptionsLabPage() {
   const [isSandbox, setIsSandbox] = useState(true);
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-  const [connectedBroker, setConnectedBroker] = useState<string | null>('sandbox');
+  const [connectedBroker, setConnectedBroker] = useState<string | null>(null);
   const [chainData, setChainData] = useState<OptionChainDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'closed'>('connected');
-  const [latencyMs, setLatencyMs] = useState(22);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'closed'>('closed');
+  const [latencyMs, setLatencyMs] = useState(0);
 
   // Split-Screen & Analytics Workspace States
   const [isChainCollapsed, setIsChainCollapsed] = useState(false);
@@ -273,12 +273,17 @@ export default function OptionsLabPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch Option Chain Data
+  // Fetch Option Chain Data (authenticated — enables user-scoped broker live chain)
   const fetchChain = useCallback(async () => {
+    const started = performance.now();
     try {
       setIsLoading(true);
+      const { getStoredAccessToken } = await import('../../lib/auth-client');
+      const token = getStoredAccessToken();
       const url = `/api/v1/options/chain/${symbol}${selectedExpiry ? `?expiry=${selectedExpiry}` : ''}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
       if (res.ok) {
         const json = await res.json();
         if (json.data) {
@@ -286,12 +291,20 @@ export default function OptionsLabPage() {
           if (!selectedExpiry && json.data.selectedExpiry) {
             setSelectedExpiry(json.data.selectedExpiry);
           }
-          setConnectionStatus('connected');
-          setLatencyMs(Math.floor(18 + Math.random() * 12));
+          const source = json.data.source as string | undefined;
+          const hasContracts = (json.data.contracts?.length || 0) > 0;
+          const isExchangeLive =
+            (source === 'NSE_LIVE' || source === 'BROKER_LIVE') && hasContracts;
+          setConnectionStatus(isExchangeLive ? 'connected' : hasContracts ? 'reconnecting' : 'closed');
+          setLatencyMs(isExchangeLive ? Math.round(performance.now() - started) : 0);
         }
+      } else if (res.status === 401) {
+        setConnectionStatus('reconnecting');
+        setLatencyMs(0);
       }
     } catch {
       setConnectionStatus('reconnecting');
+      setLatencyMs(0);
     } finally {
       setIsLoading(false);
     }
@@ -339,7 +352,7 @@ export default function OptionsLabPage() {
     });
 
     socket.on('tick', (tick: LiveTickDto) => {
-      setLatencyMs(Math.floor(14 + Math.random() * 8));
+      setLatencyMs(0);
       setChainData((prev) => {
         if (!prev) return prev;
         const updatedContracts = prev.contracts.map((row) => {
@@ -394,7 +407,7 @@ export default function OptionsLabPage() {
   const atmStrike = chainData?.atmStrike || Math.round(spot / 50) * 50;
   const spotChange = chainData?.spotChange || 0;
   const spotChangePct = chainData?.spotChangePct || 0;
-  const vix = chainData?.vix || 12.29;
+  const vix = chainData?.vix ?? null;
   const futures = chainData?.futures || [];
   const lotSize = chainData?.lotSize || 50;
 
@@ -416,15 +429,24 @@ export default function OptionsLabPage() {
   }, [strategyLegs, enabledLegIds]);
 
   const payoffResult = useMemo(() => {
-    const currentSpot = (chainData?.spotPrice || 23270.6) * (1 + spotShiftPct / 100);
+    const currentSpot = (chainData?.spotPrice || 0) * (1 + spotShiftPct / 100);
+    if (!currentSpot || activeEnabledLegs.length === 0) {
+      return calculateStrategyPayoff({
+        legs: [],
+        currentSpot: currentSpot || 1,
+        targetDaysForward: daysForward,
+        spotRangePct: 0.12,
+        numPoints: 2,
+      });
+    }
 
     const shiftedLegs = activeEnabledLegs.map((l) => ({
       ...l,
-      iv: Math.max(0.01, (l.iv ?? 0.14) + ivShiftPoints / 100),
+      iv: l.iv != null ? Math.max(0.01, l.iv + ivShiftPoints / 100) : null,
     }));
 
     return calculateStrategyPayoff({
-      legs: shiftedLegs,
+      legs: shiftedLegs as any,
       currentSpot,
       targetDaysForward: daysForward,
       spotRangePct: 0.12,
@@ -434,10 +456,10 @@ export default function OptionsLabPage() {
 
   // ECharts Option for Payoff Diagram with continuous value coordinate system
   const payoffChartOption = useMemo(() => {
-    const currentSpot = chainData?.spotPrice || 23270.6;
-    const atmIv = chainData?.atmIv || 13.8;
+    const currentSpot = chainData?.spotPrice || 0;
+    const atmIv = chainData?.atmIv ?? 0;
     const tteYears = (7 + daysForward) / 365;
-    const oneSd = currentSpot * (atmIv / 100) * Math.sqrt(tteYears);
+    const oneSd = currentSpot > 0 && atmIv > 0 ? currentSpot * (atmIv / 100) * Math.sqrt(tteYears) : currentSpot * 0.02;
     const roundSpot = Math.round(currentSpot);
 
     // Baseline chart when no legs are active
@@ -657,7 +679,7 @@ export default function OptionsLabPage() {
     }
 
     const expiryToUse =
-      selectedExpiry || chainData.selectedExpiry || chainData.expiryDates[0] || '2026-09-24';
+      selectedExpiry || chainData.selectedExpiry || chainData.expiryDates[0] || '2026-09-22';
     const atm = Math.round(spotVal / step) * step;
 
     let baseLegs: StrategyLegDto[] = [];
@@ -775,7 +797,7 @@ export default function OptionsLabPage() {
       id: `leg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       instrumentToken: `${type}-${strike}`,
       symbol,
-      expiry: selectedExpiry || '2026-09-24',
+      expiry: selectedExpiry || chainData?.selectedExpiry || chainData?.expiryDates?.[0] || '',
       strike,
       optionType: type,
       side,
@@ -783,7 +805,7 @@ export default function OptionsLabPage() {
       lotSize: symLotSize,
       entryPrice: Math.round(price * 100) / 100,
       currentPrice: Math.round(price * 100) / 100,
-      iv: ivVal ? ivVal / 100 : 0.14,
+      iv: ivVal ? ivVal / 100 : null,
     };
 
     setStrategyLegs((prev) => [...prev, newLeg]);
@@ -953,12 +975,35 @@ export default function OptionsLabPage() {
         spotPrice={spot}
         spotChange={spotChange}
         spotChangePct={spotChangePct}
-        pcr={chainData?.pcr || 1.0}
+        pcr={chainData?.pcr ?? 0}
         maxPain={chainData?.maxPain || atmStrike}
-        atmIv={chainData?.atmIv || 13.8}
+        atmIv={chainData?.atmIv ?? null}
         onOpenBrokerModal={() => setIsBrokerModalOpen(true)}
         connectedBroker={connectedBroker}
       >
+        {chainData?.dataNote || chainData?.source ? (
+          <div
+            role="status"
+            className={`opt-feed-banner ${
+              chainData.source === 'NSE_LIVE' || chainData.source === 'BROKER_LIVE'
+                ? 'live'
+                : 'warn'
+            }`}
+          >
+            <strong>{chainData.source || 'UNKNOWN'}</strong>
+            {chainData.dataNote ? ` — ${chainData.dataNote}` : ''}
+            {chainData.timestamp
+              ? ` · ${new Date(chainData.timestamp).toLocaleString('en-IN', {
+                  timeZone: 'Asia/Kolkata',
+                  hour12: true,
+                })} IST`
+              : ''}
+            {(chainData.contracts?.length || 0) === 0
+              ? ' · Connect Upstox/Dhan via Connect Broker for live OI/LTP, or retry during NSE market hours.'
+              : ''}
+          </div>
+        ) : null}
+
         {/* Notification Toast */}
         {notification && (
           <div
@@ -1085,43 +1130,20 @@ export default function OptionsLabPage() {
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2.5 text-xs text-slate-600">
-                    <button
-                      onClick={executeInSandbox}
-                      className="px-3 py-1 rounded bg-[#0F766E] hover:bg-teal-800 text-white font-bold flex items-center gap-1.5 transition-colors shadow-sm text-xs"
-                    >
+                  <div className="sm-toolbar-actions">
+                    <button type="button" onClick={executeInSandbox} className="sm-btn-paper">
                       <Play className="w-3 h-3 fill-current" /> Paper Trade
                     </button>
                     {analyticsTab === 'payoff' && (
                       <button
                         type="button"
                         onClick={() => setShowPayoffSettings(!showPayoffSettings)}
-                        className="flex items-center gap-2 text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors px-2 py-1 rounded border border-slate-200 bg-white"
+                        className="sm-btn-toggle"
                         title="Toggle Target Date & IV What-If Settings"
                       >
                         <span>Payoff setting</span>
-                        <span
-                          style={{
-                            width: '28px',
-                            height: '16px',
-                            borderRadius: '999px',
-                            background: showPayoffSettings ? '#2563EB' : '#CBD5E1',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            padding: '2px',
-                            transition: 'background 0.2s',
-                          }}
-                        >
-                          <span
-                            style={{
-                              width: '12px',
-                              height: '12px',
-                              borderRadius: '999px',
-                              background: '#FFFFFF',
-                              transform: showPayoffSettings ? 'translateX(12px)' : 'translateX(0)',
-                              transition: 'transform 0.2s',
-                            }}
-                          />
+                        <span className={`sm-switch ${showPayoffSettings ? 'on' : ''}`}>
+                          <span className="sm-switch-knob" />
                         </span>
                       </button>
                     )}
@@ -1625,7 +1647,7 @@ export default function OptionsLabPage() {
             TAB 2: FULL OPTION CHAIN (Expanded Dedicated View)
             ══════════════════════════════════════════════════════════════ */}
         {activeTab === 'chain' && (
-          <div className="space-y-4 animate-fadeIn">
+          <div className="opt-view-stack animate-fadeIn">
             {/* Filters Bar */}
             <div className="opt-filters-bar">
               <div className="opt-filter-group">

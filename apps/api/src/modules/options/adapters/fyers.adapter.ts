@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { BrokerType, LiveTickDto, OptionChainDto } from '@ff/types';
 import { IBrokerAdapter, BrokerTokenResult } from './broker.interface';
 
+/** Stub until Fyers option-chain is wired — fails closed without credentials. */
 @Injectable()
 export class FyersAdapter implements IBrokerAdapter {
   readonly broker: BrokerType = 'fyers';
@@ -10,17 +11,16 @@ export class FyersAdapter implements IBrokerAdapter {
   constructor(private readonly configService: ConfigService) {}
 
   getAuthUrl(state: string): string {
-    const appId = this.configService.get<string>('FYERS_APP_ID') || 'mock_fyers_app_id';
-    return `https://api.fyers.in/api/v3/generate-authcode?client_id=${encodeURIComponent(appId)}&redirect_uri=mock&response_type=code&state=${encodeURIComponent(state)}`;
+    const appId = this.configService.get<string>('FYERS_APP_ID') || '';
+    if (!appId) {
+      throw new Error('FYERS_APP_ID not configured');
+    }
+    const redirectUri = this.configService.get<string>('API_URL') || 'http://localhost:3001';
+    return `https://api.fyers.in/api/v3/generate-authcode?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(`${redirectUri}/api/v1/options/brokers/fyers/callback`)}&response_type=code&state=${encodeURIComponent(state)}`;
   }
 
-  async exchangeToken(code: string): Promise<BrokerTokenResult> {
-    return {
-      accessToken: `fyers_tok_${Date.now()}`,
-      clientId: 'FYERS_MOCK_USER',
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      metadata: { broker: 'fyers', codeReceived: code.substring(0, 6) },
-    };
+  async exchangeToken(_code: string): Promise<BrokerTokenResult> {
+    throw new Error('Fyers OAuth token exchange is not implemented yet. Use Upstox or NSE free feed.');
   }
 
   async getQuotes(_tokens: string[], _accessToken?: string): Promise<Map<string, LiveTickDto>> {

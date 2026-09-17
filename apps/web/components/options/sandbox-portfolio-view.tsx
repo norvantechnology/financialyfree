@@ -82,17 +82,17 @@ export const SandboxPortfolioView: React.FC = () => {
   const positions = portfolio?.positions || [];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <div className="opt-view-stack">
       {/* Action Notification Banner */}
       {actionMessage && (
         <div
           style={{
-            padding: '0.75rem 1rem',
-            borderRadius: '10px',
+            padding: '0.5rem 0.75rem',
+            borderRadius: '6px',
             background: '#FEF3C7',
             border: '1px solid #FDE68A',
             color: '#92400E',
-            fontSize: '0.8125rem',
+            fontSize: '0.75rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',

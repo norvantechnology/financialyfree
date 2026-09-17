@@ -13,7 +13,7 @@ import { DataSourceHealthEntity } from '../../database/entities/data-source-heal
 import { UserEntity } from '../../database/entities/user.entity';
 
 import { EncryptionService } from './encryption.service';
-import { MockBrokerAdapter } from './adapters/mock-broker.adapter';
+import { PaperTradingAdapter } from './adapters/paper-trading.adapter';
 import { ZerodhaAdapter } from './adapters/zerodha.adapter';
 import { UpstoxAdapter } from './adapters/upstox.adapter';
 import { DhanAdapter } from './adapters/dhan.adapter';
@@ -61,7 +61,7 @@ const useBull = isRedisConfigured();
   ],
   providers: [
     EncryptionService,
-    MockBrokerAdapter,
+    PaperTradingAdapter,
     ZerodhaAdapter,
     UpstoxAdapter,
     DhanAdapter,
@@ -85,4 +85,3 @@ const useBull = isRedisConfigured();
   ],
 })
 export class OptionsModule {}
-

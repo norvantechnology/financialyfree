@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { BrokerType, LiveTickDto, OptionChainDto } from '@ff/types';
 import { IBrokerAdapter, BrokerTokenResult } from './broker.interface';
 
+/** Stub until Angel SmartAPI option-chain is wired — fails closed without credentials. */
 @Injectable()
 export class AngelOneAdapter implements IBrokerAdapter {
   readonly broker: BrokerType = 'angelone';
@@ -10,17 +11,15 @@ export class AngelOneAdapter implements IBrokerAdapter {
   constructor(private readonly configService: ConfigService) {}
 
   getAuthUrl(state: string): string {
-    const apiKey = this.configService.get<string>('ANGEL_API_KEY') || 'mock_angel_api_key';
+    const apiKey = this.configService.get<string>('ANGEL_API_KEY') || '';
+    if (!apiKey) {
+      throw new Error('ANGEL_API_KEY not configured');
+    }
     return `https://smartapi.angelbroking.com/publisher-login?api_key=${encodeURIComponent(apiKey)}&state=${encodeURIComponent(state)}`;
   }
 
-  async exchangeToken(code: string): Promise<BrokerTokenResult> {
-    return {
-      accessToken: `angel_tok_${Date.now()}`,
-      clientId: 'ANGEL_MOCK_USER',
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      metadata: { broker: 'angelone', codeReceived: code.substring(0, 6) },
-    };
+  async exchangeToken(_code: string): Promise<BrokerTokenResult> {
+    throw new Error('Angel One OAuth token exchange is not implemented yet. Use Upstox or NSE free feed.');
   }
 
   async getQuotes(_tokens: string[], _accessToken?: string): Promise<Map<string, LiveTickDto>> {

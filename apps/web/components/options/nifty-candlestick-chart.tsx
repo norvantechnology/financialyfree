@@ -29,7 +29,7 @@ interface NiftyCandlestickChartProps {
 
 export const NiftyCandlestickChart: React.FC<NiftyCandlestickChartProps> = ({
   symbol,
-  spotPrice,
+  spotPrice: _spotPrice,
   spotChange,
   spotChangePct,
 }) => {
@@ -81,16 +81,8 @@ export const NiftyCandlestickChart: React.FC<NiftyCandlestickChartProps> = ({
     };
   }, [symbol, timeframe]);
 
-  // Current active candle for OHLC display
-  const activeCandle = hoveredCandle || candles[candles.length - 1] || {
-    time: Date.now(),
-    timeStr: 'Live',
-    open: spotPrice - spotChange,
-    high: Math.max(spotPrice, spotPrice - spotChange),
-    low: Math.min(spotPrice, spotPrice - spotChange),
-    close: spotPrice,
-    volume: 35000,
-  };
+  // Current active candle for OHLC display — never invent volume/OHLC
+  const activeCandle = hoveredCandle || candles[candles.length - 1] || null;
 
   const isPositive = spotChange >= 0;
 
@@ -264,18 +256,24 @@ export const NiftyCandlestickChart: React.FC<NiftyCandlestickChartProps> = ({
       {/* ── Live OHLC Status Strip ── */}
       <div className="sm-ohlc-status-strip">
         <span className="sm-ohlc-symbol">{symbol}</span>
-        <span className="sm-ohlc-item">
-          O <strong className="font-mono">{activeCandle.open.toFixed(2)}</strong>
-        </span>
-        <span className="sm-ohlc-item">
-          H <strong className="font-mono">{activeCandle.high.toFixed(2)}</strong>
-        </span>
-        <span className="sm-ohlc-item">
-          L <strong className="font-mono">{activeCandle.low.toFixed(2)}</strong>
-        </span>
-        <span className="sm-ohlc-item">
-          C <strong className="font-mono">{activeCandle.close.toFixed(2)}</strong>
-        </span>
+        {activeCandle ? (
+          <>
+            <span className="sm-ohlc-item">
+              O <strong className="font-mono">{activeCandle.open.toFixed(2)}</strong>
+            </span>
+            <span className="sm-ohlc-item">
+              H <strong className="font-mono">{activeCandle.high.toFixed(2)}</strong>
+            </span>
+            <span className="sm-ohlc-item">
+              L <strong className="font-mono">{activeCandle.low.toFixed(2)}</strong>
+            </span>
+            <span className="sm-ohlc-item">
+              C <strong className="font-mono">{activeCandle.close.toFixed(2)}</strong>
+            </span>
+          </>
+        ) : (
+          <span className="sm-ohlc-item">No candle data</span>
+        )}
         <span className={`sm-ohlc-diff ${isPositive ? 'pos' : 'neg'}`}>
           {isPositive ? '+' : ''}{spotChange.toFixed(2)} ({isPositive ? '+' : ''}{spotChangePct.toFixed(2)}%)
         </span>

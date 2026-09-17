@@ -69,6 +69,7 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Generates Implied Volatility Smile curve for an underlying and expiry.
+   * Chain IV is stored as percent (e.g. 14.5); decimal values (0.145) are normalized.
    */
   async getIvSmile(underlying: string, expiry?: string): Promise<{
     underlying: string;
@@ -76,32 +77,44 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
     spotPrice: number;
     atmIv: number | null;
     points: IvSmilePointDto[];
+    source?: string;
+    dataNote?: string;
   }> {
     const chain = await this.marketDataService.getOptionChain(underlying, expiry);
 
+    const toPct = (iv: number | null | undefined): number | null => {
+      if (iv == null || !Number.isFinite(iv)) return null;
+      return iv > 1 ? iv : iv * 100;
+    };
+
     const points: IvSmilePointDto[] = chain.contracts.map((row) => {
       const isAtm = row.strike === chain.atmStrike;
-      // Derived IV: prioritize CE IV or PE IV or average
+      const ce = toPct(row.ce.iv);
+      const pe = toPct(row.pe.iv);
       const avgIv =
-        row.ce.iv && row.pe.iv
-          ? Math.round(((row.ce.iv + row.pe.iv) / 2) * 10000) / 100
-          : (row.ce.iv ?? row.pe.iv ?? 0.15) * 100;
+        ce != null && pe != null
+          ? Math.round(((ce + pe) / 2) * 100) / 100
+          : ce ?? pe ?? null;
 
       return {
         strike: row.strike,
-        iv: Math.round(avgIv * 100) / 100,
+        iv: avgIv ?? 0,
         callLtp: row.ce.ltp,
         putLtp: row.pe.ltp,
         isAtm,
       };
     });
 
+    const atmIvRaw = toPct(chain.atmIv);
+
     return {
       underlying: chain.underlying,
       expiry: chain.selectedExpiry,
       spotPrice: chain.spotPrice,
-      atmIv: chain.atmIv ? (chain.atmIv > 1 ? chain.atmIv : Math.round(chain.atmIv * 10000) / 100) : null,
-      points,
+      atmIv: atmIvRaw,
+      points: points.filter((p) => p.iv > 0),
+      source: chain.source,
+      dataNote: chain.dataNote,
     };
   }
 
@@ -112,9 +125,16 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
     underlying: string;
     spotPrice: number;
     surfaces: VolSurfaceExpiryDto[];
+    source?: string;
+    dataNote?: string;
   }> {
     const baseChain = await this.marketDataService.getOptionChain(underlying);
-    const expiries = baseChain.expiryDates.slice(0, 4); // Near, Next, Far 1, Far 2
+    const expiries = baseChain.expiryDates.slice(0, 4);
+
+    const toPct = (iv: number | null | undefined): number | null => {
+      if (iv == null || !Number.isFinite(iv)) return null;
+      return iv > 1 ? iv : iv * 100;
+    };
 
     const surfaces: VolSurfaceExpiryDto[] = [];
     const now = new Date();
@@ -126,19 +146,17 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
         const diffMs = expDate.getTime() - now.getTime();
         const dte = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 
-        const strikes = chain.contracts.map((c) => {
-          const ivVal = c.ce.iv ?? c.pe.iv ?? 0.15;
-          return {
-            strike: c.strike,
-            iv: Math.round(ivVal * 10000) / 100,
-          };
-        });
+        const strikes = chain.contracts
+          .map((c) => {
+            const ivVal = toPct(c.ce.iv ?? c.pe.iv);
+            if (ivVal == null) return null;
+            return { strike: c.strike, iv: Math.round(ivVal * 100) / 100 };
+          })
+          .filter(Boolean) as Array<{ strike: number; iv: number }>;
 
-        surfaces.push({
-          expiry: exp,
-          dte,
-          strikes,
-        });
+        if (strikes.length) {
+          surfaces.push({ expiry: exp, dte, strikes });
+        }
       } catch (e) {
         this.logger.debug(`Could not compute surface for expiry ${exp}: ${(e as any)?.message}`);
       }
@@ -148,6 +166,8 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
       underlying: baseChain.underlying,
       spotPrice: baseChain.spotPrice,
       surfaces,
+      source: baseChain.source,
+      dataNote: baseChain.dataNote,
     };
   }
 
@@ -218,7 +238,7 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
       order: { timestamp: 'ASC' },
     });
 
-    if (snapshots.length > 5) {
+    if (snapshots.length > 0) {
       // Group by timestamp
       const map = new Map<string, { callOi: number; putOi: number; spot: number }>();
       for (const s of snapshots) {
@@ -250,46 +270,43 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
       return { underlying, expiry: selectedExpiry, points };
     }
 
-    // Fallback: build an intraday profile based on current chain data
-    const totalCallOi = chain.contracts.reduce((acc, c) => acc + c.ce.oi, 0);
-    const totalPutOi = chain.contracts.reduce((acc, c) => acc + c.pe.oi, 0);
-
-    const times = [
-      '09:15', '09:30', '10:00', '10:30', '11:00', '11:30',
-      '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
-    ];
-
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const points = times.map((t, idx) => {
-      // Progressive OI accumulation factor across the day
-      const progress = 0.35 + 0.65 * ((idx + 1) / times.length);
-      const randomNoise = 1 + (Math.sin(idx * 0.8) * 0.03);
-      const cOi = Math.round(totalCallOi * progress * randomNoise);
-      const pOi = Math.round(totalPutOi * progress * randomNoise);
-      const pcrVal = cOi > 0 ? Math.round((pOi / cOi) * 100) / 100 : 1.0;
-      const spotOffset = (idx - 7) * 8;
-
+    // No invented intraday series — return empty until real oi_snapshots exist
+    // (or a single current point when live chain OI is available)
+    if (chain.contracts.length > 0 && (chain.source === 'NSE_LIVE' || chain.source === 'BROKER_LIVE')) {
+      const totalCallOi = chain.contracts.reduce((acc, c) => acc + c.ce.oi, 0);
+      const totalPutOi = chain.contracts.reduce((acc, c) => acc + c.pe.oi, 0);
+      const pcrVal = totalCallOi > 0 ? Math.round((totalPutOi / totalCallOi) * 100) / 100 : 0;
       return {
-        timestamp: `${todayStr}T${t}:00.000Z`,
-        callOi: cOi,
-        putOi: pOi,
-        pcr: pcrVal,
-        spotPrice: chain.spotPrice + spotOffset,
+        underlying,
+        expiry: selectedExpiry,
+        points: [
+          {
+            timestamp: chain.timestamp,
+            callOi: totalCallOi,
+            putOi: totalPutOi,
+            pcr: pcrVal,
+            spotPrice: chain.spotPrice,
+          },
+        ],
       };
-    });
+    }
 
     return {
       underlying,
       expiry: selectedExpiry,
-      points,
+      points: [],
     };
   }
 
   /**
    * Takes a live snapshot of OI for all strikes of an underlying.
+   * Skips DELAYED_SPOT_ONLY / empty chains so we never persist fabricated OI.
    */
   async recordOiSnapshot(underlying: string, expiry?: string): Promise<number> {
     const chain = await this.marketDataService.getOptionChain(underlying, expiry);
+    if (!chain.contracts.length || chain.source === 'DELAYED_SPOT_ONLY') {
+      return 0;
+    }
     const rows: OiSnapshotEntity[] = [];
 
     for (const c of chain.contracts) {

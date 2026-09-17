@@ -12,7 +12,10 @@ export class ZerodhaAdapter implements IBrokerAdapter {
   constructor(private readonly configService: ConfigService) {}
 
   getAuthUrl(state: string): string {
-    const apiKey = this.configService.get<string>('ZERODHA_API_KEY') || 'mock_zerodha_api_key';
+    const apiKey = this.configService.get<string>('ZERODHA_API_KEY') || '';
+    if (!apiKey) {
+      throw new Error('ZERODHA_API_KEY not configured');
+    }
     const redirectUri = this.getRedirectUri();
     return `https://kite.zerodha.com/connect/login?v=3&api_key=${encodeURIComponent(apiKey)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
   }
@@ -22,13 +25,7 @@ export class ZerodhaAdapter implements IBrokerAdapter {
     const apiSecret = this.configService.get<string>('ZERODHA_API_SECRET') || '';
 
     if (!apiKey || !apiSecret) {
-      this.logger.warn('Zerodha API key or secret not set. Returning mock test token.');
-      return {
-        accessToken: `kite_mock_${Date.now()}`,
-        clientId: 'ZERODHA_TEST_USER',
-        expiresAt: new Date(Date.now() + 16 * 60 * 60 * 1000), // Kite tokens expire at 6am next day
-        metadata: { broker: 'zerodha', mode: 'simulated' },
-      };
+      throw new Error('Zerodha credentials not configured. Set ZERODHA_API_KEY and ZERODHA_API_SECRET in .env');
     }
 
     // Official Kite Connect checksum: SHA-256 of (api_key + request_token + api_secret)
