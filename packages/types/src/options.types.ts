@@ -112,7 +112,7 @@ export interface OptionChainDto {
   atmStrike: number;
   atmIv: number | null;
   contracts: OptionChainRowDto[];
-  source: 'BROKER_LIVE' | 'NSE_FALLBACK' | 'SANDBOX';
+  source: 'BROKER_LIVE' | 'NSE_FALLBACK' | 'SANDBOX' | 'YAHOO_LIVE' | 'NSE_LIVE';
 }
 
 export interface StrategyLegDto {

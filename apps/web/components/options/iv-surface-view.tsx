@@ -266,7 +266,7 @@ export const IvSurfaceView: React.FC<IvSurfaceViewProps> = ({ symbol, selectedEx
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
           <span className="text-[11px] text-neutral-400 uppercase tracking-wider">Zero-Gamma Flip Strike</span>
           <div className="text-base font-bold font-mono text-amber-400 mt-1">
-            ₹{gexData?.zeroGammaStrike?.toLocaleString('en-IN') || 25000}
+            {gexData?.zeroGammaStrike ? `₹${gexData.zeroGammaStrike.toLocaleString('en-IN')}` : '—'}
           </div>
           <span className="text-[10px] text-neutral-500">Volatility pivot threshold</span>
         </div>

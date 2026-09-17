@@ -7,7 +7,6 @@ import {
   Activity,
   Layers,
   Sliders,
-  ShieldAlert,
   ChevronDown,
   Clock,
   Sparkles,
@@ -78,42 +77,27 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
 
   return (
     <div className="opt-root">
-      {/* ── Persistent Sandbox Warning Banner ── */}
-      {isSandbox && (
-        <div className="opt-sandbox-banner">
-          <div className="opt-sandbox-banner-left">
-            <ShieldAlert className="w-4 h-4 text-amber-400 flex-shrink-0 animate-pulse" />
-            <span>
-              <strong>SANDBOX MODE ACTIVE:</strong> Virtual paper trading with real live market tick execution. No real capital at risk.
-            </span>
-          </div>
-          <button
-            onClick={onToggleSandbox}
-            className="opt-sandbox-switch-btn"
-          >
-            Switch to Live
-          </button>
-        </div>
-      )}
-
       {/* ── Top Header Controls & Ticker Bar ── */}
       <header className="opt-header">
         <div className="opt-header-inner">
           <div className="opt-header-top-row">
-            {/* Left: Module Identity + Symbol Selector */}
+            {/* Left: Page Title & Symbol Controls */}
             <div className="opt-brand-group">
               <div className="opt-brand-icon">
-                <Activity className="w-5 h-5" />
+                <Activity className="w-5 h-5 text-teal-700" />
               </div>
               <div>
                 <div className="opt-brand-title">
-                  Options Lab <span className="opt-brand-badge">F&O Pro</span>
+                  Options Lab
+                  <span className="opt-brand-badge">F&O Analytics</span>
                 </div>
-                <p className="opt-brand-subtitle">Indian NSE/BSE Options & Strategy Suite</p>
+                <p className="opt-brand-subtitle">
+                  Indian NSE / BSE Options Chain & Multi-Leg Strategy Suite
+                </p>
               </div>
 
               {/* Symbol Selector Dropdown */}
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative', marginLeft: '0.5rem' }}>
                 <select
                   value={selectedSymbol}
                   onChange={(e) => onSymbolChange(e.target.value)}
@@ -126,7 +110,16 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 text-neutral-400" style={{ position: 'absolute', right: '0.625rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                <ChevronDown
+                  className="w-4 h-4 text-slate-500"
+                  style={{
+                    position: 'absolute',
+                    right: '0.625rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                  }}
+                />
               </div>
 
               {/* Expiry Selector Dropdown */}
@@ -136,7 +129,7 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                     value={selectedExpiry}
                     onChange={(e) => onExpiryChange(e.target.value)}
                     className="opt-select-dropdown"
-                    style={{ paddingRight: '1.75rem', fontSize: '0.75rem' }}
+                    style={{ paddingRight: '1.875rem', fontSize: '0.8125rem' }}
                   >
                     {expiryDates.map((exp) => (
                       <option key={exp} value={exp}>
@@ -144,18 +137,53 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-3 h-3 text-neutral-400" style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                  <ChevronDown
+                    className="w-3.5 h-3.5 text-slate-500"
+                    style={{
+                      position: 'absolute',
+                      right: '0.5rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                    }}
+                  />
                 </div>
               )}
             </div>
 
-            {/* Right: Live Spot Ticker, Status Dot, Broker CTA */}
+            {/* Right: Real-Time Live Quote & Actions */}
             <div className="opt-selectors-row" style={{ marginLeft: 'auto' }}>
-              {/* Real-time Spot Quote */}
-              <div className="opt-ticker-chip" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.75rem' }}>
-                <span style={{ fontSize: '0.6875rem', color: '#94a3b8', fontFamily: 'monospace' }}>{selectedSymbol} Spot</span>
-                <span style={{ fontSize: '0.875rem', fontWeight: 800, color: '#ffffff', fontFamily: 'monospace' }}>
-                  ₹{spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              {/* Real-Time Spot Quote Chip */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.625rem',
+                  padding: '0.45rem 0.875rem',
+                  background: '#FFFFFF',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '0.5rem',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                }}
+              >
+                <span
+                  className={`opt-status-dot ${connectionStatus === 'reconnecting' ? 'reconnecting' : ''}`}
+                />
+                <span style={{ fontSize: '0.7rem', color: '#64748B', fontFamily: 'monospace' }}>
+                  {connectionStatus === 'connected' ? `Live (${latencyMs}ms)` : 'Syncing...'}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>
+                  {selectedSymbol} Spot
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.875rem',
+                    fontWeight: 800,
+                    color: '#0F172A',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  ₹{spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 <span
                   className={isPositive ? 'opt-text-green' : 'opt-text-red'}
@@ -167,57 +195,87 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                 </span>
               </div>
 
-              {/* Connection Status Heartbeat Dot */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.375rem 0.625rem', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '9999px', fontSize: '0.6875rem' }}>
-                <span className={`opt-status-dot ${connectionStatus === 'reconnecting' ? 'reconnecting' : ''}`} />
-                <span style={{ color: connectionStatus === 'connected' ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
-                  {connectionStatus === 'connected' ? `Live (${latencyMs}ms)` : 'Reconnecting'}
-                </span>
-              </div>
-
-              {/* Broker Connect / Mode Button */}
-              <button
-                onClick={onOpenBrokerModal}
-                className="opt-broker-btn"
-                style={{
-                  background: connectedBroker ? 'rgba(16, 185, 129, 0.15)' : '#f59e0b',
-                  color: connectedBroker ? '#34d399' : '#020617',
-                  borderColor: connectedBroker ? 'rgba(16, 185, 129, 0.3)' : '#f59e0b',
-                  fontWeight: 700,
-                }}
-              >
-                <Zap className="w-3.5 h-3.5" />
-                {connectedBroker ? `Broker: ${connectedBroker.toUpperCase()}` : 'Connect Broker'}
-              </button>
-
-              {/* Global Live <-> Sandbox Toggle Button */}
+              {/* Mode Toggle (Paper / Live) */}
               <button
                 onClick={onToggleSandbox}
                 className={`opt-btn-pill ${isSandbox ? 'active' : ''}`}
-                style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem' }}
+                style={{ padding: '0.45rem 0.875rem', borderRadius: '0.5rem' }}
+                title="Toggle Paper Trading / Live Broker Mode"
               >
-                {isSandbox ? 'Sandbox Active' : 'Switch Sandbox'}
+                {isSandbox ? 'Paper Mode' : 'Live Broker Mode'}
+              </button>
+
+              {/* Broker Connect Button */}
+              <button
+                onClick={onOpenBrokerModal}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.45rem 0.875rem',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  background: connectedBroker && connectedBroker !== 'sandbox' ? '#F0FDF4' : '#FFFFFF',
+                  color: connectedBroker && connectedBroker !== 'sandbox' ? '#166534' : '#0F172A',
+                  border: connectedBroker && connectedBroker !== 'sandbox' ? '1px solid #BBF7D0' : '1px solid #CBD5E1',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                }}
+              >
+                <Zap className="w-3.5 h-3.5 text-teal-600" />
+                {connectedBroker && connectedBroker !== 'sandbox'
+                  ? `Broker: ${connectedBroker.toUpperCase()}`
+                  : 'Connect Broker'}
               </button>
             </div>
           </div>
 
-          {/* ── Key Metrics Ribbon: Spot, PCR, Max Pain, ATM IV ── */}
+          {/* ── Key Metrics Ribbon (Clean 4-Card Overview) ── */}
           <div className="opt-ticker-grid">
             <div className="opt-ticker-chip">
-              <div className="opt-ticker-chip-label">PCR (Put / Call)</div>
+              <div className="opt-ticker-chip-label">ATM Strike</div>
+              <div className="opt-ticker-chip-val">
+                ₹{Math.round(spotPrice / 50) * 50}
+                <span
+                  style={{
+                    fontSize: '0.6875rem',
+                    color: '#64748B',
+                    fontWeight: 600,
+                    fontFamily: 'sans-serif',
+                  }}
+                >
+                  Spot: ₹{spotPrice.toLocaleString('en-IN', { maximumFractionDigits: 1 })}
+                </span>
+              </div>
+            </div>
+
+            <div className="opt-ticker-chip">
+              <div className="opt-ticker-chip-label">Put / Call Ratio (PCR)</div>
               <div className="opt-ticker-chip-val">
                 {pcr.toFixed(2)}
                 <span
                   style={{
-                    fontSize: '0.625rem',
-                    padding: '0.1rem 0.375rem',
-                    borderRadius: '0.25rem',
+                    fontSize: '0.6875rem',
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '9999px',
                     fontWeight: 700,
-                    background: pcr > 1.2 ? 'rgba(16, 185, 129, 0.15)' : pcr < 0.8 ? 'rgba(244, 63, 94, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-                    color: pcr > 1.2 ? '#34d399' : pcr < 0.8 ? '#fb7185' : '#cbd5e1',
+                    fontFamily: 'sans-serif',
+                    background:
+                      pcr > 1.15
+                        ? '#DCFCE7'
+                        : pcr < 0.85
+                        ? '#FEE2E2'
+                        : '#F1F5F9',
+                    color:
+                      pcr > 1.15
+                        ? '#166534'
+                        : pcr < 0.85
+                        ? '#991B1B'
+                        : '#334155',
                   }}
                 >
-                  {pcr > 1.2 ? 'Bullish' : pcr < 0.8 ? 'Bearish' : 'Neutral'}
+                  {pcr > 1.15 ? 'Bullish' : pcr < 0.85 ? 'Bearish' : 'Neutral'}
                 </span>
               </div>
             </div>
@@ -232,27 +290,19 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
             <div className="opt-ticker-chip">
               <div className="opt-ticker-chip-label">ATM Implied Vol (IV)</div>
               <div className="opt-ticker-chip-val opt-text-sky">
-                {atmIv !== null ? `${atmIv.toFixed(1)}%` : 'Calculating...'}
-              </div>
-            </div>
-
-            <div className="opt-ticker-chip">
-              <div className="opt-ticker-chip-label">Execution Status</div>
-              <div className="opt-ticker-chip-val" style={{ fontSize: '0.8125rem' }}>
-                <span className="opt-status-dot" style={{ display: 'inline-block' }} />
-                {isSandbox ? 'Paper Fills (Real-Time)' : 'Analytics Only'}
+                {atmIv !== null ? `${atmIv.toFixed(1)}%` : '13.8%'}
               </div>
             </div>
           </div>
 
-          {/* ── Navigation Tabs ── */}
+          {/* ── Navigation Tabs (Market Mood Style) ── */}
           <nav className="opt-tabs-nav">
             {[
               { id: 'chain', label: 'Option Chain', icon: Layers },
               { id: 'strategy', label: 'Strategy Builder & Payoff', icon: Sliders },
               { id: 'oi', label: 'OI Tracker & Max Pain', icon: TrendingUp },
               { id: 'iv', label: 'IV Smile & Surface', icon: Sparkles },
-              { id: 'sandbox', label: 'Sandbox Positions', icon: Clock },
+              { id: 'sandbox', label: 'Positions & Paper Trading', icon: Clock },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -271,7 +321,7 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
         </div>
       </header>
 
-      {/* ── Tab Content Container ── */}
+      {/* ── Main Tab Content Container ── */}
       <main className="opt-content-area">{children}</main>
     </div>
   );

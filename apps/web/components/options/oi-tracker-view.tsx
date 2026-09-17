@@ -58,7 +58,7 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         totalPutOiChg: 0,
         pcr: 1.0,
         volPcr: 1.0,
-        maxPain: 25000,
+        maxPain: 0,
       };
     }
 
@@ -357,7 +357,7 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
           <span className="text-[11px] text-neutral-400 uppercase tracking-wider">Atm Strike</span>
           <div className="text-base font-bold font-mono text-sky-400 mt-1">
-            ₹{chainData?.atmStrike?.toLocaleString('en-IN') || 25000}
+            {chainData?.atmStrike ? `₹${chainData.atmStrike.toLocaleString('en-IN')}` : '—'}
           </div>
           <span className="text-[10px] text-neutral-500">
             Spot: ₹{chainData?.spotPrice?.toLocaleString('en-IN')}

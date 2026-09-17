@@ -65,15 +65,59 @@ export class MockBrokerAdapter implements IBrokerAdapter {
   }
 
   async getOptionChain(symbol: string, expiry?: string): Promise<OptionChainDto | null> {
-    const isBankNifty = symbol.toUpperCase() === 'BANKNIFTY';
-    const isSensex = symbol.toUpperCase() === 'SENSEX';
-    const spotPrice = isBankNifty ? 52380.45 : isSensex ? 82400.2 : 25142.15;
-    const step = isBankNifty ? 100 : isSensex ? 100 : 50;
+    const clean = symbol.toUpperCase();
+    let ticker = `${clean}.NS`;
+    if (clean === 'NIFTY' || clean === 'NIFTY50' || clean === 'NIFTY 50') ticker = '^NSEI';
+    else if (clean === 'BANKNIFTY' || clean === 'NIFTYBANK') ticker = '^NSEBANK';
+    else if (clean === 'FINNIFTY') ticker = 'NIFTY_FIN_SERVICE.NS';
+    else if (clean === 'MIDCPNIFTY') ticker = 'NIFTY_MID_SELECT.NS';
+    else if (clean === 'SENSEX') ticker = '^BSESN';
+
+    let spotPrice = clean === 'BANKNIFTY' ? 56055.75 : clean === 'SENSEX' ? 74314.59 : clean === 'FINNIFTY' ? 25318.35 : 23270.6;
+    let spotChange = 0;
+    let spotChangePct = 0;
+
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0',
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as any;
+        const meta = json?.chart?.result?.[0]?.meta;
+        if (meta?.regularMarketPrice) {
+          spotPrice = Number(meta.regularMarketPrice);
+          const prev = Number(meta.chartPreviousClose || meta.previousClose || spotPrice);
+          spotChange = parseFloat((spotPrice - prev).toFixed(2));
+          spotChangePct = parseFloat(((spotChange / prev) * 100).toFixed(2));
+        }
+      }
+    } catch {}
+
+    const isBankNifty = clean === 'BANKNIFTY';
+    const isSensex = clean === 'SENSEX';
+    const step = isBankNifty || isSensex ? 100 : 50;
     const atmStrike = Math.round(spotPrice / step) * step;
 
-    // Generate 11 strikes around ATM (-5 to +5)
+    // Upcoming weekly expiries (Thursdays)
+    const expiryDates: string[] = [];
+    const dateTracker = new Date();
+    for (let i = 0; i < 35 && expiryDates.length < 4; i++) {
+      dateTracker.setDate(dateTracker.getDate() + 1);
+      if (dateTracker.getDay() === 4) {
+        expiryDates.push(dateTracker.toISOString().split('T')[0]);
+      }
+    }
+    const selectedExpiry = expiry || expiryDates[0] || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+
+    // Generate 15 strikes around ATM (-7 to +7)
     const strikes: number[] = [];
-    for (let i = -5; i <= 5; i++) {
+    for (let i = -7; i <= 7; i++) {
       strikes.push(atmStrike + i * step);
     }
 
@@ -81,13 +125,12 @@ export class MockBrokerAdapter implements IBrokerAdapter {
       const moneyness = (strike - spotPrice) / spotPrice;
       const ceIntrinsic = Math.max(0, spotPrice - strike);
       const peIntrinsic = Math.max(0, strike - spotPrice);
-      const ceTimeVal = Math.max(15, 140 - Math.abs(moneyness) * 900);
-      const peTimeVal = Math.max(15, 135 - Math.abs(moneyness) * 900);
+      const timeVal = Math.max(12, 160 - Math.abs(moneyness) * 900);
 
-      const ceLtp = parseFloat((ceIntrinsic + ceTimeVal).toFixed(2));
-      const peLtp = parseFloat((peIntrinsic + peTimeVal).toFixed(2));
-      const ceOi = Math.floor(65000 + (1 - Math.abs(moneyness)) * 85000);
-      const peOi = Math.floor(72000 + (1 - Math.abs(moneyness)) * 92000);
+      const ceLtp = parseFloat((ceIntrinsic + timeVal).toFixed(2));
+      const peLtp = parseFloat((peIntrinsic + timeVal * 0.96).toFixed(2));
+      const ceOi = Math.floor(65000 + (1 - Math.min(1, Math.abs(moneyness) * 5)) * 85000);
+      const peOi = Math.floor(72000 + (1 - Math.min(1, Math.abs(moneyness) * 5)) * 92000);
 
       return {
         strike,
@@ -98,7 +141,7 @@ export class MockBrokerAdapter implements IBrokerAdapter {
           ltp: ceLtp,
           change: parseFloat(((Math.random() - 0.45) * 8).toFixed(2)),
           changePct: parseFloat(((Math.random() - 0.45) * 5).toFixed(2)),
-          iv: 0.138,
+          iv: 13.8,
           delta: strike < atmStrike ? 0.72 : strike === atmStrike ? 0.51 : 0.32,
           gamma: 0.0008,
           theta: -18.5,
@@ -116,7 +159,7 @@ export class MockBrokerAdapter implements IBrokerAdapter {
           ltp: peLtp,
           change: parseFloat(((Math.random() - 0.45) * 8).toFixed(2)),
           changePct: parseFloat(((Math.random() - 0.45) * 5).toFixed(2)),
-          iv: 0.142,
+          iv: 14.2,
           delta: strike > atmStrike ? -0.68 : strike === atmStrike ? -0.49 : -0.28,
           gamma: 0.0008,
           theta: -17.8,
@@ -133,16 +176,16 @@ export class MockBrokerAdapter implements IBrokerAdapter {
     return {
       underlying: symbol.toUpperCase(),
       spotPrice,
-      spotChange: 68.4,
-      spotChangePct: 0.27,
+      spotChange,
+      spotChangePct,
       timestamp: new Date().toISOString(),
-      expiryDates: ['2026-09-24', '2026-10-01', '2026-10-29'],
-      selectedExpiry: expiry || '2026-09-24',
+      expiryDates,
+      selectedExpiry,
       pcr: 1.15,
       volumePcr: 1.08,
       maxPain: atmStrike,
       atmStrike,
-      atmIv: 0.138,
+      atmIv: 13.8,
       contracts,
       source: 'SANDBOX',
     };

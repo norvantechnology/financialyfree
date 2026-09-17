@@ -89,6 +89,13 @@ export class OptionsController {
   }
 
   @Public()
+  @Get('spot/:underlying')
+  async getSpotQuote(@Param('underlying') underlying: string) {
+    const quote = await this.marketDataService.fetchLiveSpotQuote(underlying);
+    return { success: true, data: quote };
+  }
+
+  @Public()
   @Get('instruments')
   async searchInstruments(
     @Query('symbol') symbol?: string,
