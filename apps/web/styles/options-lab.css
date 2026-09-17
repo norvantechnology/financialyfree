@@ -1765,3 +1765,391 @@
   background: #EFF6FF;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   Aureus Editorial Metrics, Chart Cards, & Ready-Made Strategies
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── KPI Metric Grids ── */
+.opt-kpi-grid {
+  display: grid;
+  gap: 0.875rem;
+  margin-bottom: 1.5rem;
+  width: 100%;
+}
+
+.opt-kpi-grid.cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.opt-kpi-grid.cols-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.opt-kpi-grid.cols-6 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (max-width: 1024px) {
+  .opt-kpi-grid.cols-4,
+  .opt-kpi-grid.cols-5,
+  .opt-kpi-grid.cols-6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .opt-kpi-grid.cols-4,
+  .opt-kpi-grid.cols-5,
+  .opt-kpi-grid.cols-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.opt-kpi-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 1rem 1.125rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.opt-kpi-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+}
+
+.opt-kpi-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.opt-kpi-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0F172A;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.opt-kpi-sub {
+  font-size: 0.6875rem;
+  color: #94A3B8;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/* Badges inside KPIs */
+.opt-badge-pill {
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.opt-badge-pill.green {
+  background: #F0FDF4;
+  color: #166534;
+  border: 1px solid #BBF7D0;
+}
+
+.opt-badge-pill.rose {
+  background: #FFF1F2;
+  color: #9F1239;
+  border: 1px solid #FECDD3;
+}
+
+.opt-badge-pill.amber {
+  background: #FFFBEB;
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+
+.opt-badge-pill.sky {
+  background: #F0F9FF;
+  color: #0369A1;
+  border: 1px solid #BAE6FD;
+}
+
+/* ── Chart Container Cards ── */
+.opt-chart-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 1.5rem;
+}
+
+.opt-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #F1F5F9;
+  padding-bottom: 0.875rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.opt-chart-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.opt-chart-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0F766E;
+  flex-shrink: 0;
+}
+
+.opt-chart-title {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: #0F172A;
+  margin: 0;
+}
+
+.opt-chart-subtitle {
+  font-size: 0.75rem;
+  color: #64748B;
+  margin: 0.15rem 0 0 0;
+  font-weight: 500;
+}
+
+.opt-chart-container {
+  width: 100%;
+  height: 330px;
+  position: relative;
+}
+
+.opt-charts-dual-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 1024px) {
+  .opt-charts-dual-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Filters Bar for Option Chain & OI Tracker ── */
+.opt-filters-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 0.625rem 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.opt-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.opt-filter-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748B;
+}
+
+.opt-filter-btn {
+  padding: 0.35rem 0.75rem;
+  background: #F8FAFC;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.opt-filter-btn:hover {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+  color: #0F172A;
+}
+
+.opt-filter-btn.active {
+  background: #0F766E;
+  border-color: #0F766E;
+  color: #FFFFFF;
+  font-weight: 700;
+}
+
+/* ── StockMojo Ready-Made Strategies Panel ── */
+.opt-ready-strategies-panel {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  margin-top: 1rem;
+}
+
+.opt-ready-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #F1F5F9;
+  padding-bottom: 0.75rem;
+}
+
+.opt-ready-title {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: #0F172A;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.opt-category-pills {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: #F1F5F9;
+  padding: 0.25rem;
+  border-radius: 8px;
+}
+
+.opt-category-pill {
+  padding: 0.3rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748B;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.opt-category-pill:hover {
+  color: #0F172A;
+}
+
+.opt-category-pill.active {
+  background: #FFFFFF;
+  color: #2563EB;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.opt-ready-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.875rem;
+}
+
+@media (max-width: 1024px) {
+  .opt-ready-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .opt-ready-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.opt-ready-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+  position: relative;
+}
+
+.opt-ready-card:hover {
+  border-color: #2563EB;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.opt-ready-preview-box {
+  width: 100%;
+  height: 84px;
+  background: #FAFBFD;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid #F1F5F9;
+  padding: 0.25rem;
+}
+
+.opt-ready-preview-box svg {
+  width: 100%;
+  height: 100%;
+}
+
+.opt-ready-card-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1E293B;
+  transition: color 0.15s ease;
+}
+
+.opt-ready-card:hover .opt-ready-card-name {
+  color: #2563EB;
+}
+
+.opt-ready-card-desc {
+  font-size: 0.6875rem;
+  color: #64748B;
+  line-height: 1.3;
+}
+
+

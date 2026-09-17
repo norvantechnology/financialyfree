@@ -278,8 +278,9 @@ export class MarketDataService {
     }
 
     const spotPrice = records.underlyingValue || 0;
-    const expiryDates: string[] = records.expiryDates || [];
-    const targetExpiry = selectedExpiry || expiryDates[0] || '';
+    const rawExpiryDates: string[] = records.expiryDates || [];
+    const expiryDates: string[] = rawExpiryDates.map((d) => this.normalizeToIsoDate(d));
+    const targetExpiry = selectedExpiry ? this.normalizeToIsoDate(selectedExpiry) : expiryDates[0] || '';
 
     const underlyingInfo = POPULAR_FO_SYMBOLS.find((s) => s.symbol === symbol);
     const step = underlyingInfo?.step || 50;
@@ -291,7 +292,7 @@ export class MarketDataService {
     const pcrData: Array<{ callOi: number; putOi: number; callVolume: number; putVolume: number }> = [];
 
     for (const item of records.data) {
-      if (item.expiryDate !== targetExpiry) continue;
+      if (this.normalizeToIsoDate(item.expiryDate) !== targetExpiry) continue;
       const strike = item.strikePrice;
       strikeMap.set(strike, { ce: item.CE, pe: item.PE });
 
@@ -451,12 +452,23 @@ export class MarketDataService {
     const spotPrice = liveSpot.spotPrice;
     const atmStrike = Math.round(spotPrice / step) * step;
 
-    // Generate upcoming weekly/monthly expiry dates (next 4 Thursdays)
+    // Determine the exchange weekly expiry day for the underlying
+    // NIFTY: Thursday (4), BANKNIFTY: Wednesday (3), FINNIFTY: Tuesday (2), MIDCPNIFTY: Monday (1), SENSEX: Friday (5)
+    const expiryDay = isSensex ? 5 : isFinNifty ? 2 : isBankNifty ? 3 : isMidcap ? 1 : 4;
+
+    // Generate upcoming weekly/monthly expiry dates (next 5 contracts)
     const expiryDates: string[] = [];
     const dateTracker = new Date();
-    for (let i = 0; i < 35 && expiryDates.length < 4; i++) {
+    // If today is an expiry day, include it if before 15:30 IST (10:00 UTC)
+    const utcHour = dateTracker.getUTCHours();
+    const utcMin = dateTracker.getUTCMinutes();
+    const isBeforeMarketClose = utcHour < 10 || (utcHour === 10 && utcMin <= 0);
+    if (dateTracker.getDay() === expiryDay && isBeforeMarketClose) {
+      expiryDates.push(dateTracker.toISOString().split('T')[0]);
+    }
+    for (let i = 0; i < 45 && expiryDates.length < 5; i++) {
       dateTracker.setDate(dateTracker.getDate() + 1);
-      if (dateTracker.getDay() === 4) {
+      if (dateTracker.getDay() === expiryDay) {
         expiryDates.push(dateTracker.toISOString().split('T')[0]);
       }
     }
@@ -758,5 +770,17 @@ export class MarketDataService {
     }
     this.nseSessionCache = { cookies, expiresAt: Date.now() + 15 * 60 * 1000 };
     return cookies;
+  }
+
+  private normalizeToIsoDate(d: string): string {
+    if (!d) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    try {
+      const parsed = new Date(d);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+      }
+    } catch {}
+    return d;
   }
 }

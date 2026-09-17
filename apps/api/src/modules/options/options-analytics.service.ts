@@ -100,7 +100,7 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
       underlying: chain.underlying,
       expiry: chain.selectedExpiry,
       spotPrice: chain.spotPrice,
-      atmIv: chain.atmIv ? Math.round(chain.atmIv * 10000) / 100 : null,
+      atmIv: chain.atmIv ? (chain.atmIv > 1 ? chain.atmIv : Math.round(chain.atmIv * 10000) / 100) : null,
       points,
     };
   }

@@ -205,11 +205,22 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                         className="opt-select-dropdown"
                         style={{ paddingRight: '1.875rem', fontSize: '0.8125rem' }}
                       >
-                        {expiryDates.map((exp) => (
-                          <option key={exp} value={exp}>
-                            {exp}
-                          </option>
-                        ))}
+                        {expiryDates.map((exp) => {
+                          let label = exp;
+                          try {
+                            const target = new Date(exp);
+                            const now = new Date();
+                            const diffDays = Math.max(0, Math.round((target.getTime() - now.getTime()) / 86400000));
+                            const day = target.getDate();
+                            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                            label = `${day} ${months[target.getMonth()]} (${diffDays}d)`;
+                          } catch {}
+                          return (
+                            <option key={exp} value={exp}>
+                              {label}
+                            </option>
+                          );
+                        })}
                       </select>
                       <ChevronDown
                         className="w-3.5 h-3.5 text-slate-500"

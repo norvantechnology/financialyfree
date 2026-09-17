@@ -111,10 +111,15 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
+        backgroundColor: '#FFFFFF',
+        borderColor: '#CBD5E1',
+        borderWidth: 1,
+        textStyle: { color: '#0F172A', fontSize: 12 },
+        extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-radius: 8px;',
         formatter: (params: any[]) => {
           if (!params || params.length === 0) return '';
           const strike = params[0].name;
-          let html = `<div class="text-xs font-mono p-1"><strong>Strike: ₹${strike}</strong><br/>`;
+          let html = `<div style="padding: 2px;"><strong>Strike: ₹${Number(strike).toLocaleString('en-IN')}</strong><br/>`;
           params.forEach((p) => {
             html += `<span style="color:${p.color}">●</span> ${p.seriesName}: <strong>${Number(p.value).toLocaleString('en-IN')}</strong><br/>`;
           });
@@ -124,22 +129,22 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
       },
       legend: {
         data: ['Call OI (CE Resistance)', 'Put OI (PE Support)'],
-        textStyle: { color: '#a3a3a3', fontSize: 11 },
-        top: 5,
+        textStyle: { color: '#475569', fontSize: 11, fontWeight: '600' },
+        top: 0,
       },
-      grid: { left: '3%', right: '4%', bottom: '8%', top: '15%', containLabel: true },
+      grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
       xAxis: {
         type: 'category',
         data: strikes,
-        axisLine: { lineStyle: { color: '#404040' } },
-        axisLabel: { color: '#a3a3a3', fontSize: 10, interval: 0, rotate: 35 },
+        axisLine: { lineStyle: { color: '#CBD5E1' } },
+        axisLabel: { color: '#64748B', fontSize: 10, interval: 0, rotate: 35 },
       },
       yAxis: {
         type: 'value',
-        axisLine: { lineStyle: { color: '#404040' } },
-        splitLine: { lineStyle: { color: '#262626' } },
+        axisLine: { lineStyle: { color: '#CBD5E1' } },
+        splitLine: { lineStyle: { color: '#F1F5F9', type: 'dashed' } },
         axisLabel: {
-          color: '#a3a3a3',
+          color: '#64748B',
           formatter: (v: number) => {
             if (v >= 10000000) return `${(v / 10000000).toFixed(1)}Cr`;
             if (v >= 100000) return `${(v / 100000).toFixed(1)}L`;
@@ -153,7 +158,7 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
           name: 'Call OI (CE Resistance)',
           type: 'bar',
           data: callOis,
-          itemStyle: { color: '#10b981', borderRadius: [3, 3, 0, 0] },
+          itemStyle: { color: '#10B981', borderRadius: [3, 3, 0, 0] },
           barGap: '15%',
           markLine: {
             silent: true,
@@ -161,8 +166,8 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
             data: [
               {
                 xAxis: String(maxPain),
-                lineStyle: { color: '#f59e0b', width: 2, type: 'dashed' },
-                label: { formatter: 'Max Pain', position: 'insideEndTop', color: '#f59e0b' },
+                lineStyle: { color: '#D97706', width: 2, type: 'dashed' },
+                label: { formatter: 'Max Pain', position: 'insideEndTop', color: '#D97706', fontWeight: 'bold' },
               },
             ],
           },
@@ -171,7 +176,7 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
           name: 'Put OI (PE Support)',
           type: 'bar',
           data: putOis,
-          itemStyle: { color: '#f43f5e', borderRadius: [3, 3, 0, 0] },
+          itemStyle: { color: '#F43F5E', borderRadius: [3, 3, 0, 0] },
         },
       ],
     };
@@ -190,10 +195,15 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
+        backgroundColor: '#FFFFFF',
+        borderColor: '#CBD5E1',
+        borderWidth: 1,
+        textStyle: { color: '#0F172A', fontSize: 12 },
+        extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-radius: 8px;',
         formatter: (params: any[]) => {
           if (!params || params.length === 0) return '';
           const strike = params[0].name;
-          let html = `<div class="text-xs font-mono p-1"><strong>Strike: ₹${strike}</strong><br/>`;
+          let html = `<div style="padding: 2px;"><strong>Strike: ₹${Number(strike).toLocaleString('en-IN')}</strong><br/>`;
           params.forEach((p) => {
             html += `<span style="color:${p.color}">●</span> ${p.seriesName}: <strong>${Number(p.value).toLocaleString('en-IN')}</strong><br/>`;
           });
@@ -203,22 +213,22 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
       },
       legend: {
         data: ['Call OI Chg', 'Put OI Chg'],
-        textStyle: { color: '#a3a3a3', fontSize: 11 },
-        top: 5,
+        textStyle: { color: '#475569', fontSize: 11, fontWeight: '600' },
+        top: 0,
       },
-      grid: { left: '3%', right: '4%', bottom: '8%', top: '15%', containLabel: true },
+      grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
       xAxis: {
         type: 'category',
         data: strikes,
-        axisLine: { lineStyle: { color: '#404040' } },
-        axisLabel: { color: '#a3a3a3', fontSize: 10, interval: 0, rotate: 35 },
+        axisLine: { lineStyle: { color: '#CBD5E1' } },
+        axisLabel: { color: '#64748B', fontSize: 10, interval: 0, rotate: 35 },
       },
       yAxis: {
         type: 'value',
-        axisLine: { lineStyle: { color: '#404040' } },
-        splitLine: { lineStyle: { color: '#262626' } },
+        axisLine: { lineStyle: { color: '#CBD5E1' } },
+        splitLine: { lineStyle: { color: '#F1F5F9', type: 'dashed' } },
         axisLabel: {
-          color: '#a3a3a3',
+          color: '#64748B',
           formatter: (v: number) => {
             if (Math.abs(v) >= 100000) return `${(v / 100000).toFixed(1)}L`;
             return String(v);
@@ -231,13 +241,13 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
           name: 'Call OI Chg',
           type: 'bar',
           data: callOiChgs,
-          itemStyle: { color: '#34d399', borderRadius: [2, 2, 0, 0] },
+          itemStyle: { color: '#34D399', borderRadius: [2, 2, 0, 0] },
         },
         {
           name: 'Put OI Chg',
           type: 'bar',
           data: putOiChgs,
-          itemStyle: { color: '#fb7185', borderRadius: [2, 2, 0, 0] },
+          itemStyle: { color: '#FB7185', borderRadius: [2, 2, 0, 0] },
         },
       ],
     };
@@ -255,35 +265,40 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
       backgroundColor: 'transparent',
       tooltip: {
         trigger: 'axis',
+        backgroundColor: '#FFFFFF',
+        borderColor: '#CBD5E1',
+        borderWidth: 1,
+        textStyle: { color: '#0F172A', fontSize: 12 },
+        extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-radius: 8px;',
       },
       legend: {
         data: ['PCR Ratio', 'Underlying Spot'],
-        textStyle: { color: '#a3a3a3', fontSize: 11 },
-        top: 5,
+        textStyle: { color: '#475569', fontSize: 11, fontWeight: '600' },
+        top: 0,
       },
-      grid: { left: '3%', right: '4%', bottom: '8%', top: '15%', containLabel: true },
+      grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
       xAxis: {
         type: 'category',
         data: times,
-        axisLine: { lineStyle: { color: '#404040' } },
-        axisLabel: { color: '#a3a3a3', fontSize: 10 },
+        axisLine: { lineStyle: { color: '#CBD5E1' } },
+        axisLabel: { color: '#64748B', fontSize: 10 },
       },
       yAxis: [
         {
           type: 'value',
           name: 'PCR',
-          nameTextStyle: { color: '#a3a3a3', fontSize: 10 },
-          axisLine: { lineStyle: { color: '#404040' } },
-          splitLine: { lineStyle: { color: '#262626' } },
-          axisLabel: { color: '#38bdf8', fontSize: 10 },
+          nameTextStyle: { color: '#0284C7', fontSize: 10, fontWeight: 'bold' },
+          axisLine: { lineStyle: { color: '#CBD5E1' } },
+          splitLine: { lineStyle: { color: '#F1F5F9', type: 'dashed' } },
+          axisLabel: { color: '#0284C7', fontSize: 10 },
         },
         {
           type: 'value',
           name: 'Spot Price',
-          nameTextStyle: { color: '#a3a3a3', fontSize: 10 },
-          axisLine: { lineStyle: { color: '#404040' } },
+          nameTextStyle: { color: '#D97706', fontSize: 10, fontWeight: 'bold' },
+          axisLine: { lineStyle: { color: '#CBD5E1' } },
           splitLine: { show: false },
-          axisLabel: { color: '#f59e0b', fontSize: 10 },
+          axisLabel: { color: '#D97706', fontSize: 10 },
         },
       ],
       series: [
@@ -293,7 +308,7 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
           yAxisIndex: 0,
           data: pcrs,
           smooth: true,
-          lineStyle: { width: 2.5, color: '#38bdf8' },
+          lineStyle: { width: 2.5, color: '#0284C7' },
         },
         {
           name: 'Underlying Spot',
@@ -301,89 +316,88 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
           yAxisIndex: 1,
           data: spots,
           smooth: true,
-          lineStyle: { width: 2, color: '#f59e0b', type: 'dashed' },
+          lineStyle: { width: 2, color: '#D97706', type: 'dashed' },
         },
       ],
     };
   }, [oiHistory]);
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
-          <span className="text-[11px] text-neutral-400 uppercase tracking-wider">Total Call OI</span>
-          <div className="text-base font-bold font-mono text-emerald-400 mt-1">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* ── Top Row: 5 Metric Cards ── */}
+      <div className="opt-kpi-grid cols-5">
+        <div className="opt-kpi-card">
+          <span className="opt-kpi-label">Total Call OI</span>
+          <div className="opt-kpi-value" style={{ color: '#059669' }}>
             {(stats.totalCallOi / 100000).toFixed(2)} Lakh
           </div>
-          <span className="text-[10px] text-neutral-500 font-mono">
+          <span className="opt-kpi-sub">
             Chg: {stats.totalCallOiChg >= 0 ? `+${(stats.totalCallOiChg / 100000).toFixed(2)}L` : `${(stats.totalCallOiChg / 100000).toFixed(2)}L`}
           </span>
         </div>
 
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
-          <span className="text-[11px] text-neutral-400 uppercase tracking-wider">Total Put OI</span>
-          <div className="text-base font-bold font-mono text-rose-400 mt-1">
+        <div className="opt-kpi-card">
+          <span className="opt-kpi-label">Total Put OI</span>
+          <div className="opt-kpi-value" style={{ color: '#E11D48' }}>
             {(stats.totalPutOi / 100000).toFixed(2)} Lakh
           </div>
-          <span className="text-[10px] text-neutral-500 font-mono">
+          <span className="opt-kpi-sub">
             Chg: {stats.totalPutOiChg >= 0 ? `+${(stats.totalPutOiChg / 100000).toFixed(2)}L` : `${(stats.totalPutOiChg / 100000).toFixed(2)}L`}
           </span>
         </div>
 
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
-          <span className="text-[11px] text-neutral-400 uppercase tracking-wider">Put-Call Ratio (PCR)</span>
-          <div className="text-base font-bold font-mono text-white mt-1 flex items-center gap-1.5">
+        <div className="opt-kpi-card">
+          <span className="opt-kpi-label">Put-Call Ratio (PCR)</span>
+          <div className="opt-kpi-value" style={{ color: '#0F172A' }}>
             {stats.pcr.toFixed(2)}
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded font-sans font-semibold ${
-                stats.pcr >= 1.0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-              }`}
+              className={`opt-badge-pill ${stats.pcr >= 1.0 ? 'green' : 'rose'}`}
             >
               {stats.pcr >= 1.0 ? 'Bullish' : 'Bearish'}
             </span>
           </div>
-          <span className="text-[10px] text-neutral-500">Vol PCR: {stats.volPcr.toFixed(2)}</span>
+          <span className="opt-kpi-sub">Vol PCR: {stats.volPcr.toFixed(2)}</span>
         </div>
 
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
-          <span className="text-[11px] text-neutral-400 uppercase tracking-wider">Max Pain Pin</span>
-          <div className="text-base font-bold font-mono text-amber-400 mt-1">
+        <div className="opt-kpi-card">
+          <span className="opt-kpi-label">Max Pain Strike</span>
+          <div className="opt-kpi-value" style={{ color: '#D97706' }}>
             ₹{stats.maxPain.toLocaleString('en-IN')}
           </div>
-          <span className="text-[10px] text-neutral-500">Option Sellers' Sweet Spot</span>
+          <span className="opt-kpi-sub">Option Sellers' Sweet Spot</span>
         </div>
 
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5">
-          <span className="text-[11px] text-neutral-400 uppercase tracking-wider">Atm Strike</span>
-          <div className="text-base font-bold font-mono text-sky-400 mt-1">
+        <div className="opt-kpi-card">
+          <span className="opt-kpi-label">ATM Strike</span>
+          <div className="opt-kpi-value" style={{ color: '#0284C7' }}>
             {chainData?.atmStrike ? `₹${chainData.atmStrike.toLocaleString('en-IN')}` : '—'}
           </div>
-          <span className="text-[10px] text-neutral-500">
+          <span className="opt-kpi-sub">
             Spot: ₹{chainData?.spotPrice?.toLocaleString('en-IN')}
           </span>
         </div>
       </div>
 
-      {/* Main Dual Bar Chart */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-xl space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 pb-3">
-          <div className="flex items-center gap-2">
-            <BarChart2 className="w-5 h-5 text-amber-400" />
-            <h3 className="text-sm font-bold text-white">Strike-wise Open Interest Concentration</h3>
+      {/* ── Main Dual Bar Chart Card ── */}
+      <div className="opt-chart-card">
+        <div className="opt-chart-header">
+          <div className="opt-chart-title-wrap">
+            <div className="opt-chart-icon" style={{ color: '#D97706' }}>
+              <BarChart2 className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="opt-chart-title">Strike-wise Open Interest Concentration</h3>
+              <p className="opt-chart-subtitle">Direct Call (Resistance) vs Put (Support) volume depth</p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-neutral-400">Strikes:</span>
+          <div className="opt-filter-group">
+            <span className="opt-filter-label">Strikes:</span>
             {(['10', '15', 'all'] as const).map((r) => (
               <button
                 key={r}
                 onClick={() => setStrikeRange(r)}
-                className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${
-                  strikeRange === r
-                    ? 'bg-amber-500 text-neutral-950 font-bold'
-                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
-                }`}
+                className={`opt-filter-btn ${strikeRange === r ? 'active' : ''}`}
               >
                 {r === 'all' ? 'All' : `±${r}`}
               </button>
@@ -391,34 +405,46 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
           </div>
         </div>
 
-        <div className="h-80 w-full">
+        <div className="opt-chart-container" style={{ height: '340px' }}>
           <ReactECharts option={oiBarOption} style={{ height: '100%', width: '100%' }} />
         </div>
       </div>
 
-      {/* Secondary Grid: Change in OI & Intraday Timeline */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* ── Secondary Grid: Change in OI & Intraday Timeline ── */}
+      <div className="opt-charts-dual-grid">
         {/* Change in OI Chart */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-xl space-y-3">
-          <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
-            <Activity className="w-4 h-4 text-emerald-400" />
-            <h4 className="text-xs font-bold text-white">Change in OI (Intraday Writing Pressure)</h4>
+        <div className="opt-chart-card" style={{ marginBottom: 0 }}>
+          <div className="opt-chart-header">
+            <div className="opt-chart-title-wrap">
+              <div className="opt-chart-icon" style={{ color: '#059669' }}>
+                <Activity className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="opt-chart-title">Change in OI (Intraday Writing Pressure)</h4>
+                <p className="opt-chart-subtitle">Fresh positioning & unwinding momentum</p>
+              </div>
+            </div>
           </div>
-          <div className="h-64 w-full">
+          <div className="opt-chart-container" style={{ height: '280px' }}>
             <ReactECharts option={oiChangeOption} style={{ height: '100%', width: '100%' }} />
           </div>
         </div>
 
         {/* Intraday PCR & Spot Trend */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-xl space-y-3">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-sky-400" />
-              <h4 className="text-xs font-bold text-white">Intraday PCR & Spot Movement</h4>
+        <div className="opt-chart-card" style={{ marginBottom: 0 }}>
+          <div className="opt-chart-header">
+            <div className="opt-chart-title-wrap">
+              <div className="opt-chart-icon" style={{ color: '#0284C7' }}>
+                <TrendingUp className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="opt-chart-title">Intraday PCR & Spot Movement</h4>
+                <p className="opt-chart-subtitle">Real-time sentiment correlation</p>
+              </div>
             </div>
-            {isLoadingHistory && <RefreshCw className="w-3.5 h-3.5 animate-spin text-neutral-400" />}
+            {isLoadingHistory && <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-400" />}
           </div>
-          <div className="h-64 w-full">
+          <div className="opt-chart-container" style={{ height: '280px' }}>
             <ReactECharts option={intradayTimelineOption} style={{ height: '100%', width: '100%' }} />
           </div>
         </div>

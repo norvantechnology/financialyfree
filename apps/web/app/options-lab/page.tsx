@@ -38,6 +38,188 @@ import { NiftyCandlestickChart } from '../../components/options/nifty-candlestic
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
+interface ReadyStrategyItem {
+  id: string;
+  name: string;
+  desc: string;
+}
+
+const READY_STRATEGIES: Record<'Neutral' | 'Bullish' | 'Bearish' | 'Other', ReadyStrategyItem[]> = {
+  Neutral: [
+    { id: 'short_straddle', name: 'Short Straddle', desc: 'Sell ATM CE + PE' },
+    { id: 'short_strangle', name: 'Short Strangle', desc: 'Sell OTM CE + PE' },
+    { id: 'short_iron_condor', name: 'Short Iron Condor', desc: 'Protected range credit spread' },
+    { id: 'short_iron_butterfly', name: 'Short Iron Butterfly', desc: 'ATM straddle with outer wings' },
+    { id: 'batman', name: 'Batman', desc: 'Double peak credit structure' },
+    { id: 'jade_lizard', name: 'Jade Lizard', desc: 'Short put + bear call spread' },
+    { id: 'reverse_jade_lizard', name: 'Reverse Jade Lizard', desc: 'Short call + bull put spread' },
+    { id: 'double_plateau', name: 'Double Plateau', desc: 'Multi-strike twin peak range' },
+  ],
+  Bullish: [
+    { id: 'long_call', name: 'Long Call', desc: 'Buy ATM Call (Unlimited upside)' },
+    { id: 'bull_call_spread', name: 'Bull Call Spread', desc: 'Buy ATM Call + Sell OTM Call' },
+    { id: 'bull_put_spread', name: 'Bull Put Spread', desc: 'Sell ATM Put + Buy OTM Put' },
+    { id: 'short_put', name: 'Short Put', desc: 'Sell OTM Put (Income harvesting)' },
+    { id: 'call_ratio_spread', name: 'Call Ratio Spread', desc: 'Buy 1 Call + Sell 2 OTM Calls' },
+    { id: 'synthetic_long', name: 'Synthetic Long', desc: 'Buy Call + Sell Put' },
+    { id: 'covered_call', name: 'Covered Call', desc: 'Long spot + Sell OTM Call' },
+    { id: 'protective_put', name: 'Protective Put', desc: 'Long spot + Buy OTM Put' },
+  ],
+  Bearish: [
+    { id: 'long_put', name: 'Long Put', desc: 'Buy ATM Put (Direct downside)' },
+    { id: 'bear_put_spread', name: 'Bear Put Spread', desc: 'Buy ATM Put + Sell OTM Put' },
+    { id: 'bear_call_spread', name: 'Bear Call Spread', desc: 'Sell ATM Call + Buy OTM Call' },
+    { id: 'short_call', name: 'Short Call', desc: 'Sell OTM Call (Premium harvesting)' },
+    { id: 'put_ratio_spread', name: 'Put Ratio Spread', desc: 'Buy 1 Put + Sell 2 OTM Puts' },
+    { id: 'synthetic_short', name: 'Synthetic Short', desc: 'Sell Call + Buy Put' },
+    { id: 'bear_condor', name: 'Bear Condor', desc: 'Directional debit condor' },
+    { id: 'short_call_spread', name: 'Short Call Spread', desc: 'Credit call spread' },
+  ],
+  Other: [
+    { id: 'long_straddle', name: 'Long Straddle', desc: 'Buy ATM Call + Buy ATM Put' },
+    { id: 'long_strangle', name: 'Long Strangle', desc: 'Buy OTM Call + Buy OTM Put' },
+    { id: 'reverse_iron_condor', name: 'Reverse Iron Condor', desc: 'Volatility breakout wings' },
+    { id: 'box_spread', name: 'Box Spread', desc: 'Risk-free interest arbitrage' },
+    { id: 'calendar_spread', name: 'Calendar Spread', desc: 'Time-decay horizontal spread' },
+    { id: 'gut_strangle', name: 'Gut Strangle', desc: 'ITM Long straddle variation' },
+    { id: 'double_calendar', name: 'Double Calendar', desc: 'Multi-strike volatility play' },
+    { id: 'iron_butterfly', name: 'Long Iron Butterfly', desc: 'Winged debit butterfly' },
+  ],
+};
+
+const StrategyPayoffPreviewSvg: React.FC<{ name: string }> = ({ name }) => {
+  const norm = name.toLowerCase();
+
+  // Baseline at y=32. Profit (y < 32): Green, Loss (y > 32): Red
+  if (norm.includes('short straddle')) {
+    return (
+      <svg viewBox="0 0 100 50" fill="none">
+        <line x1="10" y1="32" x2="90" y2="32" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="2 2" />
+        <polygon points="32.5,32 50,12 67.5,32" fill="rgba(16, 185, 129, 0.2)" />
+        <polygon points="12,46 32.5,32 12,32" fill="rgba(244, 63, 94, 0.15)" />
+        <polygon points="67.5,32 88,46 88,32" fill="rgba(244, 63, 94, 0.15)" />
+        <path d="M 12 46 L 32.5 32 L 50 12 L 67.5 32 L 88 46" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (norm.includes('short strangle')) {
+    return (
+      <svg viewBox="0 0 100 50" fill="none">
+        <line x1="10" y1="32" x2="90" y2="32" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="2 2" />
+        <polygon points="26,32 38,14 62,14 74,32" fill="rgba(16, 185, 129, 0.2)" />
+        <polygon points="12,46 26,32 12,32" fill="rgba(244, 63, 94, 0.15)" />
+        <polygon points="74,32 88,46 88,32" fill="rgba(244, 63, 94, 0.15)" />
+        <path d="M 12 46 L 26 32 L 38 14 L 62 14 L 74 32 L 88 46" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (norm.includes('condor')) {
+    return (
+      <svg viewBox="0 0 100 50" fill="none">
+        <line x1="10" y1="32" x2="90" y2="32" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="2 2" />
+        <polygon points="34,32 42,16 58,16 66,32" fill="rgba(16, 185, 129, 0.2)" />
+        <polygon points="12,42 24,42 34,32 12,32" fill="rgba(244, 63, 94, 0.15)" />
+        <polygon points="66,32 76,42 88,42 88,32" fill="rgba(244, 63, 94, 0.15)" />
+        <path d="M 12 42 L 24 42 L 42 16 L 58 16 L 76 42 L 88 42" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (norm.includes('butterfly')) {
+    return (
+      <svg viewBox="0 0 100 50" fill="none">
+        <line x1="10" y1="32" x2="90" y2="32" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="2 2" />
+        <polygon points="36,32 50,13 64,32" fill="rgba(16, 185, 129, 0.2)" />
+        <polygon points="12,42 26,42 36,32 12,32" fill="rgba(244, 63, 94, 0.15)" />
+        <polygon points="64,32 74,42 88,42 88,32" fill="rgba(244, 63, 94, 0.15)" />
+        <path d="M 12 42 L 26 42 L 50 13 L 74 42 L 88 42" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (norm.includes('batman')) {
+    return (
+      <svg viewBox="0 0 100 50" fill="none">
+        <line x1="10" y1="32" x2="90" y2="32" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="2 2" />
+        <polygon points="22,32 32,15 42,24 50,26 58,24 68,15 78,32" fill="rgba(16, 185, 129, 0.2)" />
+        <polygon points="12,46 22,32 12,32" fill="rgba(244, 63, 94, 0.15)" />
+        <polygon points="78,32 88,46 88,32" fill="rgba(244, 63, 94, 0.15)" />
+        <path d="M 12 46 L 32 15 L 42 24 L 50 26 L 58 24 L 68 15 L 88 46" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (norm.includes('reverse jade lizard')) {
+    return (
+      <svg viewBox="0 0 100 50" fill="none">
+        <line x1="10" y1="32" x2="90" y2="32" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="2 2" />
+        <polygon points="12,32 12,18 64,18 76,32" fill="rgba(16, 185, 129, 0.2)" />
+        <polygon points="76,32 88,46 88,32" fill="rgba(244, 63, 94, 0.15)" />
+        <path d="M 12 18 L 64 18 L 88 46" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (norm.includes('jade lizard')) {
+    return (
+      <svg viewBox="0 0 100 50" fill="none">
+        <line x1="10" y1="32" x2="90" y2="32" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="2 2" />
+        <polygon points="24,32 36,18 88,18 88,32" fill="rgba(16, 185, 129, 0.2)" />
+        <polygon points="12,46 24,32 12,32" fill="rgba(244, 63, 94, 0.15)" />
+        <path d="M 12 46 L 36 18 L 88 18" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (norm.includes('double plateau')) {
+    return (
+      <svg viewBox="0 0 100 50" fill="none">
+        <line x1="10" y1="32" x2="90" y2="32" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="2 2" />
+        <polygon points="22,32 26,18 40,18 44,32" fill="rgba(16, 185, 129, 0.2)" />
+        <polygon points="56,32 60,18 74,18 78,32" fill="rgba(16, 185, 129, 0.2)" />
+        <polygon points="12,46 22,32 12,32" fill="rgba(244, 63, 94, 0.15)" />
+        <polygon points="44,32 46,46 54,46 56,32" fill="rgba(244, 63, 94, 0.15)" />
+        <polygon points="78,32 88,46 88,32" fill="rgba(244, 63, 94, 0.15)" />
+        <path d="M 12 46 L 26 18 L 40 18 L 46 46 L 54 46 L 60 18 L 74 18 L 88 46" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (norm.includes('call spread') || norm.includes('bull') || norm.includes('long call')) {
+    return (
+      <svg viewBox="0 0 100 50" fill="none">
+        <line x1="10" y1="32" x2="90" y2="32" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="2 2" />
+        <polygon points="45,32 65,16 88,16 88,32" fill="rgba(16, 185, 129, 0.2)" />
+        <polygon points="12,44 28,44 45,32 12,32" fill="rgba(244, 63, 94, 0.15)" />
+        <path d="M 12 44 L 28 44 L 65 16 L 88 16" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (norm.includes('bear') || norm.includes('put spread') || norm.includes('long put') || norm.includes('short call')) {
+    return (
+      <svg viewBox="0 0 100 50" fill="none">
+        <line x1="10" y1="32" x2="90" y2="32" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="2 2" />
+        <polygon points="12,32 12,16 35,16 55,32" fill="rgba(16, 185, 129, 0.2)" />
+        <polygon points="55,32 72,44 88,44 88,32" fill="rgba(244, 63, 94, 0.15)" />
+        <path d="M 12 16 L 35 16 L 72 44 L 88 44" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 100 50" fill="none">
+      <line x1="10" y1="32" x2="90" y2="32" stroke="#E2E8F0" strokeWidth="1" strokeDasharray="2 2" />
+      <polygon points="35,32 50,14 65,32" fill="rgba(16, 185, 129, 0.2)" />
+      <polygon points="12,46 35,32 12,32" fill="rgba(244, 63, 94, 0.15)" />
+      <polygon points="65,32 88,46 88,32" fill="rgba(244, 63, 94, 0.15)" />
+      <path d="M 12 46 L 50 14 L 88 46" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
+
 export default function OptionsLabPage() {
   const [activeTab, setActiveTab] = useState<OptionsTab>('strategy');
   const [symbol, setSymbol] = useState('NIFTY');
@@ -53,7 +235,8 @@ export default function OptionsLabPage() {
 
   // Split-Screen & Analytics Workspace States
   const [isChainCollapsed, setIsChainCollapsed] = useState(false);
-  const [analyticsTab, setAnalyticsTab] = useState<'payoff' | 'strategy_chart' | 'nifty_chart'>('payoff');
+  const [analyticsTab, setAnalyticsTab] = useState<'payoff' | 'ready_made' | 'strategy_chart' | 'nifty_chart'>('payoff');
+  const [readyCategory, setReadyCategory] = useState<'Neutral' | 'Bullish' | 'Bearish' | 'Other'>('Neutral');
   const [positionsSubTab, setPositionsSubTab] = useState<'positions' | 'greeks'>('positions');
   const [multiplier, setMultiplier] = useState(1);
   const [enabledLegIds, setEnabledLegIds] = useState<Set<string>>(new Set());
@@ -474,32 +657,65 @@ export default function OptionsLabPage() {
 
   // Strategy Template Application
   const applyTemplate = (tplName: string) => {
-    const tpl = STRATEGY_TEMPLATES.find((t) => t.name === tplName);
+    const spotVal = chainData?.spotPrice;
+    if (!spotVal) {
+      setNotification('Waiting for live market feed to initialize...');
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+    let step = 50;
+    let symLotSize = 50;
+
+    if (symbol === 'BANKNIFTY') {
+      step = 100;
+      symLotSize = 15;
+    } else if (symbol === 'FINNIFTY') {
+      step = 50;
+      symLotSize = 40;
+    } else if (symbol === 'SENSEX') {
+      step = 100;
+      symLotSize = 10;
+    }
+
+    const expiryToUse =
+      selectedExpiry || chainData.selectedExpiry || chainData.expiryDates[0] || '2026-09-24';
+    const atm = Math.round(spotVal / step) * step;
+
+    let baseLegs: StrategyLegDto[] = [];
+
+    // Check built-in templates first
+    const tpl = STRATEGY_TEMPLATES.find(
+      (t) =>
+        t.name.toLowerCase() === tplName.toLowerCase() ||
+        (tplName.toLowerCase() === 'short iron condor' && t.name === 'Iron Condor') ||
+        (tplName.toLowerCase() === 'short iron butterfly' && t.name === 'Iron Butterfly'),
+    );
+
     if (tpl) {
-      const spotVal = chainData?.spotPrice;
-      if (!spotVal) {
-        setNotification('Waiting for live market feed to initialize...');
-        setTimeout(() => setNotification(null), 3000);
-        return;
-      }
-      let step = 50;
-      let symLotSize = 50;
+      baseLegs = tpl.createLegs(spotVal, step, expiryToUse, symLotSize);
+    } else if (tplName === 'Batman') {
+      baseLegs = [
+        { id: '1', instrumentToken: 'PE-WING', symbol, expiry: expiryToUse, strike: atm - 2 * step, optionType: 'PE', side: 'BUY', lots: 1, lotSize: symLotSize, entryPrice: 20 },
+        { id: '2', instrumentToken: 'PE-BODY', symbol, expiry: expiryToUse, strike: atm - step, optionType: 'PE', side: 'SELL', lots: 2, lotSize: symLotSize, entryPrice: 65 },
+        { id: '3', instrumentToken: 'CE-BODY', symbol, expiry: expiryToUse, strike: atm + step, optionType: 'CE', side: 'SELL', lots: 2, lotSize: symLotSize, entryPrice: 70 },
+        { id: '4', instrumentToken: 'CE-WING', symbol, expiry: expiryToUse, strike: atm + 2 * step, optionType: 'CE', side: 'BUY', lots: 1, lotSize: symLotSize, entryPrice: 22 },
+      ];
+    } else if (tplName === 'Reverse Jade Lizard') {
+      baseLegs = [
+        { id: '1', instrumentToken: 'CE-SHORT', symbol, expiry: expiryToUse, strike: atm + step, optionType: 'CE', side: 'SELL', lots: 1, lotSize: symLotSize, entryPrice: 55 },
+        { id: '2', instrumentToken: 'PE-SHORT', symbol, expiry: expiryToUse, strike: atm - step, optionType: 'PE', side: 'SELL', lots: 1, lotSize: symLotSize, entryPrice: 50 },
+        { id: '3', instrumentToken: 'PE-LONG', symbol, expiry: expiryToUse, strike: atm - 2 * step, optionType: 'PE', side: 'BUY', lots: 1, lotSize: symLotSize, entryPrice: 20 },
+      ];
+    } else if (tplName === 'Double Plateau') {
+      baseLegs = [
+        { id: '1', instrumentToken: 'PE-L1', symbol, expiry: expiryToUse, strike: atm - 3 * step, optionType: 'PE', side: 'BUY', lots: 1, lotSize: symLotSize, entryPrice: 12 },
+        { id: '2', instrumentToken: 'PE-S1', symbol, expiry: expiryToUse, strike: atm - 2 * step, optionType: 'PE', side: 'SELL', lots: 1, lotSize: symLotSize, entryPrice: 35 },
+        { id: '3', instrumentToken: 'CE-S1', symbol, expiry: expiryToUse, strike: atm + 2 * step, optionType: 'CE', side: 'SELL', lots: 1, lotSize: symLotSize, entryPrice: 40 },
+        { id: '4', instrumentToken: 'CE-L1', symbol, expiry: expiryToUse, strike: atm + 3 * step, optionType: 'CE', side: 'BUY', lots: 1, lotSize: symLotSize, entryPrice: 15 },
+      ];
+    }
 
-      if (symbol === 'BANKNIFTY') {
-        step = 100;
-        symLotSize = 15;
-      } else if (symbol === 'FINNIFTY') {
-        step = 50;
-        symLotSize = 40;
-      } else if (symbol === 'SENSEX') {
-        step = 100;
-        symLotSize = 10;
-      }
-
-      const expiryToUse =
-        selectedExpiry || chainData.selectedExpiry || chainData.expiryDates[0] || '2026-09-24';
-      const baseLegs = tpl.createLegs(spotVal, step, expiryToUse, symLotSize);
-
+    if (baseLegs.length > 0) {
       // Enrich with live contract LTPs and Greeks from chainData
       const legs = baseLegs.map((leg) => {
         const contract = chainData.contracts?.find((c) => c.strike === leg.strike);
@@ -522,7 +738,8 @@ export default function OptionsLabPage() {
       });
 
       setStrategyLegs(legs);
-      setNotification(`Loaded "${tpl.name}" strategy template.`);
+      setAnalyticsTab('payoff');
+      setNotification(`Loaded "${tplName}" strategy.`);
       setTimeout(() => setNotification(null), 3000);
     }
   };
@@ -870,6 +1087,12 @@ export default function OptionsLabPage() {
                       Payoff
                     </button>
                     <button
+                      onClick={() => setAnalyticsTab('ready_made')}
+                      className={`sm-analytics-tab ${analyticsTab === 'ready_made' ? 'active' : ''}`}
+                    >
+                      Ready-Made Strategies
+                    </button>
+                    <button
                       onClick={() => setAnalyticsTab('strategy_chart')}
                       className={`sm-analytics-tab ${analyticsTab === 'strategy_chart' ? 'active' : ''}`}
                     >
@@ -1080,7 +1303,49 @@ export default function OptionsLabPage() {
                   </div>
                 )}
 
-                {/* Tab 2 & 3: Interactive Candlestick Chart */}
+                {/* Tab 2: Ready-Made Strategies Panel (StockMojo Screenshot 5) */}
+                {analyticsTab === 'ready_made' && (
+                  <div style={{ padding: '1.25rem' }}>
+                    <div className="opt-ready-header">
+                      <div className="opt-ready-title">
+                        <Sliders className="w-4 h-4 text-blue-600" />
+                        <span>Ready-Made Strategies</span>
+                      </div>
+
+                      <div className="opt-category-pills">
+                        {(['Bullish', 'Bearish', 'Neutral', 'Other'] as const).map((cat) => (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setReadyCategory(cat)}
+                            className={`opt-category-pill ${readyCategory === cat ? 'active' : ''}`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="opt-ready-cards-grid">
+                      {READY_STRATEGIES[readyCategory].map((strat) => (
+                        <div
+                          key={strat.id}
+                          onClick={() => applyTemplate(strat.name)}
+                          className="opt-ready-card"
+                          title={`Click to load ${strat.name} multi-leg strategy`}
+                        >
+                          <div className="opt-ready-preview-box">
+                            <StrategyPayoffPreviewSvg name={strat.name} />
+                          </div>
+                          <div className="opt-ready-card-name">{strat.name}</div>
+                          <div className="opt-ready-card-desc">{strat.desc}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 3 & 4: Interactive Candlestick Chart */}
                 {(analyticsTab === 'nifty_chart' || analyticsTab === 'strategy_chart') && (
                   <NiftyCandlestickChart
                     symbol={symbol}
