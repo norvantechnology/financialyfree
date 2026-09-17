@@ -96,6 +96,17 @@ export class OptionsController {
   }
 
   @Public()
+  @Get('chart/:underlying')
+  async getIntradayChart(
+    @Param('underlying') underlying: string,
+    @Query('interval') interval?: string,
+    @Query('range') range?: string,
+  ) {
+    const chart = await this.marketDataService.getIntradayCandles(underlying, interval, range);
+    return { success: true, data: chart };
+  }
+
+  @Public()
   @Get('instruments')
   async searchInstruments(
     @Query('symbol') symbol?: string,

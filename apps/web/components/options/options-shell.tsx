@@ -295,14 +295,14 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
             </div>
           </div>
 
-          {/* ── Navigation Tabs (Market Mood Style) ── */}
+          {/* ── Navigation Tabs (StockMojo Style) ── */}
           <nav className="opt-tabs-nav">
             {[
+              { id: 'strategy', label: 'Strategy Builder', icon: Sliders },
+              { id: 'sandbox', label: 'Simulator', icon: Clock },
               { id: 'chain', label: 'Option Chain', icon: Layers },
-              { id: 'strategy', label: 'Strategy Builder & Payoff', icon: Sliders },
               { id: 'oi', label: 'OI Tracker & Max Pain', icon: TrendingUp },
               { id: 'iv', label: 'IV Smile & Surface', icon: Sparkles },
-              { id: 'sandbox', label: 'Positions & Paper Trading', icon: Clock },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
