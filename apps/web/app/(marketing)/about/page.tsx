@@ -45,9 +45,8 @@ export default function AboutPage() {
                 Our mission
               </h2>
               <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6 }}>
-                Help Indian investors plan clear goals, learn with discipline, and access
-                institutional-style market context, without pretending we are a SEBI research
-                analyst or investment adviser.
+                Empower Indian investors to set clear financial goals, invest with long-term discipline,
+                and access institutional-grade market data and valuation tools with complete clarity.
               </p>
             </article>
             <article className="mkt-card">

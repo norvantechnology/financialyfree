@@ -34,8 +34,8 @@ export default function ContactPage() {
               We are here to help
             </h1>
             <p className="mkt-lead">
-              Product questions, billing, or partnerships. Messages route through our existing
-              notifications email provider (mock SES/SendGrid in non-prod).
+              Have questions about our tools, plans, or features? Reach out to our team and
+              we&apos;ll get back to you promptly.
             </p>
           </Reveal>
 

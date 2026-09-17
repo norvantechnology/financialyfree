@@ -128,29 +128,29 @@ export const PLANS = [
 /** Canonical FAQ set — single source of truth for home + /faq. */
 export const HOME_FAQS = [
   {
-    question: 'Is GoalCompass a SEBI-registered investment adviser?',
+    question: 'How does GoalCompass help me invest?',
     answer:
-      'No. GoalCompass / FutureZenith Insights LLP is an AMFI-registered Mutual Fund Distributor (ARN-350272). Techno-Funda tools are educational decision-support only (not investment advice, and not SEBI RA or IA advisory services).',
+      'GoalCompass is an all-in-one platform providing automated goal-based SIP planning, 100% paperless KYC, 20 institutional-grade research tools, and a structured investing academy to help you make confident, data-backed financial decisions.',
   },
   {
     question: 'What is included in the free Starter plan?',
     answer:
-      'Starter includes goal-based SIP calculators (Emergency Fund, Retirement/FIRE, Child Education, Wealth Creation), a personal dashboard, introductory Academy lessons, paperless KYC, and mutual fund order routing after KYC. Paid plans unlock the full research suite and complete course library.',
+      'Starter includes goal-based SIP calculators (Emergency Fund, Retirement/FIRE, Child Education, Wealth Creation), your personal dashboard, introductory Academy lessons, paperless KYC, and automated mutual fund execution — free forever. Paid plans unlock the 20-tool research suite and advanced masterclasses.',
   },
   {
     question: 'How do mutual fund investments get executed?',
     answer:
-      'After paperless KYC, orders are routed securely through BSE StAR MF for lumpsum and SIP execution with e-NACH / UPI Autopay mandate support under our AMFI distributor relationship.',
+      'After completing quick paperless KYC, your SIPs and lumpsum investments are routed securely through BSE StAR MF exchange infrastructure with instant UPI Autopay and e-NACH mandate setup. Your money goes straight to fund houses with zero intermediaries holding your funds.',
   },
   {
-    question: 'What is Techno-Funda?',
+    question: 'What is the Techno-Funda Research Suite?',
     answer:
-      'Techno-Funda is our research suite with 20 institutional desks: Market Mood Index, Valuation Lab (9 models), PEAD Screener, Order Tracker, Sector Heatmap, F&O Open Interest and Put-Call Ratio, Bulk & Block Deals, Insider Trading, 52-Week screener, IPO Tracker, and more.',
+      'Techno-Funda is our suite of 20 research tools for self-directed equity analysis: Market Mood Index, 9 valuation models (DCF, Graham, Peter Lynch, etc.), Smart Screeners (PEAD earnings surprises, Order wins, Breakouts), Sector Heatmaps, F&O sentiment, and Insider trading radars.',
   },
   {
-    question: 'Are mutual fund investments risk-free?',
+    question: 'Are my funds and personal data secure?',
     answer:
-      'No. Mutual fund investments are subject to market risks. Read all scheme-related documents carefully before investing. Past performance does not guarantee future results.',
+      'Yes. Your investments are settled directly via BSE StAR MF and partner AMCs. GoalCompass never holds your money. Your data is encrypted with bank-grade 256-bit SSL protocols.',
   },
   {
     question: 'Can I upgrade or change plans later?',

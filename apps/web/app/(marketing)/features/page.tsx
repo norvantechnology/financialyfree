@@ -3,41 +3,51 @@ import Link from 'next/link';
 import { buildPageMetadata } from '../../../lib/marketing/seo';
 import { absoluteUrl } from '../../../lib/marketing/blog';
 import { JsonLd } from '../../../components/marketing/JsonLd';
-import { Breadcrumbs, CtaSection, FeatureCard, Reveal } from '../../../components/marketing/primitives';
+import { Breadcrumbs, CtaSection, Reveal, FAQAccordion } from '../../../components/marketing/primitives';
+import { FeaturesExplorer } from '../../../components/marketing/FeaturesExplorer';
 import {
   Target,
-  ShieldCheck,
-  Landmark,
-  GraduationCap,
   BarChart3,
-  LineChart,
-  Newspaper,
-  PieChart,
-  Activity,
-  Rocket,
-  Search,
-  Briefcase,
-  Calculator,
-  TrendingUp,
-  Layers,
-  Scale,
-  FileText,
-  Flame,
-  Zap,
-  Users,
-  RefreshCw,
+  CheckCircle2,
   ArrowRight,
-  Coins,
-  Building2,
+  Activity,
   Sparkles,
 } from 'lucide-react';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'Features: Wealth Planning Engine & 20 Techno-Funda Desks',
+  title: 'Features: All Wealth Planning & Stock Research Tools | GoalCompass',
   description:
-    'Explore Track A goal-based mutual fund investing with paperless KYC and BSE StAR execution, alongside Track B featuring 20 institutional Techno-Funda research desks.',
+    'Explore GoalCompass features: Goal-based SIP planner, paperless e-KYC, BSE StAR MF automation, 9 valuation models (DCF, Graham, PEG), 6 smart stock screeners, and market mood sentiment.',
   path: '/features',
 });
+
+const FEATURE_FAQS = [
+  {
+    question: 'I am a complete beginner. Which track should I start with?',
+    answer:
+      'Start with Track A! It is 100% free and designed specifically for everyday investors. You simply enter a goal (like Retirement or Child Education), and our system calculates your exact monthly SIP. There is zero finance jargon to learn.',
+  },
+  {
+    question: 'Is Track A really 100% free forever?',
+    answer:
+      'Yes! Goal planning, SIP calculators, paperless KYC, portfolio dashboard, and mutual fund order execution are completely free. You only pay if you decide to upgrade to Track B for advanced stock valuation models and institutional screeners.',
+  },
+  {
+    question: 'How safe is my money when investing through GoalCompass?',
+    answer:
+      'Your money never touches GoalCompass bank accounts. All transactions are routed directly to Asset Management Companies (AMCs) through BSE StAR MF, India’s premier exchange infrastructure. Your investments are held securely in your own name.',
+  },
+  {
+    question: 'Can I use GoalCompass if I already have mutual funds on another app?',
+    answer:
+      'Yes! You can link your existing mutual funds in your GoalCompass dashboard to track your complete net worth, calculate live XIRR, and get rebalancing alerts all in one place.',
+  },
+  {
+    question: 'What is included in the 7-day free trial for Track B?',
+    answer:
+      'You get unrestricted access to all 20 research tools: the 9-model Valuation Lab, all 6 Smart Screeners (PEAD earnings surprises, Order wins, Breakouts), the live Market Mood Index, and alternative data feeds — no commitments required.',
+  },
+];
 
 export default function FeaturesPage() {
   const breadcrumbLd = {
@@ -49,468 +59,286 @@ export default function FeaturesPage() {
     ],
   };
 
+  const faqLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FEATURE_FAQS.map((f) => ({
+      '@type': 'Question',
+      name: f.question,
+      acceptedAnswer: { '@type': 'Answer', text: f.answer },
+    })),
+  };
+
   return (
     <>
-      <JsonLd data={breadcrumbLd} />
+      <JsonLd data={[breadcrumbLd, faqLd]} />
 
-      {/* Hero Section */}
-      <section className="mkt-section">
+      {/* ─── PAGE HERO ──────────────────────────────────────── */}
+      <section className="mkt-section fp-hero-section">
         <div className="mkt-container">
           <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Features' }]} />
           <Reveal>
-            <span className="mkt-kicker">Platform Architecture</span>
-            <h1 className="mkt-serif mkt-page-title">
-              Two Disciplined Tracks. Twenty-Five Integrated Tools.
+            <div className="fp-hero-badge">
+              <Sparkles size={15} style={{ color: 'var(--mkt-gold)' }} />
+              <span>Complete Feature Overview</span>
+            </div>
+            <h1 className="mkt-serif fp-hero-title">
+              Every tool you need to build wealth &amp; pick winning stocks
             </h1>
-            <p className="mkt-lead">
-              GoalCompass bridges long-term mutual fund wealth creation with quantitative equity research.
-              Track A powers disciplined goal investing with BSE StAR exchange execution, while Track B provides
-              20 institutional-grade research desks for self-directed market intelligence.
+            <p className="fp-hero-subtitle">
+              GoalCompass organizes 34 powerful capabilities into two clear paths. Use{' '}
+              <strong>Track A</strong> for automated mutual fund wealth planning, or unlock{' '}
+              <strong>Track B</strong> for institutional-style stock research. Explore each tool in plain English below.
             </p>
 
-            {/* Quick Filter Navigation Pills */}
-            <div className="mkt-feature-nav" aria-label="Feature categories">
-              <a href="#track-a" className="mkt-feature-pill">
-                <Target size={14} aria-hidden /> Track A: Wealth &amp; SIP
-              </a>
-              <a href="#valuation-desks" className="mkt-feature-pill">
-                <PieChart size={14} aria-hidden /> Valuation Lab (9 Models)
-              </a>
-              <a href="#alpha-screeners" className="mkt-feature-pill">
-                <Zap size={14} aria-hidden /> Screeners &amp; Order Tracker
-              </a>
-              <a href="#market-telemetry" className="mkt-feature-pill">
-                <Activity size={14} aria-hidden /> Market Mood &amp; F&amp;O
-              </a>
-              <a href="#macro-primary" className="mkt-feature-pill">
-                <Building2 size={14} aria-hidden /> Primary Markets &amp; Macro
-              </a>
-              <a href="#academy" className="mkt-feature-pill">
-                <GraduationCap size={14} aria-hidden /> Investing Academy
-              </a>
+            {/* ─── TWO TRACKS HIGH-LEVEL SELECTOR ─── */}
+            <div className="fp-tracks-overview">
+              {/* Track A Card */}
+              <div className="fp-track-summary-card fp-track-a-highlight">
+                <div className="fp-track-card-header">
+                  <div className="fp-track-card-icon fp-icon-green">
+                    <Target size={24} />
+                  </div>
+                  <div>
+                    <span className="fp-track-label">Track A · 100% Free Forever</span>
+                    <h2 className="fp-track-heading">Wealth Planning &amp; Auto-SIPs</h2>
+                  </div>
+                </div>
+                <p className="fp-track-description">
+                  Built for everyday investors who want disciplined compounding without stress. Set life goals, calculate inflation-adjusted monthly SIPs, and automate everything.
+                </p>
+                <div className="fp-track-features-list">
+                  <span className="fp-pill-chip"><CheckCircle2 size={13} /> Goal &amp; FIRE Planner</span>
+                  <span className="fp-pill-chip"><CheckCircle2 size={13} /> 3-Min Paperless KYC</span>
+                  <span className="fp-pill-chip"><CheckCircle2 size={13} /> UPI Autopay / e-NACH</span>
+                  <span className="fp-pill-chip"><CheckCircle2 size={13} /> Portfolio Drift Alerts</span>
+                  <span className="fp-pill-chip"><CheckCircle2 size={13} /> SWP Pension Planner</span>
+                  <span className="fp-pill-chip"><CheckCircle2 size={13} /> Family Wealth Hub</span>
+                </div>
+                <div className="fp-track-action-row">
+                  <Link href="/dashboard/goals" className="mkt-btn mkt-btn-primary">
+                    Start Planning Free
+                    <ArrowRight size={15} />
+                  </Link>
+                  <a href="#feature-explorer" className="fp-jump-link">
+                    Explore Track A Tools ↓
+                  </a>
+                </div>
+              </div>
+
+              {/* Track B Card */}
+              <div className="fp-track-summary-card fp-track-b-highlight">
+                <div className="fp-track-card-header">
+                  <div className="fp-track-card-icon fp-icon-indigo">
+                    <BarChart3 size={24} />
+                  </div>
+                  <div>
+                    <span className="fp-track-label">Track B · Research Desk</span>
+                    <h2 className="fp-track-heading">Techno-Funda Stock Suite</h2>
+                  </div>
+                </div>
+                <p className="fp-track-description">
+                  Built for active equity investors who want raw data, fair-value models, and early institutional signals — instead of risky social media tips.
+                </p>
+                <div className="fp-track-features-list">
+                  <span className="fp-pill-chip"><CheckCircle2 size={13} /> 9 Valuation Models (DCF, PEG)</span>
+                  <span className="fp-pill-chip"><CheckCircle2 size={13} /> 6 Smart Stock Screeners</span>
+                  <span className="fp-pill-chip"><CheckCircle2 size={13} /> Live Market Mood Index</span>
+                  <span className="fp-pill-chip"><CheckCircle2 size={13} /> F&amp;O Open Interest &amp; PCR</span>
+                  <span className="fp-pill-chip"><CheckCircle2 size={13} /> Insider Trading Feed</span>
+                  <span className="fp-pill-chip"><CheckCircle2 size={13} /> 8-Qtr Ownership Radar</span>
+                </div>
+                <div className="fp-track-action-row">
+                  <Link href="/pricing" className="mkt-btn mkt-btn-outline-dark">
+                    Explore Research Plans
+                    <ArrowRight size={15} />
+                  </Link>
+                  <a href="#feature-explorer" className="fp-jump-link">
+                    Explore Track B Tools ↓
+                  </a>
+                </div>
+              </div>
             </div>
           </Reveal>
         </div>
       </section>
 
-      {/* Track A: Wealth Planning & Mutual Fund Engine */}
-      <section className="mkt-section mkt-section-alt" id="track-a" aria-labelledby="track-a-heading">
+      {/* ─── INTERACTIVE FEATURES EXPLORER ──────────────────── */}
+      <section className="mkt-section mkt-section-alt" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem' }}>
         <div className="mkt-container">
           <Reveal>
-            <span className="mkt-kicker">Track A · Wealth Management</span>
-            <h2 id="track-a-heading" className="mkt-serif">
-              Goal-Based Mutual Fund Engine with Exchange Routing
-            </h2>
-            <p className="mkt-lead">
-              Designed for long-term compounders targeting financial independence, retirement, higher education,
-              and generational wealth creation.
-            </p>
-          </Reveal>
-
-          <div className="mkt-grid-3">
-            <FeatureCard
-              icon={<Target size={22} />}
-              badge="Core Engine"
-              title="Multi-Goal SIP Planner"
-              description="Model four distinct life horizons: Emergency Cushion (6 to 12 months), Retirement / FIRE, Child Higher Education, and Long-Term Wealth. Computes inflation-adjusted monthly SIP requirements and annual step-up paths."
-              tags={['Inflation-Aware', 'Step-Up SIP', 'FIRE Countdown', 'Shortfall Alerts']}
-            />
-            <FeatureCard
-              icon={<ShieldCheck size={22} />}
-              badge="100% Digital"
-              title="Paperless Digital KYC"
-              description="Complete online onboarding via Aadhaar e-KYC and PAN verification compliant with SEBI and AMFI guidelines. Get investment-ready in under 3 minutes without physical documents or courier visits."
-              tags={['SEBI Compliant', 'Aadhaar e-KYC', 'PAN Verified', 'Instant Verification']}
-            />
-            <FeatureCard
-              icon={<Landmark size={22} />}
-              badge="Exchange Execution"
-              title="BSE StAR MF Order Routing"
-              description="Lumpsum purchases and automated monthly SIP mandates routed directly through BSE StAR MF exchange infrastructure. Funds settle straight between your bank account and AMC custodian accounts."
-              tags={['BSE StAR Architecture', 'e-NACH Mandates', 'UPI Autopay', 'Direct AMC Settlement']}
-            />
-            <FeatureCard
-              icon={<RefreshCw size={22} />}
-              badge="Risk Control"
-              title="Portfolio Telemetry &amp; Rebalancing"
-              description="Consolidated portfolio view across equity, debt, hybrid, and index funds. Live asset allocation drift alerts signal when equity market rallies tilt your risk exposure beyond your target threshold."
-              tags={['Asset Allocation', 'Drift Monitoring', 'Rebalance Signals', 'Tax Context']}
-            />
-            <FeatureCard
-              icon={<Users size={22} />}
-              badge="Family Office"
-              title="Household &amp; Family Goal Buckets"
-              description="Group family goals under a unified household dashboard while preserving individual investor records and PAN-segregated tax tracking."
-              tags={['Household Grouping', 'Goal Segregation', 'Multi-Horizon View']}
-            />
-            <FeatureCard
-              icon={<Coins size={22} />}
-              badge="Cashflow Design"
-              title="Systematic STP &amp; SWP Execution"
-              description="Automate Systematic Transfer Plans (STP) for phased equity allocation and Systematic Withdrawal Plans (SWP) for predictable monthly retirement cashflow streams."
-              tags={['SWP Retirement Paycheck', 'STP Phased Staging', 'Capital Preservation']}
-            />
-          </div>
-
-          <div style={{ marginTop: 28, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            <Link href="/dashboard/goals" className="mkt-btn mkt-btn-primary">
-              Open Goal Planner
-              <ArrowRight size={16} aria-hidden />
-            </Link>
-            <Link href="/kyc" className="mkt-btn mkt-btn-outline-dark">
-              Start Paperless KYC
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Track B: Valuation Lab & Quantitative Desks */}
-      <section className="mkt-section" id="valuation-desks" aria-labelledby="valuation-heading">
-        <div className="mkt-container">
-          <Reveal>
-            <span className="mkt-kicker">Track B · Fundamental Analysis</span>
-            <h2 id="valuation-heading" className="mkt-serif">
-              Valuation Lab: Nine Quantitative Models
-            </h2>
-            <p className="mkt-lead">
-              Avoid narrative hype and social media tips. Value companies quantitatively using audited historical
-              financials, cash flow normalization, and peer benchmarking.
-            </p>
-          </Reveal>
-
-          <div className="mkt-grid-3">
-            <FeatureCard
-              icon={<Calculator size={22} />}
-              badge="Cash Flow Model"
-              title="Discounted Cash Flow (DCF)"
-              description="Two-stage and three-stage Free Cash Flow to Firm (FCFF) modeling. Dynamic WACC calculator, terminal growth bounds, and a multi-dimensional sensitivity matrix across discount rates."
-              tags={['FCFF / FCFE', 'Sensitivity Matrix', 'Dynamic WACC', 'Terminal Multiples']}
-            />
-            <FeatureCard
-              icon={<Scale size={22} />}
-              badge="Expectations Investing"
-              title="Reverse DCF Lab"
-              description="Reverse-engineers the cash flow growth rate implied by the current market price. Identify whether the market is pricing in realistic earnings growth or unattainable expectations."
-              tags={['Implied Growth CAGR', 'Expectations Pricing', 'Margin of Safety']}
-            />
-            <FeatureCard
-              icon={<Briefcase size={22} />}
-              badge="Value Investing"
-              title="Benjamin Graham Formula"
-              description="The classic intrinsic value formula adjusted for prevailing AAA corporate bond yields, past 3-year normalized earnings, and long-term expected GDP growth."
-              tags={['Deep Value', 'Bond Yield Adjustment', 'Normalized EPS', 'Graham Number']}
-            />
-            <FeatureCard
-              icon={<TrendingUp size={22} />}
-              badge="GARP Framework"
-              title="Peter Lynch Fair Value"
-              description="Growth-At-A-Reasonable-Price (GARP) valuation. Plots historical PEG ratios, median historical P/E lines, and earnings growth trajectories across market cycles."
-              tags={['GARP Analysis', 'PEG Ratio', 'Historical P/E Bands', 'Earnings Line']}
-            />
-            <FeatureCard
-              icon={<Coins size={22} />}
-              badge="Income Assets"
-              title="Dividend Discount Model (DDM)"
-              description="Gordon Growth Model tailored for mature companies, utilities, and high-dividend yield stocks. Models terminal dividend yields and payout stability."
-              tags={['Gordon Growth', 'Payout Sustainability', 'High Yield Valuation']}
-            />
-            <FeatureCard
-              icon={<Layers size={22} />}
-              badge="Peer Multiples"
-              title="EV/EBITDA &amp; Relative Valuation"
-              description="Enterprise value multiples, Price-to-Book (P/B), and Price-to-Sales (P/S) compared against sector peers, 5-year historical medians, and return on capital (ROCE/ROE)."
-              tags={['EV/EBITDA', 'Sector Medians', 'ROCE / ROE Context', 'Peer Quartiles']}
-            />
-          </div>
-
-          <div style={{ marginTop: 28 }}>
-            <Link href="/techno-funda" className="mkt-btn mkt-btn-outline-dark">
-              Launch Valuation Lab
-              <ArrowRight size={16} aria-hidden />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Track B: Alpha Screeners & Corporate Disclosures */}
-      <section className="mkt-section mkt-section-alt" id="alpha-screeners" aria-labelledby="screeners-heading">
-        <div className="mkt-container">
-          <Reveal>
-            <span className="mkt-kicker">Track B · Automated Signals</span>
-            <h2 id="screeners-heading" className="mkt-serif">
-              Automated Screeners &amp; Filing Detectors
-            </h2>
-            <p className="mkt-lead">
-              Stay ahead of market shifts. Our institutional screeners parse quarterly earnings beats, contract wins,
-              and volume surges in real time.
-            </p>
-          </Reveal>
-
-          <div className="mkt-grid-3">
-            <FeatureCard
-              icon={<BarChart3 size={22} />}
-              badge="Earnings Momentum"
-              title="PEAD Screener"
-              description="Post-Earnings Announcement Drift radar. Identifies companies delivering quarterly revenue and EBITDA beats that trigger persistent institutional price drift over subsequent weeks."
-              tags={['Quarterly Surprise', 'EBITDA Beats', 'Price Reaction', 'Drift Tracking']}
-            />
-            <FeatureCard
-              icon={<Newspaper size={22} />}
-              badge="SEBI Filings"
-              title="LODR Order Tracker"
-              description="Captures material contract wins, corporate orders, and government tenders filed under SEBI LODR regulations. Automatically extracts order values in ₹ Crore directly from exchange PDFs."
-              tags={['Order Wins', '₹ Crore Extraction', 'LODR Disclosures', 'Market Cap Ratio']}
-            />
-            <FeatureCard
-              icon={<Zap size={22} />}
-              badge="Price Momentum"
-              title="52-Week Breakout Radar"
-              description="Real-time scanner filtering stocks breaking out to fresh 52-week highs or breaking multi-month bases with 2x to 5x average volume expansion."
-              tags={['Fresh 52W Highs', 'Volume Multiplier', 'Base Breakouts', 'All-Time Highs']}
-            />
-            <FeatureCard
-              icon={<Flame size={22} />}
-              badge="Smart Money"
-              title="Delivery Momentum Screener"
-              description="Filters for stocks experiencing sustained delivery percentage surges above 60% alongside expanding traded value, signalling institutional accumulation rather than speculative intraday churn."
-              tags={['Delivery % Surge', 'Institutional Accumulation', 'Cash Turnover']}
-            />
-            <FeatureCard
-              icon={<Activity size={22} />}
-              badge="Liquidity Watch"
-              title="Circuit &amp; Freeze Scanner"
-              description="Monitors stocks locked in upper and lower price bands, order book depth imbalances, pending buyer queues, and volatility cooling periods."
-              tags={['Upper Circuit Alerts', 'Buy Queue Spreads', 'Freeze Bands']}
-            />
-            <FeatureCard
-              icon={<Sparkles size={22} />}
-              badge="Special Situations"
-              title="Buybacks &amp; Arbitrage Radar"
-              description="Tracks tender-offer buybacks, retail category entitlement ratios, record dates, and potential arbitrage spreads across corporate actions."
-              tags={['Tender Buybacks', 'Acceptance Ratios', 'Arbitrage Spreads', 'Record Dates']}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Track B: Market Telemetry & Derivatives Intelligence */}
-      <section className="mkt-section mkt-section-dark" id="market-telemetry" aria-labelledby="telemetry-heading">
-        <div className="mkt-container">
-          <Reveal>
-            <span className="mkt-kicker">Track B · Quantitative Telemetry</span>
-            <h2 id="telemetry-heading" className="mkt-serif">
-              Market Mood, Sector Rotation &amp; F&amp;O Analytics
-            </h2>
-            <p className="mkt-lead">
-              Track institutional money flow, derivative positioning, and sector leadership across the Indian market.
-            </p>
-          </Reveal>
-
-          <div className="mkt-grid-3">
-            <FeatureCard
-              icon={<Activity size={22} />}
-              badge="Macro Sentiment"
-              title="Market Mood Index (MMI)"
-              description="A six-factor composite sentiment barometer tracking FII/DII net flows, market advance-decline breadth, India VIX volatility, 52-week price strength, and 200-day moving average positioning."
-              tags={['Extreme Fear / Greed', 'FII / DII Flow', 'India VIX', 'Market Breadth']}
-            />
-            <FeatureCard
-              icon={<LineChart size={22} />}
-              badge="Sector Strength"
-              title="Sector Rotation Heatmap"
-              description="Relative strength comparison of all 14 NSE sectoral indices against the benchmark Nifty 50. Identifies early capital rotation into emerging sectors before broad index rallies."
-              tags={['14 NSE Sectors', 'Relative Strength', 'Leading vs Lagging', 'Rotation Waves']}
-            />
-            <FeatureCard
-              icon={<FileText size={22} />}
-              badge="Derivatives"
-              title="F&amp;O Open Interest &amp; PCR"
-              description="Detailed derivatives telemetry: strikes with open interest buildups, Put-Call Ratio (PCR) changes, max pain calculation, and monthly expiry roll-over percentages."
-              tags={['Open Interest (OI)', 'Put-Call Ratio (PCR)', 'Max Pain Strike', 'Roll-Over %']}
-            />
-            <FeatureCard
-              icon={<ShieldCheck size={22} />}
-              badge="Regulatory Filings"
-              title="Insider Trading &amp; PIT Tracker"
-              description="SEBI Prohibition of Insider Trading (PIT) disclosures: promoter open market purchases, executive share sales, and promoter pledge creation or revocation alerts."
-              tags={['Promoter Purchases', 'Pledge Revocations', 'SEBI PIT Filings', 'ESOP Activity']}
-            />
-            <FeatureCard
-              icon={<Rocket size={22} />}
-              badge="Institutional Prints"
-              title="Bulk &amp; Block Deals Radar"
-              description="Large-value transaction alerts on NSE and BSE. Identifies institutional crosses, foreign institutional participation, and domestic mutual fund allocations above 0.5% equity."
-              tags={['Institutional Crosses', 'Block Window Prints', 'HNI Allocations']}
-            />
-            <FeatureCard
-              icon={<Coins size={22} />}
-              badge="Calendar"
-              title="Corporate Actions &amp; Dividends"
-              description="Centralized calendar tracking upcoming dividend ex-dates, bonus share distributions, stock splits, rights issues, and board meeting agendas."
-              tags={['Ex-Dividend Dates', 'Bonus / Splits', 'Board Meetings', 'AGM Agendas']}
-            />
-          </div>
-
-          <div style={{ marginTop: 28 }}>
-            <Link href="/techno-funda" className="mkt-btn mkt-btn-primary">
-              Explore Research Suite
-              <ArrowRight size={16} aria-hidden />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Track B: Primary Markets & Macro Signals */}
-      <section className="mkt-section" id="macro-primary" aria-labelledby="macro-heading">
-        <div className="mkt-container">
-          <Reveal>
-            <span className="mkt-kicker">Track B · Alternative Data &amp; Macro</span>
-            <h2 id="macro-heading" className="mkt-serif">
-              Primary Markets, Shareholding &amp; Macro Signals
-            </h2>
-            <p className="mkt-lead">
-              Gain an analytical edge with non-traditional datasets including vehicle registrations, banking credit,
-              and ownership shifts across 2,200+ listed equities.
-            </p>
-          </Reveal>
-
-          <div className="mkt-grid-4">
-            <FeatureCard
-              icon={<Users size={20} />}
-              badge="Ownership"
-              title="Shareholding Pattern Radar"
-              description="Eight quarters of historical ownership shifts across Foreign Institutional Investors (FIIs), Domestic Mutual Funds, and Promoters across 2,200+ NSE companies."
-              tags={['FII Accumulation', 'MF Holding Changes', 'Promoter Stakes']}
-            />
-            <FeatureCard
-              icon={<Rocket size={20} />}
-              badge="Primary Market"
-              title="IPO Radar &amp; GMP Tracker"
-              description="Mainboard and SME IPO telemetry: real-time subscription multiples across QIB, NII, and Retail buckets, Grey Market Premium context, and anchor investor books."
-              tags={['Subscription Multiples', 'Anchor Book List', 'Grey Market Context']}
-            />
-            <FeatureCard
-              icon={<TrendingUp size={20} />}
-              badge="Ground Reality"
-              title="Vahan Auto Registrations"
-              description="Monthly vehicle registration numbers directly from the Ministry of Road Transport. Monitor real-world 2W, passenger car, and commercial vehicle deliveries before quarterly sales results."
-              tags={['MoRTH Vahan Data', 'OEM Volume Trends', 'Leading Auto Indicator']}
-            />
-            <FeatureCard
-              icon={<Building2 size={20} />}
-              badge="Credit Pulse"
-              title="Bank &amp; NBFC Credit Growth"
-              description="Fortnightly systemic banking credit and deposit growth data from RBI. Monitor credit-to-deposit ratios, net interest margin trends, and banking sector liquidity."
-              tags={['RBI Credit Growth', 'Deposit Ratios', 'Systemic Liquidity']}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Academy & Education LMS */}
-      <section className="mkt-section mkt-section-alt" id="academy" aria-labelledby="academy-heading">
-        <div className="mkt-container">
-          <Reveal>
-            <span className="mkt-kicker">Education · Investor Literacy</span>
-            <h2 id="academy-heading" className="mkt-serif">
-              Investing Academy: Zero-to-Hero Curriculum
-            </h2>
-            <p className="mkt-lead">
-              Structured, no-jargon courses designed to transform beginners into confident, self-directed investors.
-            </p>
-          </Reveal>
-
-          <div className="mkt-grid-3">
-            <FeatureCard
-              icon={<GraduationCap size={22} />}
-              badge="Beginner Level"
-              title="Foundations of Disciplined Wealth"
-              description="Master inflation mathematics, risk vs return tradeoffs, asset allocation frameworks, and the exponential power of uninterrupted compounding over 10 to 25 year horizons."
-              tags={['Compounding Math', 'Asset Allocation', 'Inflation Realities']}
-            />
-            <FeatureCard
-              icon={<Search size={22} />}
-              badge="Intermediate Level"
-              title="Mutual Fund Selection Framework"
-              description="Learn how to evaluate rolling return consistency, downside standard deviation, Sharpe ratios, fund manager track records, and total expense ratio impacts."
-              tags={['Rolling Returns', 'Sharpe & Sortino', 'Portfolio Turnover', 'Direct vs Regular']}
-            />
-            <FeatureCard
-              icon={<BarChart3 size={22} />}
-              badge="Advanced Level"
-              title="Techno-Funda Practical Application"
-              description="Step-by-step case studies on reading annual reports, understanding cash flow statements, running DCF models, and interpreting earnings announcement drift."
-              tags={['Annual Reports', 'Cash Flow Quality', 'DCF Case Studies', 'PEAD Execution']}
-            />
-          </div>
-
-          <div style={{ marginTop: 28 }}>
-            <Link href="/courses" className="mkt-btn mkt-btn-outline-dark">
-              Browse Academy Courses
-              <ArrowRight size={16} aria-hidden />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Synergy: How Track A & Track B Work Together */}
-      <section className="mkt-section" aria-labelledby="synergy-heading">
-        <div className="mkt-container">
-          <Reveal>
-            <span className="mkt-kicker">Portfolio Strategy</span>
-            <h2 id="synergy-heading" className="mkt-serif">
-              How Track A and Track B Work Together
-            </h2>
-            <p className="mkt-lead">
-              The core-and-satellite methodology: compound long-term wealth reliably while reserving satellite capital for
-              disciplined research ideas.
-            </p>
-          </Reveal>
-
-          <div className="mkt-grid-2">
-            <article className="mkt-card" style={{ borderLeft: '4px solid var(--mkt-gold)' }}>
-              <div className="mkt-card-badge">Track A · Core Compounder (70% - 80%)</div>
-              <h3 className="mkt-serif mkt-card-title">Disciplined Mutual Fund SIPs</h3>
-              <p className="mkt-text-muted" style={{ lineHeight: 1.6 }}>
-                Allocate the core of your monthly surplus to diversified, inflation-protected mutual funds.
-                Automatic UPI Autopay and e-NACH mandates ensure you never miss market compounding, while goal
-                countdown timers keep you aligned with retirement and education targets.
+            <div className="fp-section-title-wrap">
+              <span className="mkt-kicker">Interactive Catalog</span>
+              <h2 className="mkt-serif fp-section-title">
+                Search and explore all 34 capabilities
+              </h2>
+              <p className="mkt-lead" style={{ maxWidth: 700, margin: '0 auto 1.5rem auto', textAlign: 'center' }}>
+                Filter by category, search by keyword, or tap any quick prompt to see exactly what each tool does and how it helps you grow your wealth.
               </p>
-              <div className="mkt-feature-tags">
-                <span className="mkt-feature-tag">BSE StAR MF</span>
-                <span className="mkt-feature-tag">Automatic Rebalancing</span>
-                <span className="mkt-feature-tag">Zero Emotion</span>
-              </div>
-            </article>
+            </div>
+          </Reveal>
 
-            <article className="mkt-card" style={{ borderLeft: '4px solid var(--mkt-teal)' }}>
-              <div className="mkt-card-badge">Track B · Satellite Alpha (20% - 30%)</div>
-              <h3 className="mkt-serif mkt-card-title">Techno-Funda Quantitative Research</h3>
-              <p className="mkt-text-muted" style={{ lineHeight: 1.6 }}>
-                For experienced investors seeking individual stock ideas, use our 20 quantitative research desks to
-                filter earnings momentum (PEAD), track institutional orders (LODR), and calculate intrinsic value ranges
-                before deploying satellite capital.
-              </p>
-              <div className="mkt-feature-tags">
-                <span className="mkt-feature-tag">Valuation Lab</span>
-                <span className="mkt-feature-tag">PEAD Screener</span>
-                <span className="mkt-feature-tag">Decision Support</span>
-              </div>
-            </article>
-          </div>
-
-
+          <FeaturesExplorer />
         </div>
       </section>
 
-      {/* Final Call to Action */}
+      {/* ─── SPOTLIGHT 1: MARKET MOOD INDEX (MMI) ───────────── */}
+      <section className="mkt-section fp-spotlight-section">
+        <div className="mkt-container">
+          <Reveal>
+            <div className="fp-mmi-spotlight-box">
+              <div className="fp-mmi-spotlight-left">
+                <div className="fp-hero-badge" style={{ marginBottom: '1rem', width: 'fit-content' }}>
+                  <Activity size={14} style={{ color: 'var(--mkt-gold)' }} />
+                  <span>Flagship Sentiment Tool</span>
+                </div>
+                <h2 className="mkt-serif fp-spotlight-title">
+                  Stop emotional trading with the Market Mood Index
+                </h2>
+                <p className="fp-spotlight-desc">
+                  Most retail investors buy at the peak when euphoria is highest, and sell at the bottom out of panic. The Market Mood Index turns this human bias on its head.
+                </p>
+                <div className="fp-mmi-rules">
+                  <div className="fp-mmi-rule-card">
+                    <span className="fp-mmi-rule-tag" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
+                      Extreme Fear (0–30)
+                    </span>
+                    <p>Good quality stocks are trading at discount prices. The highest-probability time to accumulate more.</p>
+                  </div>
+                  <div className="fp-mmi-rule-card">
+                    <span className="fp-mmi-rule-tag" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
+                      Extreme Greed (70–100)
+                    </span>
+                    <p>Valuations are stretched and euphoric. A signal to be cautious, review stop-losses, and avoid FOMO buying.</p>
+                  </div>
+                </div>
+
+                <div className="fp-mmi-signals-grid">
+                  <div className="fp-mmi-signal-item">
+                    <CheckCircle2 size={15} style={{ color: '#10b981' }} />
+                    <span>FII &amp; DII Institutional Daily Flows</span>
+                  </div>
+                  <div className="fp-mmi-signal-item">
+                    <CheckCircle2 size={15} style={{ color: '#10b981' }} />
+                    <span>India VIX Volatility Index</span>
+                  </div>
+                  <div className="fp-mmi-signal-item">
+                    <CheckCircle2 size={15} style={{ color: '#10b981' }} />
+                    <span>Nifty 50 Advance-Decline Breadth</span>
+                  </div>
+                  <div className="fp-mmi-signal-item">
+                    <CheckCircle2 size={15} style={{ color: '#10b981' }} />
+                    <span>200-Day Moving Average Breadth</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="fp-mmi-spotlight-right">
+                <div className="fp-gauge-card">
+                  <div className="fp-gauge-label">Live Market Sentiment Gauge</div>
+                  <div className="fp-gauge-meter">
+                    <div className="fp-gauge-arc">
+                      <div className="fp-gauge-needle" />
+                    </div>
+                  </div>
+                  <div className="fp-gauge-legend">
+                    <span style={{ color: '#ef4444' }}>Fear</span>
+                    <span style={{ color: '#f59e0b' }}>Neutral</span>
+                    <span style={{ color: '#10b981' }}>Greed</span>
+                  </div>
+                  <div className="fp-gauge-status">
+                    <span className="fp-gauge-score">42</span>
+                    <span className="fp-gauge-mood">Neutral Zone</span>
+                  </div>
+                  <p className="fp-gauge-hint">Market is balanced. Good time for disciplined SIPs.</p>
+                  <Link href="/techno-funda" className="mkt-btn mkt-btn-outline-dark" style={{ width: '100%', marginTop: '1rem' }}>
+                    Open Live MMI Tool →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ─── HOW TRACK A & B WORK TOGETHER ──────────────────── */}
+      <section className="mkt-section mkt-section-alt">
+        <div className="mkt-container">
+          <Reveal>
+            <div className="fp-section-title-wrap">
+              <span className="mkt-kicker">The Complete Strategy</span>
+              <h2 className="mkt-serif fp-section-title">
+                Core &amp; Satellite Investing Made Effortless
+              </h2>
+              <p className="mkt-lead" style={{ maxWidth: 720, margin: '0 auto 2.5rem auto', textAlign: 'center' }}>
+                Top wealth managers recommend dividing your portfolio into a stable core and a high-conviction satellite. GoalCompass lets you run both under one roof.
+              </p>
+            </div>
+
+            <div className="fp-core-satellite-grid">
+              {/* Core Side */}
+              <div className="fp-cs-card fp-cs-core">
+                <div className="fp-cs-badge">Core Portfolio (70%–80% of Savings)</div>
+                <h3 className="mkt-serif fp-cs-title">Track A: Automated Wealth Foundation</h3>
+                <p className="fp-cs-desc">
+                  Set up automated, diversified equity &amp; debt mutual fund SIPs that compound steadily over 5 to 25 years. You never need to watch daily price tickers.
+                </p>
+                <ul className="fp-cs-list">
+                  <li><CheckCircle2 size={16} /> Retirement, Child College, and Emergency Goals</li>
+                  <li><CheckCircle2 size={16} /> Automated monthly UPI Autopay / e-NACH</li>
+                  <li><CheckCircle2 size={16} /> Asset allocation drift alerts</li>
+                  <li><CheckCircle2 size={16} /> 100% Free with zero management fees</li>
+                </ul>
+              </div>
+
+              {/* Satellite Side */}
+              <div className="fp-cs-card fp-cs-satellite">
+                <div className="fp-cs-badge" style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#6366f1' }}>
+                  Satellite Portfolio (20%–30% of Savings)
+                </div>
+                <h3 className="mkt-serif fp-cs-title">Track B: High-Conviction Stock Research</h3>
+                <p className="fp-cs-desc">
+                  Pick individual winning companies using our 20 research desks. Evaluate fair value with 9 valuation models, catch breakout volume, and track institutional whale buys.
+                </p>
+                <ul className="fp-cs-list">
+                  <li><CheckCircle2 size={16} /> DCF, Graham, and Peter Lynch fair value calculators</li>
+                  <li><CheckCircle2 size={16} /> PEAD earnings beat and corporate contract screeners</li>
+                  <li><CheckCircle2 size={16} /> Market Mood Index fear &amp; greed indicators</li>
+                  <li><CheckCircle2 size={16} /> Zero social media noise — 100% raw exchange data</li>
+                </ul>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ─── BEGINNER FAQ SECTION ───────────────────────────── */}
+      <section className="mkt-section">
+        <div className="mkt-container" style={{ maxWidth: 840 }}>
+          <Reveal>
+            <div className="fp-section-title-wrap">
+              <span className="mkt-kicker">Got Questions?</span>
+              <h2 className="mkt-serif fp-section-title">
+                Common questions from new visitors
+              </h2>
+              <p className="mkt-lead" style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                Everything you need to know before getting started.
+              </p>
+            </div>
+
+            <FAQAccordion items={FEATURE_FAQS} idPrefix="features-faq" />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ─── FINAL CTA ──────────────────────────────────────── */}
       <CtaSection
-        title="Experience disciplined investing in action"
-        subtitle="Start with a free goal plan on Track A, then explore our 20 Techno-Funda research desks on Track B."
-        primaryHref="/dashboard/goals"
-        primaryLabel="Start Free Goal Plan"
-        secondaryHref="/techno-funda"
-        secondaryLabel="Explore Research Suite"
+        title="Ready to build your financial plan?"
+        subtitle="Track A is 100% free forever. Start in under 2 minutes with no credit card required."
+        primaryHref="/auth/register"
+        primaryLabel="Get Started Free"
+        secondaryHref="/pricing"
+        secondaryLabel="View Research Plans"
       />
     </>
   );

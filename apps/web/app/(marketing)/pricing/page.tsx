@@ -150,8 +150,7 @@ export default function PricingPage() {
               </div>
             </div>
             <p className="mkt-text-muted" style={{ fontSize: '0.85rem' }}>
-              * Mutual fund execution available after KYC under AMFI distributor relationship
-              (ARN-{SITE.amfiArn}).
+              * Mutual fund investments are processed securely through 100% paperless KYC and exchange-approved settlement.
             </p>
           </Reveal>
 

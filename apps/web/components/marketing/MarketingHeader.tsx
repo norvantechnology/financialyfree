@@ -55,7 +55,7 @@ export function MarketingHeader({ forceSolid = false }: { forceSolid?: boolean }
       <header className={`mkt-header ${solid ? 'is-scrolled' : 'is-top'}`}>
         <div className="mkt-header-inner">
           <Link href="/" className="mkt-brand" aria-label={`${SITE.name} home`}>
-            <span className="mkt-brand-mark" aria-hidden="true">FF</span>
+            <span className="mkt-brand-mark" aria-hidden="true">GC</span>
             <span className="mkt-brand-name">{SITE.name}</span>
           </Link>
 
