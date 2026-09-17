@@ -9,6 +9,7 @@ import type { NextRequest } from 'next/server';
 const PROTECTED_PREFIXES = [
   '/dashboard',
   '/techno-funda',
+  '/options-lab',
   '/kyc',
   '/courses',
   '/checkout',

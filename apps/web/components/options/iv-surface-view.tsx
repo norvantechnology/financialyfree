@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import '../../styles/options-lab.css';
 import dynamic from 'next/dynamic';
 import { Sparkles, Activity, RefreshCw, Zap } from 'lucide-react';
 import { GexSummaryDto, VolSurfaceExpiryDto } from '@ff/types';

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import '../../styles/options-lab.css';
 import { X, Bookmark, Check } from 'lucide-react';
 import { StrategyLegDto } from '@ff/types';
 
@@ -66,11 +67,11 @@ export const SaveStrategyModal: React.FC<SaveStrategyModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-      <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-2xl relative">
+    <div className="opt-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+      <div className="opt-modal-card w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-2xl relative">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors"
+          className="opt-modal-close-btn absolute top-4 right-4 p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>

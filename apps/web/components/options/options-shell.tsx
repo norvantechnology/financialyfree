@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import '../../styles/options-lab.css';
 import {
   TrendingUp,
   Activity,
@@ -76,20 +77,19 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
   const isPositive = spotChange >= 0;
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans pb-16">
-      {/* ── Persistent Sandbox Warning Banner (Section 2E requirement) ── */}
+    <div className="opt-root">
+      {/* ── Persistent Sandbox Warning Banner ── */}
       {isSandbox && (
-        <div className="w-full bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between text-xs text-amber-300">
-          <div className="flex items-center gap-2 font-medium">
+        <div className="opt-sandbox-banner">
+          <div className="opt-sandbox-banner-left">
             <ShieldAlert className="w-4 h-4 text-amber-400 flex-shrink-0 animate-pulse" />
             <span>
-              <strong>SANDBOX MODE ACTIVE:</strong> Virtual paper trading with real live market tick execution. No real
-              capital at risk.
+              <strong>SANDBOX MODE ACTIVE:</strong> Virtual paper trading with real live market tick execution. No real capital at risk.
             </span>
           </div>
           <button
             onClick={onToggleSandbox}
-            className="px-2.5 py-1 text-[11px] font-semibold bg-amber-500 hover:bg-amber-400 text-neutral-950 rounded transition-colors"
+            className="opt-sandbox-switch-btn"
           >
             Switch to Live
           </button>
@@ -97,32 +97,28 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
       )}
 
       {/* ── Top Header Controls & Ticker Bar ── */}
-      <header className="sticky top-0 z-30 bg-neutral-900/90 backdrop-blur-md border-b border-neutral-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+      <header className="opt-header">
+        <div className="opt-header-inner">
+          <div className="opt-header-top-row">
             {/* Left: Module Identity + Symbol Selector */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                  <Activity className="w-5 h-5" />
+            <div className="opt-brand-group">
+              <div className="opt-brand-icon">
+                <Activity className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="opt-brand-title">
+                  Options Lab <span className="opt-brand-badge">F&O Pro</span>
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-base font-bold text-white tracking-tight">Options Lab</h1>
-                    <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-500/20 text-amber-400 uppercase tracking-wider">
-                      F&O Pro
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-neutral-400">Indian NSE/BSE Options & Strategy Suite</p>
-                </div>
+                <p className="opt-brand-subtitle">Indian NSE/BSE Options & Strategy Suite</p>
               </div>
 
               {/* Symbol Selector Dropdown */}
-              <div className="relative">
+              <div style={{ position: 'relative' }}>
                 <select
                   value={selectedSymbol}
                   onChange={(e) => onSymbolChange(e.target.value)}
-                  className="appearance-none bg-neutral-800 hover:bg-neutral-750 border border-neutral-700 text-white font-semibold text-sm rounded-lg pl-3 pr-8 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-500 transition-colors"
+                  className="opt-select-dropdown"
+                  style={{ paddingRight: '2rem' }}
                 >
                   {POPULAR_UNDERLYINGS.map((sym) => (
                     <option key={sym} value={sym}>
@@ -130,16 +126,17 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 text-neutral-400 absolute right-2.5 top-3 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-neutral-400" style={{ position: 'absolute', right: '0.625rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
               </div>
 
               {/* Expiry Selector Dropdown */}
               {expiryDates.length > 0 && (
-                <div className="relative">
+                <div style={{ position: 'relative' }}>
                   <select
                     value={selectedExpiry}
                     onChange={(e) => onExpiryChange(e.target.value)}
-                    className="appearance-none bg-neutral-800 hover:bg-neutral-750 border border-neutral-700 text-neutral-200 text-xs rounded-lg pl-3 pr-7 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-500 transition-colors"
+                    className="opt-select-dropdown"
+                    style={{ paddingRight: '1.75rem', fontSize: '0.75rem' }}
                   >
                     {expiryDates.map((exp) => (
                       <option key={exp} value={exp}>
@@ -147,23 +144,22 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-3 h-3 text-neutral-400 absolute right-2 top-2.5 pointer-events-none" />
+                  <ChevronDown className="w-3 h-3 text-neutral-400" style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                 </div>
               )}
             </div>
 
             {/* Right: Live Spot Ticker, Status Dot, Broker CTA */}
-            <div className="flex items-center gap-4">
+            <div className="opt-selectors-row" style={{ marginLeft: 'auto' }}>
               {/* Real-time Spot Quote */}
-              <div className="flex items-baseline gap-2 bg-neutral-950/60 border border-neutral-800 rounded-lg px-3 py-1">
-                <span className="text-xs font-mono text-neutral-400">{selectedSymbol} Spot</span>
-                <span className="text-sm font-bold font-mono text-white">
+              <div className="opt-ticker-chip" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.75rem' }}>
+                <span style={{ fontSize: '0.6875rem', color: '#94a3b8', fontFamily: 'monospace' }}>{selectedSymbol} Spot</span>
+                <span style={{ fontSize: '0.875rem', fontWeight: 800, color: '#ffffff', fontFamily: 'monospace' }}>
                   ₹{spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
                 <span
-                  className={`text-xs font-medium font-mono flex items-center ${
-                    isPositive ? 'text-emerald-400' : 'text-rose-400'
-                  }`}
+                  className={isPositive ? 'opt-text-green' : 'opt-text-red'}
+                  style={{ fontSize: '0.75rem', fontWeight: 700, fontFamily: 'monospace' }}
                 >
                   {isPositive ? '+' : ''}
                   {spotChange.toFixed(2)} ({isPositive ? '+' : ''}
@@ -172,100 +168,85 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
               </div>
 
               {/* Connection Status Heartbeat Dot */}
-              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-neutral-800/60 border border-neutral-700/50 rounded-full text-xs">
-                {connectionStatus === 'connected' ? (
-                  <>
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                    </span>
-                    <span className="text-emerald-400 text-[11px] font-medium">Live ({latencyMs}ms)</span>
-                  </>
-                ) : connectionStatus === 'reconnecting' ? (
-                  <>
-                    <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                    <span className="text-amber-400 text-[11px] font-medium">Reconnecting</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="h-2 w-2 rounded-full bg-neutral-500" />
-                    <span className="text-neutral-400 text-[11px]">Market Closed</span>
-                  </>
-                )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.375rem 0.625rem', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '9999px', fontSize: '0.6875rem' }}>
+                <span className={`opt-status-dot ${connectionStatus === 'reconnecting' ? 'reconnecting' : ''}`} />
+                <span style={{ color: connectionStatus === 'connected' ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
+                  {connectionStatus === 'connected' ? `Live (${latencyMs}ms)` : 'Reconnecting'}
+                </span>
               </div>
 
               {/* Broker Connect / Mode Button */}
               <button
                 onClick={onOpenBrokerModal}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
-                  connectedBroker
-                    ? 'bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 hover:bg-emerald-900/40'
-                    : 'bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-amber-500/20'
-                }`}
+                className="opt-broker-btn"
+                style={{
+                  background: connectedBroker ? 'rgba(16, 185, 129, 0.15)' : '#f59e0b',
+                  color: connectedBroker ? '#34d399' : '#020617',
+                  borderColor: connectedBroker ? 'rgba(16, 185, 129, 0.3)' : '#f59e0b',
+                  fontWeight: 700,
+                }}
               >
                 <Zap className="w-3.5 h-3.5" />
-                {connectedBroker ? `Connected: ${connectedBroker}` : 'Connect Broker'}
+                {connectedBroker ? `Broker: ${connectedBroker.toUpperCase()}` : 'Connect Broker'}
               </button>
 
               {/* Global Live <-> Sandbox Toggle Button */}
               <button
                 onClick={onToggleSandbox}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
-                  isSandbox
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
-                    : 'bg-neutral-800 text-neutral-300 border-neutral-700 hover:text-white hover:bg-neutral-700'
-                }`}
+                className={`opt-btn-pill ${isSandbox ? 'active' : ''}`}
+                style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem' }}
               >
-                {isSandbox ? 'Sandbox' : 'Go Sandbox'}
+                {isSandbox ? 'Sandbox Active' : 'Switch Sandbox'}
               </button>
             </div>
           </div>
 
           {/* ── Key Metrics Ribbon: Spot, PCR, Max Pain, ATM IV ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 pt-3 border-t border-neutral-800/60 text-xs">
-            <div className="bg-neutral-850/50 border border-neutral-800/80 rounded-lg p-2.5">
-              <div className="text-[11px] text-neutral-400 uppercase tracking-wider mb-0.5">PCR (Put / Call)</div>
-              <div className="text-base font-bold font-mono text-white flex items-center gap-2">
+          <div className="opt-ticker-grid">
+            <div className="opt-ticker-chip">
+              <div className="opt-ticker-chip-label">PCR (Put / Call)</div>
+              <div className="opt-ticker-chip-val">
                 {pcr.toFixed(2)}
                 <span
-                  className={`text-[10px] font-medium px-1.5 py-0.2 rounded ${
-                    pcr > 1.2
-                      ? 'bg-emerald-500/10 text-emerald-400'
-                      : pcr < 0.8
-                      ? 'bg-rose-500/10 text-rose-400'
-                      : 'bg-neutral-800 text-neutral-300'
-                  }`}
+                  style={{
+                    fontSize: '0.625rem',
+                    padding: '0.1rem 0.375rem',
+                    borderRadius: '0.25rem',
+                    fontWeight: 700,
+                    background: pcr > 1.2 ? 'rgba(16, 185, 129, 0.15)' : pcr < 0.8 ? 'rgba(244, 63, 94, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                    color: pcr > 1.2 ? '#34d399' : pcr < 0.8 ? '#fb7185' : '#cbd5e1',
+                  }}
                 >
                   {pcr > 1.2 ? 'Bullish' : pcr < 0.8 ? 'Bearish' : 'Neutral'}
                 </span>
               </div>
             </div>
 
-            <div className="bg-neutral-850/50 border border-neutral-800/80 rounded-lg p-2.5">
-              <div className="text-[11px] text-neutral-400 uppercase tracking-wider mb-0.5">Max Pain Strike</div>
-              <div className="text-base font-bold font-mono text-amber-400">
+            <div className="opt-ticker-chip">
+              <div className="opt-ticker-chip-label">Max Pain Strike</div>
+              <div className="opt-ticker-chip-val opt-text-gold">
                 ₹{maxPain.toLocaleString('en-IN')}
               </div>
             </div>
 
-            <div className="bg-neutral-850/50 border border-neutral-800/80 rounded-lg p-2.5">
-              <div className="text-[11px] text-neutral-400 uppercase tracking-wider mb-0.5">ATM Implied Vol (IV)</div>
-              <div className="text-base font-bold font-mono text-white">
+            <div className="opt-ticker-chip">
+              <div className="opt-ticker-chip-label">ATM Implied Vol (IV)</div>
+              <div className="opt-ticker-chip-val opt-text-sky">
                 {atmIv !== null ? `${atmIv.toFixed(1)}%` : 'Calculating...'}
               </div>
             </div>
 
-            <div className="bg-neutral-850/50 border border-neutral-800/80 rounded-lg p-2.5">
-              <div className="text-[11px] text-neutral-400 uppercase tracking-wider mb-0.5">Execution Status</div>
-              <div className="text-base font-bold font-mono text-neutral-200 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                {isSandbox ? 'Paper Fills' : 'Analytics Only'}
+            <div className="opt-ticker-chip">
+              <div className="opt-ticker-chip-label">Execution Status</div>
+              <div className="opt-ticker-chip-val" style={{ fontSize: '0.8125rem' }}>
+                <span className="opt-status-dot" style={{ display: 'inline-block' }} />
+                {isSandbox ? 'Paper Fills (Real-Time)' : 'Analytics Only'}
               </div>
             </div>
           </div>
 
           {/* ── Navigation Tabs ── */}
-          <nav className="flex items-center gap-1 mt-3 border-b border-neutral-800 -mb-px overflow-x-auto no-scrollbar">
+          <nav className="opt-tabs-nav">
             {[
               { id: 'chain', label: 'Option Chain', icon: Layers },
               { id: 'strategy', label: 'Strategy Builder & Payoff', icon: Sliders },
@@ -279,14 +260,10 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                 <button
                   key={tab.id}
                   onClick={() => onTabChange(tab.id as OptionsTab)}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
-                    isActive
-                      ? 'border-amber-400 text-amber-400 bg-amber-500/5'
-                      : 'border-transparent text-neutral-400 hover:text-neutral-200 hover:border-neutral-700'
-                  }`}
+                  className={`opt-tab-btn ${isActive ? 'active' : ''}`}
                 >
                   <Icon className="w-4 h-4" />
-                  {tab.label}
+                  <span>{tab.label}</span>
                 </button>
               );
             })}
@@ -295,7 +272,7 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
       </header>
 
       {/* ── Tab Content Container ── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">{children}</main>
+      <main className="opt-content-area">{children}</main>
     </div>
   );
 };

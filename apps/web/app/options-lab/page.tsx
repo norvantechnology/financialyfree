@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import '../../styles/options-lab.css';
 import dynamic from 'next/dynamic';
 import {
   Layers,
@@ -27,6 +28,7 @@ import {
   STRATEGY_TEMPLATES,
 } from '@ff/calc';
 import { io, Socket } from 'socket.io-client';
+import { SidebarLayout } from '../../components/sidebar-layout';
 import { OptionsShell, OptionsTab } from '../../components/options/options-shell';
 import { BrokerConnectModal } from '../../components/options/broker-connect-modal';
 import { SaveStrategyModal } from '../../components/options/save-strategy-modal';
@@ -431,10 +433,16 @@ export default function OptionsLabPage() {
   const atmStrike = chainData?.atmStrike || 25150;
 
   return (
-    <OptionsShell
-      activeTab={activeTab}
-      onTabChange={setActiveTab}
-      selectedSymbol={symbol}
+    <SidebarLayout
+      activePath="/options-lab"
+      brandTitle="Options Lab"
+      brandSubtitle="Indian F&O Strategy Suite"
+      brandBadge="PRO"
+    >
+      <OptionsShell
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        selectedSymbol={symbol}
       onSymbolChange={(s) => {
         setSymbol(s);
         setSelectedExpiry('');
@@ -520,54 +528,54 @@ export default function OptionsLabPage() {
           </div>
 
           {/* Option Chain Table */}
-          <div className="overflow-x-auto rounded-2xl border border-neutral-800 bg-neutral-900/70 shadow-2xl">
-            <table className="w-full text-xs text-left text-neutral-300 font-mono border-collapse">
-              <thead className="text-[11px] uppercase bg-neutral-950/95 text-neutral-400 border-b border-neutral-800">
+          <div className="opt-table-wrap">
+            <table className="opt-table">
+              <thead>
                 <tr>
                   <th
                     colSpan={showGreeks ? 8 : 4}
-                    className="px-3 py-2 text-center text-emerald-400 bg-emerald-950/20 border-r border-neutral-800"
+                    className="opt-th-call-header"
                   >
                     CALLS (CE)
                   </th>
-                  <th className="px-4 py-2 text-center text-amber-300 bg-neutral-900">STRIKE</th>
+                  <th className="opt-th-strike-header">STRIKE</th>
                   <th
                     colSpan={showGreeks ? 8 : 4}
-                    className="px-3 py-2 text-center text-rose-400 bg-rose-950/20 border-l border-neutral-800"
+                    className="opt-th-put-header"
                   >
                     PUTS (PE)
                   </th>
                 </tr>
-                <tr className="border-b border-neutral-800/80 text-[10px] text-neutral-400">
+                <tr>
                   {/* Call Columns */}
-                  <th className="px-2 py-1.5 text-center">Action</th>
-                  <th className="px-2 py-1.5 text-right">OI</th>
-                  <th className="px-2 py-1.5 text-right">Chg OI</th>
-                  {showGreeks && <th className="px-2 py-1.5 text-right">IV%</th>}
-                  {showGreeks && <th className="px-2 py-1.5 text-right">Delta</th>}
-                  {showGreeks && <th className="px-2 py-1.5 text-right">Theta</th>}
-                  {showGreeks && <th className="px-2 py-1.5 text-center">Buildup</th>}
-                  <th className="px-3 py-1.5 text-right text-emerald-300 font-bold border-r border-neutral-800">
+                  <th style={{ textAlign: 'center' }}>Action</th>
+                  <th style={{ textAlign: 'right' }}>OI</th>
+                  <th style={{ textAlign: 'right' }}>Chg OI</th>
+                  {showGreeks && <th style={{ textAlign: 'right' }}>IV%</th>}
+                  {showGreeks && <th style={{ textAlign: 'right' }}>Delta</th>}
+                  {showGreeks && <th style={{ textAlign: 'right' }}>Theta</th>}
+                  {showGreeks && <th style={{ textAlign: 'center' }}>Buildup</th>}
+                  <th style={{ textAlign: 'right', color: '#34d399', fontWeight: 800 }}>
                     LTP
                   </th>
 
                   {/* Center Strike */}
-                  <th className="px-4 py-1.5 text-center font-bold text-amber-300">Strike</th>
+                  <th style={{ textAlign: 'center', fontWeight: 800, color: '#fbbf24' }}>Strike</th>
 
                   {/* Put Columns */}
-                  <th className="px-3 py-1.5 text-left text-rose-300 font-bold border-r border-neutral-800/40">
+                  <th style={{ textAlign: 'left', color: '#fb7185', fontWeight: 800 }}>
                     LTP
                   </th>
-                  {showGreeks && <th className="px-2 py-1.5 text-center">Buildup</th>}
-                  {showGreeks && <th className="px-2 py-1.5 text-left">Theta</th>}
-                  {showGreeks && <th className="px-2 py-1.5 text-left">Delta</th>}
-                  {showGreeks && <th className="px-2 py-1.5 text-left">IV%</th>}
-                  <th className="px-2 py-1.5 text-right">Chg OI</th>
-                  <th className="px-2 py-1.5 text-right">OI</th>
-                  <th className="px-2 py-1.5 text-center">Action</th>
+                  {showGreeks && <th style={{ textAlign: 'center' }}>Buildup</th>}
+                  {showGreeks && <th style={{ textAlign: 'left' }}>Theta</th>}
+                  {showGreeks && <th style={{ textAlign: 'left' }}>Delta</th>}
+                  {showGreeks && <th style={{ textAlign: 'left' }}>IV%</th>}
+                  <th style={{ textAlign: 'right' }}>Chg OI</th>
+                  <th style={{ textAlign: 'right' }}>OI</th>
+                  <th style={{ textAlign: 'center' }}>Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-800/40">
+              <tbody>
                 {filteredChainRows.length > 0 ? (
                   filteredChainRows.map((row: OptionChainRowDto) => {
                     const isAtm = row.strike === atmStrike;
@@ -577,23 +585,21 @@ export default function OptionsLabPage() {
                     return (
                       <tr
                         key={row.strike}
-                        className={`transition-colors hover:bg-neutral-800/40 ${
-                          isAtm ? 'bg-amber-500/10 font-semibold' : ''
-                        }`}
+                        className={isAtm ? 'opt-row-atm' : ''}
                       >
                         {/* Call Actions (+B / +S) */}
-                        <td className={`px-2 py-2 text-center whitespace-nowrap ${isItmCall ? 'bg-emerald-950/15' : ''}`}>
-                          <div className="flex items-center justify-center gap-1">
+                        <td className={isItmCall ? 'opt-td-itm-call' : ''} style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                             <button
                               onClick={() => addLegToStrategy('BUY', 'CE', row.strike, row.ce.ltp, row.ce.iv)}
-                              className="px-1.5 py-0.5 text-[9px] rounded bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50"
+                              className="opt-action-btn-buy"
                               title="Buy Call"
                             >
                               +B
                             </button>
                             <button
                               onClick={() => addLegToStrategy('SELL', 'CE', row.strike, row.ce.ltp, row.ce.iv)}
-                              className="px-1.5 py-0.5 text-[9px] rounded bg-rose-600/30 text-rose-300 hover:bg-rose-600/50"
+                              className="opt-action-btn-sell"
                               title="Sell Call"
                             >
                               +S
@@ -652,22 +658,19 @@ export default function OptionsLabPage() {
 
                         {/* Call LTP */}
                         <td
-                          className={`px-3 py-2 text-right font-bold text-white border-r border-neutral-800 ${
-                            isItmCall ? 'bg-emerald-950/25 text-emerald-200' : ''
+                          className={`px-3 py-2 text-right font-bold text-white ${
+                            isItmCall ? 'opt-td-itm-call' : ''
                           }`}
+                          style={{ borderRight: '1px solid rgba(255,255,255,0.08)', color: '#34d399' }}
                         >
                           ₹{row.ce.ltp.toFixed(2)}
                         </td>
 
                         {/* Center Strike with ATM Badge */}
-                        <td
-                          className={`px-4 py-2 text-center font-bold text-amber-300 relative ${
-                            isAtm ? 'bg-amber-500/25 text-amber-400 ring-1 ring-amber-500/50' : 'bg-neutral-950/70'
-                          }`}
-                        >
+                        <td className="opt-td-strike">
                           {row.strike}
                           {isAtm && (
-                            <span className="ml-1.5 px-1 py-0.2 text-[9px] bg-amber-500 text-neutral-950 rounded font-black uppercase">
+                            <span className="opt-atm-pill">
                               ATM
                             </span>
                           )}
@@ -675,25 +678,26 @@ export default function OptionsLabPage() {
 
                         {/* Put LTP */}
                         <td
-                          className={`px-3 py-2 text-left font-bold text-white border-r border-neutral-800/40 ${
-                            isItmPut ? 'bg-rose-950/25 text-rose-200' : ''
+                          className={`px-3 py-2 text-left font-bold text-white ${
+                            isItmPut ? 'opt-td-itm-put' : ''
                           }`}
+                          style={{ borderRight: '1px solid rgba(255,255,255,0.04)', color: '#fb7185' }}
                         >
                           ₹{row.pe.ltp.toFixed(2)}
                         </td>
 
                         {/* Put Greeks & Buildup */}
                         {showGreeks && (
-                          <td className={`px-2 py-2 text-center ${isItmPut ? 'bg-rose-950/15' : ''}`}>
+                          <td className={`px-2 py-2 text-center ${isItmPut ? 'opt-td-itm-put' : ''}`}>
                             <span
-                              className={`text-[9px] px-1 py-0.2 rounded whitespace-nowrap ${
+                              className={`opt-buildup-tag ${
                                 row.pe.buildup === 'Long Buildup'
-                                  ? 'bg-emerald-500/20 text-emerald-400'
+                                  ? 'opt-buildup-long'
                                   : row.pe.buildup === 'Short Buildup'
-                                  ? 'bg-rose-500/20 text-rose-400'
+                                  ? 'opt-buildup-short'
                                   : row.pe.buildup === 'Short Covering'
-                                  ? 'bg-sky-500/20 text-sky-400'
-                                  : 'bg-amber-500/20 text-amber-400'
+                                  ? 'opt-buildup-cover'
+                                  : 'opt-buildup-unwind'
                               }`}
                             >
                               {row.pe.buildup}
@@ -701,17 +705,17 @@ export default function OptionsLabPage() {
                           </td>
                         )}
                         {showGreeks && (
-                          <td className={`px-2 py-2 text-left text-neutral-400 ${isItmPut ? 'bg-rose-950/15' : ''}`}>
+                          <td className={`px-2 py-2 text-left text-neutral-400 ${isItmPut ? 'opt-td-itm-put' : ''}`}>
                             {row.pe.theta ?? '-'}
                           </td>
                         )}
                         {showGreeks && (
-                          <td className={`px-2 py-2 text-left ${isItmPut ? 'bg-rose-950/15' : ''}`}>
+                          <td className={`px-2 py-2 text-left ${isItmPut ? 'opt-td-itm-put' : ''}`}>
                             {row.pe.delta ?? '-'}
                           </td>
                         )}
                         {showGreeks && (
-                          <td className={`px-2 py-2 text-left text-neutral-400 ${isItmPut ? 'bg-rose-950/15' : ''}`}>
+                          <td className={`px-2 py-2 text-left text-neutral-400 ${isItmPut ? 'opt-td-itm-put' : ''}`}>
                             {row.pe.iv !== null ? `${row.pe.iv}%` : '-'}
                           </td>
                         )}
@@ -720,30 +724,30 @@ export default function OptionsLabPage() {
                         <td
                           className={`px-2 py-2 text-right ${
                             row.pe.oiChange >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                          } ${isItmPut ? 'bg-rose-950/15' : ''}`}
+                          } ${isItmPut ? 'opt-td-itm-put' : ''}`}
                         >
                           {row.pe.oiChange >= 0 ? '+' : ''}
                           {row.pe.oiChange.toLocaleString('en-IN')}
                         </td>
 
                         {/* Put OI */}
-                        <td className={`px-2 py-2 text-right ${isItmPut ? 'bg-rose-950/15' : ''}`}>
+                        <td className={`px-2 py-2 text-right ${isItmPut ? 'opt-td-itm-put' : ''}`}>
                           {row.pe.oi.toLocaleString('en-IN')}
                         </td>
 
                         {/* Put Actions (+B / +S) */}
-                        <td className={`px-2 py-2 text-center whitespace-nowrap ${isItmPut ? 'bg-rose-950/15' : ''}`}>
-                          <div className="flex items-center justify-center gap-1">
+                        <td className={`px-2 py-2 text-center whitespace-nowrap ${isItmPut ? 'opt-td-itm-put' : ''}`}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                             <button
                               onClick={() => addLegToStrategy('BUY', 'PE', row.strike, row.pe.ltp, row.pe.iv)}
-                              className="px-1.5 py-0.5 text-[9px] rounded bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50"
+                              className="opt-action-btn-buy"
                               title="Buy Put"
                             >
                               +B
                             </button>
                             <button
                               onClick={() => addLegToStrategy('SELL', 'PE', row.strike, row.pe.ltp, row.pe.iv)}
-                              className="px-1.5 py-0.5 text-[9px] rounded bg-rose-600/30 text-rose-300 hover:bg-rose-600/50"
+                              className="opt-action-btn-sell"
                               title="Sell Put"
                             >
                               +S
@@ -1123,5 +1127,6 @@ export default function OptionsLabPage() {
         }}
       />
     </OptionsShell>
-  );
+  </SidebarLayout>
+);
 }

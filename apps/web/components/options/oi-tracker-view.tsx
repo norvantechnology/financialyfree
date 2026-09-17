@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import '../../styles/options-lab.css';
 import dynamic from 'next/dynamic';
 import { TrendingUp, RefreshCw, BarChart2, Activity } from 'lucide-react';
 import { OptionChainDto } from '@ff/types';

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import '../../styles/options-lab.css';
 import { X, ShieldCheck, CheckCircle2, ExternalLink, Zap, Lock } from 'lucide-react';
 import { BrokerType } from '@ff/types';
 
@@ -159,8 +160,8 @@ export const BrokerConnectModal: React.FC<BrokerConnectModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden text-neutral-100 font-sans">
+    <div className="opt-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+      <div className="opt-modal-card relative w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden text-neutral-100 font-sans" style={{ maxWidth: '42rem' }}>
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-neutral-950/60">
           <div className="flex items-center gap-3">
@@ -176,7 +177,7 @@ export const BrokerConnectModal: React.FC<BrokerConnectModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+            className="opt-modal-close-btn p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>

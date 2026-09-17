@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import '../../styles/options-lab.css';
 import { Clock, RefreshCw, AlertTriangle, ShieldCheck, XCircle } from 'lucide-react';
 import { SandboxPortfolioDto } from '@ff/types';
 
