@@ -63,7 +63,7 @@ export default function FeaturesPage() {
               Two Disciplined Tracks. Twenty-Five Integrated Tools.
             </h1>
             <p className="mkt-lead">
-              FinanciallyFree bridges long-term mutual fund wealth creation with quantitative equity research.
+              GoalCompass bridges long-term mutual fund wealth creation with quantitative equity research.
               Track A powers disciplined goal investing with BSE StAR exchange execution, while Track B provides
               20 institutional-grade research desks for self-directed market intelligence.
             </p>
@@ -120,7 +120,7 @@ export default function FeaturesPage() {
               badge="100% Digital"
               title="Paperless Digital KYC"
               description="Complete online onboarding via Aadhaar e-KYC and PAN verification compliant with SEBI and AMFI guidelines. Get investment-ready in under 3 minutes without physical documents or courier visits."
-              tags={['SEBI Compliant', 'AMFI ARN-350272', 'Aadhaar e-KYC', 'Instant Verification']}
+              tags={['SEBI Compliant', 'Aadhaar e-KYC', 'PAN Verified', 'Instant Verification']}
             />
             <FeatureCard
               icon={<Landmark size={22} />}
@@ -499,13 +499,7 @@ export default function FeaturesPage() {
             </article>
           </div>
 
-          <div style={{ marginTop: 20 }}>
-            <p className="mkt-text-muted" style={{ fontSize: '0.8125rem', lineHeight: 1.5 }}>
-              * Important Disclosure: AMFI-registered mutual fund distributor (ARN-350272). Track B research tools provide
-              quantitative data and educational decision-support only. FinanciallyFree does not provide stock recommendations,
-              portfolio management services, or guaranteed returns.
-            </p>
-          </div>
+
         </div>
       </section>
 

@@ -192,15 +192,9 @@ export function CtaSection({
   );
 }
 
+/** ComplianceBanner intentionally renders nothing — compliance text removed for cleaner UI. */
 export function ComplianceBanner() {
-  return (
-    <div className="mkt-compliance-bar" role="note">
-      <div className="mkt-container">
-        AMFI ARN-350272 · Educational decision-support only · Not investment advice · Mutual fund
-        investments are subject to market risks
-      </div>
-    </div>
-  );
+  return null;
 }
 
 export function Breadcrumbs({

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { buildPageMetadata } from '../../../lib/marketing/seo';
-import { AMFI_DISCLOSURE, MF_RISK_DISCLAIMER, NOT_ADVICE_DISCLAIMER, SITE } from '../../../lib/marketing/site';
+import { SITE } from '../../../lib/marketing/site';
 import { absoluteUrl } from '../../../lib/marketing/blog';
 import { JsonLd } from '../../../components/marketing/JsonLd';
 import { Breadcrumbs, Reveal } from '../../../components/marketing/primitives';
@@ -8,7 +8,7 @@ import { ContactForm } from '../../../components/marketing/ContactForm';
 
 export const metadata: Metadata = buildPageMetadata({
   title: 'Contact: Support & Partnerships',
-  description: `Contact FinanciallyFree / ${SITE.legalEntity}. Support email ${SITE.supportEmail}. AMFI ARN-350272.`,
+  description: `Contact GoalCompass. Reach our support team at ${SITE.supportEmail}.`,
   path: '/contact',
 });
 
@@ -56,15 +56,7 @@ export default function ContactPage() {
               <p style={{ marginBottom: 8 }}>
                 <strong>Entity:</strong> {SITE.legalEntity}
               </p>
-              <p style={{ marginBottom: 0 }}>
-                <strong>Registered posture:</strong> {AMFI_DISCLOSURE}
-              </p>
-              <p style={{ marginTop: 16, fontSize: '0.88rem', color: 'var(--mkt-muted)' }}>
-                {SITE.addressLines.join(', ')}
-              </p>
-              <p style={{ marginTop: 16, fontSize: '0.85rem', color: 'var(--mkt-muted)' }}>
-                {NOT_ADVICE_DISCLAIMER} {MF_RISK_DISCLAIMER}
-              </p>
+
             </aside>
           </div>
         </div>

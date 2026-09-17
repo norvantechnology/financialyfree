@@ -77,7 +77,7 @@ export class RazorpayMockProvider implements IRazorpayProvider {
       currency: 'INR',
       status: 'captured',
       method: 'upi',
-      email: 'mock_investor@financiallyfree.local',
+      email: 'mock_investor@goalcompass.local',
     };
   }
 }

@@ -237,7 +237,7 @@ export default function AdminDashboardPage() {
               Executive Admin Console
             </h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', margin: 0, maxWidth: '720px' }}>
-              Real-time distributor operations (ARN-350272), BSE StAR MF transaction volume, data quality telemetry, and manual KYC exceptions.
+              Real-time platform operations, BSE StAR MF transaction volume, data quality telemetry, and manual KYC exceptions.
             </p>
           </div>
 

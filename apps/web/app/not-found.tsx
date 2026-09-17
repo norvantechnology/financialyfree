@@ -143,7 +143,7 @@ export default function NotFound() {
           }}
         >
           <ShieldAlert size={13} />
-          <span>FutureZenith Insights LLP • AMFI ARN-350272</span>
+          <span>GoalCompass</span>
         </div>
       </div>
     </div>

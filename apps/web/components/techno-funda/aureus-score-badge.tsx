@@ -341,7 +341,7 @@ export function AureusScoreBadge({
                   lineHeight: '1.5',
                 }}
               >
-                <strong>FinanciallyFree Honesty Guarantee:</strong> Aureus Scores are deterministically calculated using live/audited exchange disclosures. If an exchange feed omits data (e.g. numeric pledge in BSE/NSE master broadcast), the system never fabricates 0%. Instead, weights are normalized and the omission is prominently labeled.
+                <strong>GoalCompass Honesty Guarantee:</strong> Aureus Scores are deterministically calculated using live/audited exchange disclosures. If an exchange feed omits data (e.g. numeric pledge in BSE/NSE master broadcast), the system never fabricates 0%. Instead, weights are normalized and the omission is prominently labeled.
               </div>
             </div>
           </div>

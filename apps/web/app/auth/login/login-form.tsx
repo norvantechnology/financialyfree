@@ -56,11 +56,16 @@ export function LoginForm() {
       // Dispatch immediate notification to all headers and components
       dispatchAuthChange();
 
-      // Check for redirect query parameter
+      // Check for callbackUrl query parameter (set by auth middleware on protected route access)
       const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-      const redirectParam = searchParams?.get('redirect');
-      if (redirectParam && redirectParam.startsWith('/')) {
-        window.location.href = redirectParam;
+      const callbackUrl = searchParams?.get('callbackUrl');
+      const redirectParam = searchParams?.get('redirect'); // legacy fallback
+      const destination = (callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.startsWith('/auth'))
+        ? callbackUrl
+        : (redirectParam && redirectParam.startsWith('/') ? redirectParam : null);
+
+      if (destination) {
+        window.location.href = destination;
       } else if (json.user?.role === 'admin') {
         window.location.href = '/admin';
       } else {

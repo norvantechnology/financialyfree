@@ -1,19 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { buildPageMetadata } from '../../../lib/marketing/seo';
-import {
-  AMFI_DISCLOSURE,
-  NOT_ADVICE_DISCLAIMER,
-  SITE,
-} from '../../../lib/marketing/site';
 import { absoluteUrl } from '../../../lib/marketing/blog';
 import { JsonLd } from '../../../components/marketing/JsonLd';
 import { Breadcrumbs, CtaSection, Reveal } from '../../../components/marketing/primitives';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'About Us: AMFI Distributor & Research Platform',
+  title: 'About GoalCompass: Goal-based Investing & Research Platform',
   description:
-    'FutureZenith Insights LLP (ARN-350272) builds FinanciallyFree: goal-based mutual fund distribution and Techno-Funda educational research tools.',
+    'GoalCompass provides goal-based mutual fund investing and Techno-Funda educational research tools.',
   path: '/about',
 });
 
@@ -39,9 +34,8 @@ export default function AboutPage() {
               Built for purposeful wealth and honest research
             </h1>
             <p className="mkt-lead">
-              FinanciallyFree is a product of <strong>{SITE.legalEntity}</strong>, an AMFI-registered
-              Mutual Fund Distributor ({SITE.amfiArn}). We combine goal-based investing with a
-              Techno-Funda research suite designed for DIY investors.
+              GoalCompass helps Indian investors plan clear financial goals, build wealth with discipline,
+              and access institutional-style market research — all in one platform.
             </p>
           </Reveal>
 
@@ -58,11 +52,11 @@ export default function AboutPage() {
             </article>
             <article className="mkt-card">
               <h2 className="mkt-serif" style={{ fontSize: '1.3rem', marginTop: 0 }}>
-                Compliance posture
+                Our Approach
               </h2>
               <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6 }}>
-                {AMFI_DISCLOSURE} {NOT_ADVICE_DISCLAIMER} Academy and Techno-Funda content are
-                educational / decision-support only.
+                We build transparent tools that help you understand your investments — not tell you what to buy.
+                All research tools are designed for self-directed learning and exploration.
               </p>
             </article>
             <article className="mkt-card">
@@ -70,8 +64,8 @@ export default function AboutPage() {
                 Track A: Wealth Planning
               </h2>
               <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6 }}>
-                Goal planners, paperless KYC, Academy courses, and BSE StAR MF order routing under
-                our distributor relationship.
+                Goal planners, paperless KYC, Academy courses, and seamless mutual fund execution —
+                everything you need to invest with a clear plan.
               </p>
             </article>
             <article className="mkt-card">
@@ -90,8 +84,8 @@ export default function AboutPage() {
               Instructors &amp; product team
             </h2>
             <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6, marginBottom: 0 }}>
-              Curriculum and research tooling are produced by the FinanciallyFree product team at{' '}
-              {SITE.legalEntity}. We do not publish celebrity endorsements or unverifiable
+              Curriculum and research tooling are produced by the GoalCompass product team.
+              We do not publish celebrity endorsements or unverifiable
               performance claims. For partnership or media queries, visit{' '}
               <Link href="/contact">Contact</Link>.
             </p>

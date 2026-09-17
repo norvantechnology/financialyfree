@@ -4,7 +4,7 @@ import { ForgotPasswordForm } from './forgot-password-form';
 import { Shield, ArrowLeft } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Reset Password | FinanciallyFree Wealth & Research',
+  title: 'Reset Password | GoalCompass Wealth & Research',
   description: 'Reset your account password',
 };
 
@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
       <div className="auth-card-modern">
         <div style={{ textAlign: 'center', marginBottom: '22px' }}>
           <Link href="/" className="auth-brand-emblem">
-            <div className="auth-emblem-circle">FF</div>
+            <div className="auth-emblem-circle">GC</div>
             <div
               style={{
                 fontFamily: 'var(--font-serif)',
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
                 letterSpacing: '0.08em',
               }}
             >
-              FINANCIALLYFREE
+              GOALCOMPASS
             </div>
             <div
               style={{
@@ -111,7 +111,7 @@ export default function ForgotPasswordPage() {
         }}
       >
         <Shield size={13} color="#0F766E" />
-        <span>AMFI ARN-350272 • 256-bit SSL Security</span>
+        <span>256-bit SSL Encrypted</span>
       </div>
     </div>
   );

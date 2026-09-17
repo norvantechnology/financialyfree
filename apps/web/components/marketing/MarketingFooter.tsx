@@ -1,9 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import {
-  MF_RISK_DISCLAIMER,
   NAV_LINKS,
-  NOT_ADVICE_DISCLAIMER,
   SITE,
 } from '../../lib/marketing/site';
 
@@ -32,7 +30,7 @@ export function MarketingFooter() {
           <div>
             <Link href="/" className="mkt-brand" style={{ marginBottom: 14 }}>
               <span className="mkt-brand-mark" aria-hidden>
-                FF
+                GC
               </span>
               <span className="mkt-brand-name">{SITE.name}</span>
             </Link>
@@ -79,15 +77,9 @@ export function MarketingFooter() {
           </div>
         </div>
 
-        {/* Single footer compliance block (top banner is the other instance) */}
         <div className="mkt-legal-strip">
           <p style={{ margin: 0 }}>
-            AMFI-registered Mutual Fund Distributor · ARN-{SITE.amfiArn} · {SITE.legalEntity}.{' '}
-            {NOT_ADVICE_DISCLAIMER} {MF_RISK_DISCLAIMER}
-          </p>
-          <p style={{ margin: 0 }}>
-            © {year} {SITE.legalEntity}. All rights reserved. {SITE.name} is an educational and execution platform by{' '}
-            {SITE.legalEntity}.
+            © {year} {SITE.name}. All rights reserved.
           </p>
         </div>
       </div>

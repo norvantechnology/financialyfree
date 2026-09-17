@@ -21,9 +21,9 @@ const BLOG_POSTS: BlogPost[] = [
     slug: 'goal-based-sip-vs-lump-sum',
     title: 'Goal-Based SIPs: Why Horizon Matters More Than Timing',
     description:
-      'How Emergency Fund, Retirement/FIRE, Child Education, and Wealth Creation goals change SIP sizing — using the same engine behind FinanciallyFree.',
+      'How Emergency Fund, Retirement/FIRE, Child Education, and Wealth Creation goals change SIP sizing — using the same engine behind GoalCompass.',
     date: '2026-09-10',
-    author: 'FinanciallyFree Research',
+    author: 'GoalCompass Research',
     tags: ['Goals', 'SIP', 'Education'],
     readingMinutes: 6,
     content: `
@@ -31,7 +31,7 @@ const BLOG_POSTS: BlogPost[] = [
 
 Most investors start with "How much should I invest?" A better question is "What must this money do by when?"
 
-FinanciallyFree's Track A maps capital to four horizons: **Emergency Fund**, **Retirement / FIRE**, **Child Education**, and **Wealth Creation**. Each has different return assumptions, liquidity needs, and glide paths.
+GoalCompass's Track A maps capital to four horizons: **Emergency Fund**, **Retirement / FIRE**, **Child Education**, and **Wealth Creation**. Each has different return assumptions, liquidity needs, and glide paths.
 
 ## SIP maths in plain language
 
@@ -45,7 +45,7 @@ Our calculators use the shared \`@ff/calc\` engine so the preview on the homepag
 
 ## Compliance note
 
-This article is **educational**. Mutual fund investments are subject to market risks. FinanciallyFree is an AMFI-registered distributor (ARN-350272), not a SEBI RA/IA.
+This article is **educational**. Mutual fund investments are subject to market risks. GoalCompass is an AMFI-registered distributor (ARN-350272), not a SEBI RA/IA.
 `.trim(),
   },
   {
@@ -54,7 +54,7 @@ This article is **educational**. Mutual fund investments are subject to market r
     description:
       'From Market Mood and Valuation Lab to Order Tracker and F&O PCR — how the research suite is organised for DIY investors.',
     date: '2026-09-12',
-    author: 'FinanciallyFree Research',
+    author: 'GoalCompass Research',
     tags: ['Techno-Funda', 'Research'],
     readingMinutes: 7,
     content: `
@@ -81,7 +81,7 @@ Techno-Funda is **not investment advice**. Cross-check filings, manage risk, and
     description:
       'Why ARN-350272 matters, what FutureZenith Insights LLP can and cannot do, and how our disclaimers protect you.',
     date: '2026-09-14',
-    author: 'FinanciallyFree Research',
+    author: 'GoalCompass Research',
     tags: ['Compliance', 'AMFI'],
     readingMinutes: 5,
     content: `

@@ -128,7 +128,7 @@ export default function CheckoutPage() {
 
   // Billing User state
   const [billingName, setBillingName] = useState('Sandeep Kumar');
-  const [billingEmail, setBillingEmail] = useState('investor@financiallyfree.in');
+  const [billingEmail, setBillingEmail] = useState('investor@goalcompass.in');
   const [currentUserId, setCurrentUserId] = useState<string>('f47cfaa8-74c1-4257-81a1-fe803c31e0c0');
   const [isEditingBilling, setIsEditingBilling] = useState(false);
 
@@ -242,7 +242,7 @@ export default function CheckoutPage() {
       const existingUser = existingUserStr ? JSON.parse(existingUserStr) : null;
       const updatedUser = {
         id: existingUser?.id || currentUserId,
-        email: billingEmail || existingUser?.email || 'investor@financiallyfree.in',
+        email: billingEmail || existingUser?.email || 'investor@goalcompass.in',
         firstName: billingName ? billingName.split(' ')[0] : (existingUser?.firstName || 'Sandeep'),
         lastName: billingName ? billingName.split(' ').slice(1).join(' ') : (existingUser?.lastName || 'Kumar'),
         role: existingUser?.role || 'investor',
@@ -1203,16 +1203,12 @@ export default function CheckoutPage() {
                 }}
               >
                 <ShieldCheck size={13} color="#059669" />
-                <span>Zero-Wait Instant Activation • 256-Bit SSL Encrypted • AMFI ARN-350272</span>
+                <span>Zero-Wait Instant Activation • 256-Bit SSL Encrypted</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Legal Disclaimer */}
-        <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '10.5px', color: '#94A3B8', lineHeight: 1.5 }}>
-          FinanciallyFree • AMFI ARN-350272 • Mutual fund investments are subject to market risks. Read all scheme related documents carefully.
-        </div>
 
       </div>
     </SidebarLayout>

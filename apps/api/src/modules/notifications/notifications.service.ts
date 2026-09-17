@@ -215,7 +215,7 @@ export class NotificationsService {
 
   async simulateTrigger(userId: string, triggerType: string): Promise<NotificationDto> {
     let title = 'General Update';
-    let message = 'Your FinanciallyFree account has been updated.';
+    let message = 'Your GoalCompass account has been updated.';
     let category = NotificationCategory.GENERAL;
 
     switch (triggerType) {
@@ -261,7 +261,7 @@ export class NotificationsService {
     const supportInbox =
       process.env.CONTACT_INBOX_EMAIL ||
       process.env.SUPPORT_EMAIL ||
-      'support@financiallyfree.in';
+      'support@goalcompass.in';
 
     const result = await this.emailProvider.sendMessage({
       recipient: supportInbox,

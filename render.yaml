@@ -1,4 +1,4 @@
-# FinanciallyFree — Render Blueprint (Backend API only)
+# GoalCompass — Render Blueprint (Backend API only)
 # Docs: https://render.com/docs/blueprint-spec
 #
 # IMPORTANT: On Render dashboard, paste the same buildCommand below.
@@ -6,7 +6,7 @@
 
 services:
   - type: web
-    name: financiallyfree-api
+    name: goalcompass-api
     runtime: node
     plan: free
     region: singapore

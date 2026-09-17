@@ -332,7 +332,7 @@ export class TechnoFundaService {
 
   private async warmNseSession(): Promise<string> {
     const userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0';
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0';
     let cookies = '';
     // Two pages are enough for NSE cookies; five sequential 10s fetches blocked cold starts
     for (const url of [
@@ -1143,7 +1143,7 @@ export class TechnoFundaService {
       vahanTopStates: vahan.topStates,
       timestamp: new Date().toISOString(),
       complianceDisclaimer:
-        'DISCLAIMER: All tools, calculations, and data points provided herein are strictly for educational and analytical purposes. FinanciallyFree is an AMFI-registered Mutual Fund Distributor (ARN-350272) and not a SEBI-registered Research Analyst or Portfolio Manager. Past performance is not indicative of future returns.',
+        'DISCLAIMER: All tools, calculations, and data points provided herein are strictly for educational and analytical purposes. GoalCompass is an AMFI-registered Mutual Fund Distributor (ARN-350272) and not a SEBI-registered Research Analyst or Portfolio Manager. Past performance is not indicative of future returns.',
     };
   }
 
@@ -1408,7 +1408,7 @@ export class TechnoFundaService {
 
   private async fetchNseApi(endpoint: string, referer = 'https://www.nseindia.com/'): Promise<any> {
     const userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0';
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0';
 
     const cookies = await this.ensureNseSession();
 
@@ -1900,7 +1900,7 @@ export class TechnoFundaService {
     const PDF_TTL_MS = 6 * 60 * 60 * 1000; // 6h — annexure amounts do not change
     const headers = {
       'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0',
       Referer: 'https://www.bseindia.com/',
       Accept: 'application/pdf,*/*',
     };
@@ -2040,7 +2040,7 @@ export class TechnoFundaService {
       // Walk recent calendar days and merge.
       const headers = {
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0',
         Referer: 'https://www.bseindia.com/',
         Origin: 'https://www.bseindia.com',
         Accept: 'application/json, text/plain, */*',
@@ -2155,7 +2155,7 @@ export class TechnoFundaService {
     const resp = await fetch(feedSourceUrl, {
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0',
         Accept: 'application/rss+xml, application/xml, text/xml',
       },
       signal: AbortSignal.timeout(10000),
@@ -2827,7 +2827,7 @@ export class TechnoFundaService {
           {
             headers: {
               'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0',
               Accept: 'application/json',
             },
             signal: AbortSignal.timeout(6000),
@@ -3510,7 +3510,7 @@ export class TechnoFundaService {
       const resp = await fetch(url, {
         headers: {
           'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0',
           Accept: 'application/json',
         },
         signal: AbortSignal.timeout(8000),
@@ -4322,7 +4322,7 @@ export class TechnoFundaService {
           const resp = await fetch(url, {
             headers: {
               'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0',
               Accept: 'application/json',
             },
             signal: AbortSignal.timeout(8000),

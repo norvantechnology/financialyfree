@@ -50,7 +50,7 @@ export class SubscriptionsService implements OnModuleInit {
     await this.seedDefaultPlans();
   }
 
-  /** Seed standard FinanciallyFree plans per PRD */
+  /** Seed standard GoalCompass plans per PRD */
   async seedDefaultPlans() {
     const count = await this.planRepo.count();
     if (count > 0) return;
@@ -451,7 +451,7 @@ export class SubscriptionsService implements OnModuleInit {
     const allEntitlements = await this.getUserEntitlements(userId);
     const token = this.jwtService.sign({
       sub: userId,
-      email: 'investor@financiallyfree.in',
+      email: 'investor@goalcompass.in',
       role: 'investor',
     });
 
@@ -461,7 +461,7 @@ export class SubscriptionsService implements OnModuleInit {
       accessToken: token,
       user: {
         id: userId,
-        email: 'investor@financiallyfree.in',
+        email: 'investor@goalcompass.in',
         firstName: 'Sandeep',
         lastName: 'Kumar',
         role: 'investor',

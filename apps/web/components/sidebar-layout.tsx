@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   LayoutDashboard,
   Home,
@@ -333,14 +333,14 @@ export function SidebarLayout({
   const pathname = usePathname();
   const currentPath = activePath || pathname;
 
-  const resolvedBrandTitle = brandTitle || 'FINANCIALLYFREE';
+  const resolvedBrandTitle = brandTitle || 'GOALCOMPASS';
   const resolvedBrandSubtitle = brandSubtitle || 'WEALTH & RESEARCH';
-  const resolvedBrandBadge = brandBadge || 'FF';
-  const resolvedAskButtonText = askButtonText || 'Ask FinanciallyFree';
-  const resolvedModalTitle = 'FinanciallyFree Intelligence';
+  const resolvedBrandBadge = brandBadge || 'GC';
+  const resolvedAskButtonText = askButtonText || 'Ask GoalCompass';
+  const resolvedModalTitle = 'GoalCompass Intelligence';
   const resolvedModalDesc =
-    'FinanciallyFree is your wealth architecture & institutional research co-pilot. Quickly jump to key financial tools or inspect stock metrics:';
-  const resolvedFooterText = 'FinanciallyFree • AMFI ARN-350272';
+    'GoalCompass is your wealth architecture & institutional research co-pilot. Quickly jump to key financial tools or inspect stock metrics:';
+  const resolvedFooterText = 'GoalCompass';
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -360,6 +360,20 @@ export function SidebarLayout({
   const [askAureusOpen, setAskAureusOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const router = useRouter();
+
+  // --- Client-side auth guard (defense-in-depth alongside Edge Middleware) ---
+  // After layout initializes, redirect guests away from protected routes.
+  const PROTECTED_PREFIXES = ['/dashboard', '/techno-funda', '/kyc', '/courses', '/checkout', '/admin'];
+  useEffect(() => {
+    if (!isInitialized) return;
+    const isProtected = PROTECTED_PREFIXES.some(
+      (p) => pathname === p || pathname.startsWith(p + '/')
+    );
+    if (isProtected && accessTier === 'guest') {
+      router.replace(`/auth/login?callbackUrl=${encodeURIComponent(pathname)}`);
+    }
+  }, [isInitialized, accessTier, pathname, router]);
 
   useEffect(() => {
     // 1. Synchronous auth and entitlement state evaluator
@@ -614,6 +628,45 @@ export function SidebarLayout({
     window.location.href = '/';
   };
 
+  // --- Pre-render auth guard ---
+  // While auth state hasn't been determined yet, show a neutral loading screen
+  // on protected routes to prevent any flash of dashboard content.
+  const PROTECTED_PREFIXES_CHECK = ['/dashboard', '/techno-funda', '/kyc', '/courses', '/checkout', '/admin'];
+  const isOnProtectedRoute = PROTECTED_PREFIXES_CHECK.some(
+    (p) => pathname === p || pathname.startsWith(p + '/')
+  );
+
+  if (!isInitialized && isOnProtectedRoute) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100dvh',
+          background: 'var(--bg-base, #0A0F1D)',
+          flexDirection: 'column',
+          gap: '16px',
+        }}
+      >
+        <div
+          style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            border: '3px solid rgba(14,165,233,0.2)',
+            borderTopColor: '#0ea5e9',
+            animation: 'spin 0.8s linear infinite',
+          }}
+        />
+        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', fontWeight: 500 }}>
+          Loading GoalCompass…
+        </span>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100dvh', background: 'var(--bg-base, #F8F6F1)', width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
       {/* ── Mobile Overlay ────────────────────────────────────────────── */}
@@ -647,7 +700,7 @@ export function SidebarLayout({
             <Link
               href="/"
               onClick={() => setMobileMenuOpen(false)}
-              title="FinanciallyFree Home"
+              title="GoalCompass Home"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1380,15 +1433,13 @@ export function SidebarLayout({
           {children}
         </main>
 
-        {/* Statutory Regulatory Disclosures */}
+        {/* Footer */}
         <footer className="sidebar-footer">
           <div className="sidebar-footer-text">
             <span className="sidebar-footer-brand">{resolvedFooterText}</span>
-            <span className="sidebar-footer-sep">•</span>
-            <span className="sidebar-footer-sub">MF investments subject to market risks. Read scheme docs carefully.</span>
           </div>
           <div className="sidebar-footer-copy">
-            <span>© {new Date().getFullYear()} FinanciallyFree</span>
+            <span>© {new Date().getFullYear()} GoalCompass</span>
           </div>
         </footer>
       </div>

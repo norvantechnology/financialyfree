@@ -21,7 +21,7 @@ async function bootstrap() {
   const expressApp = app.getHttpAdapter().getInstance();
   expressApp.set('trust proxy', 1);
   expressApp.get('/health', (_req: Request, res: Response) => {
-    res.status(200).json({ ok: true, service: 'financiallyfree-api' });
+    res.status(200).json({ ok: true, service: 'goalcompass-api' });
   });
 
   app.use(
@@ -141,7 +141,7 @@ async function bootstrap() {
 
   // ── OpenAPI / Swagger ─────────────────────────────────────────────────
   const config = new DocumentBuilder()
-    .setTitle('FinanciallyFree API')
+    .setTitle('GoalCompass API')
     .setDescription(
       'Financial Research Platform API  Track A (Goal Engine, MF, LMS, Techno-Funda) + Track B scaffolded behind feature flags.',
     )
@@ -167,7 +167,7 @@ async function bootstrap() {
   // Render (and most PaaS) require binding 0.0.0.0 — localhost/:: alone fails health checks
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port, '0.0.0.0');
-  console.log(`\n🚀 FinanciallyFree API running on http://0.0.0.0:${port}/api/v1`);
+  console.log(`\n🚀 GoalCompass API running on http://0.0.0.0:${port}/api/v1`);
   console.log(`📚 Swagger docs at       http://0.0.0.0:${port}/api/docs\n`);
 }
 

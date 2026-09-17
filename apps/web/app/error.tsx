@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, RotateCcw, Home, Shield } from 'lucide-react';
+import { AlertTriangle, RotateCcw, Home } from 'lucide-react';
 
 export default function GlobalError({
   error,
@@ -161,22 +161,7 @@ export default function GlobalError({
           </Link>
         </div>
 
-        <div
-          style={{
-            marginTop: '28px',
-            paddingTop: '20px',
-            borderTop: '1px solid #F1F5F9',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            fontSize: '11px',
-            color: '#94A3B8',
-          }}
-        >
-          <Shield size={13} />
-          <span>Statutory Compliance: AMFI ARN-350272</span>
-        </div>
+
       </div>
     </div>
   );

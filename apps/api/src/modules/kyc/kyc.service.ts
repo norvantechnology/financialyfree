@@ -119,7 +119,7 @@ export class KycService {
         clientName: kraResult.name || 'INVESTOR',
         pan: panClean,
         dateOfBirth: dto.dateOfBirth,
-        email: 'investor@financiallyfree.local',
+        email: 'investor@goalcompass.local',
         mobile: '9876543210',
       });
       if (regResult.success) {

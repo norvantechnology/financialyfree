@@ -15,7 +15,7 @@ import { PlanRecommender } from '../../../components/marketing/PlanRecommender';
 export const metadata: Metadata = buildPageMetadata({
   title: 'Pricing: Starter, Tools, DIY Bundle & All-Access',
   description:
-    'Compare FinanciallyFree plans: Free Starter, Tools Annual ₹9,999, DIY Wealth Bundle ₹14,999, All-Access Mastermind ₹24,999. AMFI ARN-350272.',
+    'Compare GoalCompass plans: Free Starter, Tools Annual ₹9,999, DIY Wealth Bundle ₹14,999, All-Access Mastermind ₹24,999.',
   path: '/pricing',
 });
 

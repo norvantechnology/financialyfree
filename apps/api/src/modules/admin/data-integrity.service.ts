@@ -168,7 +168,7 @@ export class DataIntegrityService implements OnModuleInit {
 
   private async fetchNseApi(endpoint: string): Promise<any> {
     const userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0';
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0';
 
     const init = await fetch('https://www.nseindia.com', {
       headers: {
@@ -518,7 +518,7 @@ export class DataIntegrityService implements OnModuleInit {
           const resp = await fetch(feedUrl, {
             headers: {
               'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 FinanciallyFree/1.0',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0',
               Accept: 'application/rss+xml, application/xml, text/xml',
             },
             signal: AbortSignal.timeout(10000),

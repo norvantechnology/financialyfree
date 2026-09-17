@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { buildPageMetadata } from '../../../lib/marketing/seo';
-import { HOME_FAQS, MF_RISK_DISCLAIMER, NOT_ADVICE_DISCLAIMER } from '../../../lib/marketing/site';
+import { HOME_FAQS } from '../../../lib/marketing/site';
 import { absoluteUrl } from '../../../lib/marketing/blog';
 import { JsonLd } from '../../../components/marketing/JsonLd';
 import { Breadcrumbs, FAQAccordion, Reveal } from '../../../components/marketing/primitives';
@@ -9,7 +9,7 @@ import { Breadcrumbs, FAQAccordion, Reveal } from '../../../components/marketing
 export const metadata: Metadata = buildPageMetadata({
   title: 'FAQ: Goals, Research, Pricing & Compliance',
   description:
-    'Frequently asked questions about FinanciallyFree plans, Techno-Funda research, AMFI distribution, and compliance.',
+    'Frequently asked questions about GoalCompass plans, Techno-Funda research, AMFI distribution, and compliance.',
   path: '/faq',
 });
 
@@ -59,13 +59,15 @@ export default function FaqPage() {
             <h1 className="mkt-serif mkt-page-title">
               Frequently asked questions
             </h1>
-            <p className="mkt-lead">{NOT_ADVICE_DISCLAIMER}</p>
+            <p className="mkt-lead">
+              Everything you need to know about GoalCompass, our tools, and how it all works.
+            </p>
           </Reveal>
           <FAQAccordion items={ALL} idPrefix="faq-page" />
           <p style={{ marginTop: 20 }}>
             Still stuck? <Link href="/contact">Contact support</Link>.
           </p>
-          <p className="mkt-text-muted" style={{ fontSize: '0.85rem' }}>{MF_RISK_DISCLAIMER}</p>
+
         </div>
       </section>
     </>

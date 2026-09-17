@@ -4,8 +4,8 @@ import { RegisterForm } from './register-form';
 import { Shield, ArrowLeft } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Create Account | FinanciallyFree Wealth & Research',
-  description: 'Join FinanciallyFree: start your institutional research and goal planning today',
+  title: 'Create Account | GoalCompass Wealth & Research',
+  description: 'Join GoalCompass: start your institutional research and goal planning today',
 };
 
 export default function RegisterPage() {
@@ -36,7 +36,7 @@ export default function RegisterPage() {
       <div className="auth-card-modern auth-card-wide">
         <div style={{ textAlign: 'center', marginBottom: '22px' }}>
           <Link href="/" className="auth-brand-emblem">
-            <div className="auth-emblem-circle">FF</div>
+            <div className="auth-emblem-circle">GC</div>
             <div
               style={{
                 fontFamily: 'var(--font-serif)',
@@ -46,7 +46,7 @@ export default function RegisterPage() {
                 letterSpacing: '0.08em',
               }}
             >
-              FINANCIALLYFREE
+              GOALCOMPASS
             </div>
             <div
               style={{
@@ -105,7 +105,7 @@ export default function RegisterPage() {
         }}
       >
         <Shield size={13} color="#0F766E" />
-        <span>AMFI ARN-350272 • 256-bit SSL Security • DPDP Compliant</span>
+        <span>256-bit SSL Security • DPDP Compliant</span>
       </div>
     </div>
   );

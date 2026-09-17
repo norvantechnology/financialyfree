@@ -10,7 +10,7 @@ import {
 import { buildPageMetadata } from '../../../../lib/marketing/seo';
 import { JsonLd } from '../../../../components/marketing/JsonLd';
 import { Breadcrumbs } from '../../../../components/marketing/primitives';
-import { MF_RISK_DISCLAIMER, NOT_ADVICE_DISCLAIMER, SITE } from '../../../../lib/marketing/site';
+import { SITE } from '../../../../lib/marketing/site';
 
 type Props = { params: { slug: string } };
 
@@ -93,8 +93,6 @@ export default function BlogArticlePage({ params }: Props) {
             dangerouslySetInnerHTML={{ __html: renderBlogMarkdown(post.content) }}
           />
           <footer className="mkt-article" style={{ marginTop: 40, fontSize: '0.9rem', color: 'var(--mkt-muted)' }}>
-            <p>{NOT_ADVICE_DISCLAIMER}</p>
-            <p>{MF_RISK_DISCLAIMER}</p>
             <p>
               <Link href="/blog">← Back to blog</Link>
             </p>

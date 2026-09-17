@@ -156,7 +156,7 @@ export class AmfiNavService implements OnModuleInit {
     this.logger.log(`📥 Ingesting live AMFI NAV feed from: ${navUrl}`);
 
     const resp = await fetch(navUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 FinanciallyFree/1.0' },
+      headers: { 'User-Agent': 'Mozilla/5.0 GoalCompass/1.0' },
       signal: AbortSignal.timeout(25000),
     });
 

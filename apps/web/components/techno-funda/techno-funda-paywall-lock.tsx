@@ -436,7 +436,7 @@ export function TechnoFundaPaywallLock({
           }}
         >
           <ShieldCheck size={13} color="#0F766E" />
-          <span>AMFI ARN-350272 • 100% Verified Exchange Disclosures • No Recommendation Risk</span>
+          <span>100% Verified Exchange Disclosures • Institutional-Grade Data</span>
         </div>
       </div>
 

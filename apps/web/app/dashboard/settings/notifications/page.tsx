@@ -168,7 +168,7 @@ export default function NotificationSettingsPage() {
             Communication Preferences
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', lineHeight: 1.6, margin: 0, maxWidth: '720px' }}>
-            You have complete control over how FinanciallyFree communicates with you. We respect your attention and only send alerts that you choose to receive.
+            You have complete control over how GoalCompass communicates with you. We respect your attention and only send alerts that you choose to receive.
           </p>
         </div>
 

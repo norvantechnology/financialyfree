@@ -7,8 +7,8 @@
   </defs>
   <rect width="1200" height="630" fill="url(#g)"/>
   <rect x="72" y="72" width="72" height="72" rx="16" fill="#F59E0B"/>
-  <text x="90" y="120" font-family="system-ui,sans-serif" font-size="28" font-weight="800" fill="#0A0F1D">FF</text>
-  <text x="72" y="220" font-family="Georgia,serif" font-size="64" font-weight="700" fill="#FFFFFF">FinanciallyFree</text>
+  <text x="90" y="120" font-family="system-ui,sans-serif" font-size="28" font-weight="800" fill="#0A0F1D">GC</text>
+  <text x="72" y="220" font-family="Georgia,serif" font-size="64" font-weight="700" fill="#FFFFFF">GoalCompass</text>
   <text x="72" y="290" font-family="system-ui,sans-serif" font-size="28" fill="#CBD5E1">Goal-based investing · Techno-Funda research</text>
   <text x="72" y="560" font-family="system-ui,sans-serif" font-size="22" fill="#FDE68A">AMFI ARN-350272 · FutureZenith Insights LLP</text>
 </svg>

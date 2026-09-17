@@ -20,7 +20,7 @@ export interface IntegrityCheckResult {
   notes: string;
 }
 
-const DEMO_USER_ID = 'f47cfaa8-74c1-4257-81a1-fe803c31e0c0'; // investor@financiallyfree.in
+const DEMO_USER_ID = 'f47cfaa8-74c1-4257-81a1-fe803c31e0c0'; // investor@goalcompass.in
 
 @Injectable()
 export class AccountIntegrityService {
@@ -55,7 +55,7 @@ export class AccountIntegrityService {
     const start = Date.now();
     const token = this.generateToken({
       sub: DEMO_USER_ID,
-      email: 'investor@financiallyfree.in',
+      email: 'investor@goalcompass.in',
       role: 'user',
     });
 
@@ -86,7 +86,7 @@ export class AccountIntegrityService {
     const start = Date.now();
     // Query raw password_hash from users table
     const rawResult = await this.dataSource.query(
-      `SELECT "id", "email", "password_hash" FROM "users" WHERE "email" = 'investor@financiallyfree.in' LIMIT 1;`,
+      `SELECT "id", "email", "password_hash" FROM "users" WHERE "email" = 'investor@goalcompass.in' LIMIT 1;`,
     );
 
     if (!rawResult || rawResult.length === 0) {
@@ -147,7 +147,7 @@ export class AccountIntegrityService {
     // 3. Valid Bearer token
     const validToken = this.generateToken({
       sub: DEMO_USER_ID,
-      email: 'investor@financiallyfree.in',
+      email: 'investor@goalcompass.in',
       role: 'user',
     });
     const resValid = await fetch(endpoint, {
@@ -192,14 +192,14 @@ export class AccountIntegrityService {
     // Token 1: Non-entitled user (valid active user in DB with 0 entitlements)
     const unentitledToken = this.generateToken({
       sub: 'a0000000-0000-0000-0000-000000000001',
-      email: 'unentitled@financiallyfree.in',
+      email: 'unentitled@goalcompass.in',
       role: 'user',
     });
 
     // Token 2: Entitled user (DEMO_USER_ID has course_lifetime entitlement)
     const entitledToken = this.generateToken({
       sub: DEMO_USER_ID,
-      email: 'investor@financiallyfree.in',
+      email: 'investor@goalcompass.in',
       role: 'user',
     });
 

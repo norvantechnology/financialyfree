@@ -588,7 +588,7 @@ export default function KycOnboardingPage() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Distributor Partner ARN:</span>
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>ARN-350272</span>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>KYC Verified</span>
                   </div>
                 </div>
               )}

@@ -4,7 +4,7 @@ import { LoginForm } from './login-form';
 import { Shield, ArrowLeft } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Sign In | FinanciallyFree Wealth & Research',
+  title: 'Sign In | GoalCompass Wealth & Research',
   description: 'Sign in to access your wealth planning and research room',
 };
 
@@ -38,7 +38,7 @@ export default function LoginPage() {
         {/* Emblem & Brand */}
         <div style={{ textAlign: 'center', marginBottom: '22px' }}>
           <Link href="/" className="auth-brand-emblem">
-            <div className="auth-emblem-circle">FF</div>
+            <div className="auth-emblem-circle">GC</div>
             <div
               style={{
                 fontFamily: 'var(--font-serif)',
@@ -48,7 +48,7 @@ export default function LoginPage() {
                 letterSpacing: '0.08em',
               }}
             >
-              FINANCIALLYFREE
+              GOALCOMPASS
             </div>
             <div
               style={{
@@ -110,7 +110,7 @@ export default function LoginPage() {
         }}
       >
         <Shield size={13} color="#0F766E" />
-        <span>AMFI ARN-350272 • 256-bit SSL Security • DPDP Ready</span>
+        <span>256-bit SSL Security • DPDP Compliant</span>
       </div>
     </div>
   );

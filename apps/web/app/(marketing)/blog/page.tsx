@@ -5,12 +5,11 @@ import { getAllPosts } from '../../../lib/marketing/blog';
 import { absoluteUrl } from '../../../lib/marketing/blog';
 import { JsonLd } from '../../../components/marketing/JsonLd';
 import { Breadcrumbs, Reveal } from '../../../components/marketing/primitives';
-import { NOT_ADVICE_DISCLAIMER } from '../../../lib/marketing/site';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'Blog: Goals, Research & Compliance Explainers',
+  title: 'Blog: Investing Insights & Research Notes',
   description:
-    'Educational articles on goal-based SIPs, Techno-Funda research, and AMFI distributor compliance from FinanciallyFree.',
+    'Educational articles on goal-based SIPs, Techno-Funda research, and smart investing from GoalCompass.',
   path: '/blog',
 });
 
@@ -36,7 +35,9 @@ export default function BlogIndexPage() {
             <h1 className="mkt-serif mkt-page-title">
               Notes for disciplined investors
             </h1>
-            <p className="mkt-lead">{NOT_ADVICE_DISCLAIMER}</p>
+            <p className="mkt-lead">
+              Practical insights on goal-based investing, market research, and building long-term wealth.
+            </p>
           </Reveal>
           <div className="mkt-grid-3">
             {posts.map((post) => (

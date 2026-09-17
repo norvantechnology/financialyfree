@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Shield, BarChart3, TrendingUp, BookOpen, Target } from 'lucide-react';
+import { BarChart3, TrendingUp, BookOpen, Target } from 'lucide-react';
 
 export function Footer() {
   const pathname = usePathname();
@@ -31,32 +31,15 @@ export function Footer() {
                 fontSize: 16,
               }}
             >
-              FF
+              GC
             </div>
             <span style={{ fontWeight: 800, fontSize: 'var(--font-size-lg)', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-              FinanciallyFree
+              GoalCompass
             </span>
           </Link>
           <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 'var(--space-4)' }}>
             India&apos;s goal-first mutual fund execution engine & institutional-grade Techno-Funda research platform. Built for compounding wealth with purpose.
           </p>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-md)',
-              background: 'rgba(14, 165, 233, 0.08)',
-              border: '1px solid rgba(14, 165, 233, 0.2)',
-              color: 'var(--color-primary-400)',
-              fontSize: 'var(--font-size-xs)',
-              fontWeight: 600,
-            }}
-          >
-            <Shield size={14} />
-            <span>AMFI Registered MFD: ARN-350272</span>
-          </div>
         </div>
 
         {/* Col 2: Solutions */}
@@ -125,25 +108,8 @@ export function Footer() {
             </li>
           </ul>
         </div>
-
-        {/* Col 4: Trust & Compliance */}
-        <div>
-          <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-primary)', marginBottom: 'var(--space-4)' }}>
-            Compliance & Legal
-          </h4>
-          <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 'var(--space-3)' }}>
-            FutureZenith Insights LLP<br />
-            AMFI ARN-350272 | EUIN: E538291<br />
-            Valid Till: 2028-11-20
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: 'var(--font-size-xs)' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>BSE StAR MF Member ID: 52910</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Razorpay Trusted Business Verified</span>
-          </div>
-        </div>
       </div>
 
-      {/* Regulatory Disclaimers Bottom Bar */}
       <div
         style={{
           maxWidth: '1280px',
@@ -151,23 +117,20 @@ export function Footer() {
           paddingTop: 'var(--space-4)',
           borderTop: '1px solid rgba(255, 255, 255, 0.06)',
           display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--space-2)',
-          fontSize: '10px',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 'var(--space-3)',
+          fontSize: '11px',
           color: 'var(--text-muted)',
-          lineHeight: 1.4,
         }}
       >
-        <p style={{ margin: 0 }}>
-          <strong>Statutory Disclosure:</strong> MF investments are subject to market risks. Read all scheme related documents carefully. FinanciallyFree (AMFI ARN-350272) operates as an order routing intermediary. No guaranteed return products.
-        </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <span>© {new Date().getFullYear()} FinanciallyFree. All rights reserved.</span>
-          <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
-            <Link href="/pricing" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Terms</Link>
-            <Link href="/dashboard/settings/notifications" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Privacy Policy</Link>
-            <Link href="/auth/login" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Investor Login</Link>
-          </div>
+        <span>© {new Date().getFullYear()} GoalCompass. All rights reserved.</span>
+        <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+          <Link href="/legal/terms" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Terms</Link>
+          <Link href="/legal/privacy-policy" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Privacy</Link>
+          <Link href="/legal/refund-policy" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Refund Policy</Link>
+          <Link href="/auth/login" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Login</Link>
         </div>
       </div>
     </footer>

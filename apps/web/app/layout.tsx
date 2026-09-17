@@ -33,25 +33,25 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: {
-    default: 'FinanciallyFree: Invest with Purpose',
-    template: '%s | FinanciallyFree',
+    default: 'GoalCompass: Invest with Purpose',
+    template: '%s | GoalCompass',
   },
   description:
-    'Goal-based mutual fund investing, Techno-Funda research tools, and an investing academy. AMFI-registered distributor (ARN-350272). Educational decision-support only.',
+    'Goal-based investing, Techno-Funda research tools, and an investing academy. Build wealth with purpose.',
   keywords: [
     'mutual funds',
     'SIP',
     'goal-based investing',
     'techno-funda',
-    'AMFI ARN-350272',
+    
     'FIRE India',
   ],
-  authors: [{ name: 'FutureZenith Insights LLP' }],
+  authors: [{ name: 'GoalCompass' }],
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'),
   openGraph: {
     type: 'website',
     locale: 'en_IN',
-    siteName: 'FinanciallyFree',
+    siteName: 'GoalCompass',
   },
   robots: { index: true, follow: true },
   alternates: {

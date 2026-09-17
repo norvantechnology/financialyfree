@@ -34,7 +34,7 @@ import {
 export const metadata: Metadata = buildPageMetadata({
   title: 'Goal-Based Mutual Funds & Techno-Funda Research',
   description:
-    'AMFI-registered mutual fund distributor (ARN-350272). Plan SIPs for FIRE, education, and wealth, plus 20 Techno-Funda research tools. Educational decision-support, not investment advice.',
+    'Plan SIPs for FIRE, education, and wealth creation. 20 Techno-Funda research tools for self-directed investors.',
   path: '/',
 });
 
@@ -93,13 +93,12 @@ export default function HomePage() {
         <div className="mkt-container">
             <div className="mkt-badge">
             <ShieldCheck size={16} aria-hidden />
-            AMFI Registered MFD · ARN-{SITE.amfiArn} · {SITE.legalEntity}
+            Goal-based Investing · Techno-Funda Research
           </div>
           <h1 className="mkt-serif">Invest with purpose. Research with discipline.</h1>
           <p className="mkt-hero-sub">
             Track A offers goal-based SIPs, paperless KYC, and BSE StAR MF execution. Track B provides 20
-            Techno-Funda research desks for valuation, PEAD, order filings, F&O analytics, and market sentiment.
-            Educational decision-support only (not investment advice).
+            Techno-Funda research desks for valuation, PEAD, order filings, F&amp;O analytics, and market sentiment.
           </p>
           <div className="mkt-hero-ctas">
             <Link href="/dashboard/goals" className="mkt-btn mkt-btn-primary">
@@ -198,7 +197,7 @@ export default function HomePage() {
             />
           </div>
           <Reveal>
-            <div className="mkt-flow" aria-label="How FinanciallyFree works">
+            <div className="mkt-flow" aria-label="How GoalCompass works">
               {PLATFORM_STEPS.map((step, i) => (
                 <div key={step.title} className="mkt-flow-step">
                   <div className="n">{i + 1}</div>

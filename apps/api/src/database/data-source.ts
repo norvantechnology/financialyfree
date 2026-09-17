@@ -7,7 +7,7 @@ const dbUrl =
   `postgresql://${process.env.DATABASE_USER || 'ff_user'}:${encodeURIComponent(
     process.env.DATABASE_PASSWORD || 'ff_pass',
   )}@${process.env.DATABASE_HOST || 'localhost'}:${process.env.DATABASE_PORT || 5432}/${
-    process.env.DATABASE_NAME || 'financiallyfree'
+    process.env.DATABASE_NAME || 'goalcompass'
   }`;
 
 // Used by TypeORM CLI for generating/running migrations

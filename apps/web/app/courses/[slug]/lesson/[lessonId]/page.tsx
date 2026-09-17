@@ -658,7 +658,7 @@ export default function LessonPlayerPage() {
                 }}
               >
                 <div>Verification ID: <strong>{certId}</strong></div>
-                <div style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>Partner ARN-350272 • FutureZenith Insights LLP</div>
+                <div style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>GoalCompass Platform</div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

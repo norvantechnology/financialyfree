@@ -94,14 +94,9 @@ export function Navbar() {
             >
               <TrendingUp size={18} />
             </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 'var(--font-size-base)', letterSpacing: '-0.02em', color: '#fff', lineHeight: 1.2 }}>
-                Financially<span style={{ color: 'var(--color-primary-light)' }}>Free</span>
-              </div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: 1 }}>
-                ARN-350272
-              </div>
-            </div>
+            <span style={{ fontWeight: 800, fontSize: 'var(--font-size-base)', letterSpacing: '-0.02em', color: '#fff' }}>
+              GoalCompass
+            </span>
           </Link>
 
           {/* Desktop Navigation Links (Hidden on Mobile) */}
@@ -367,10 +362,7 @@ export function Navbar() {
               </Link>
             </div>
 
-            {/* Compliance Note */}
-            <div style={{ textAlign: 'center', fontSize: '10px', color: 'var(--text-muted)', marginTop: 'var(--space-2)' }}>
-              AMFI Registered Distributor ARN-350272 · Mutual fund investments are subject to market risks.
-            </div>
+
           </div>
         </div>
       )}

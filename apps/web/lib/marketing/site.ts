@@ -1,18 +1,18 @@
 /** Canonical marketing site constants — verified against PRD / codebase only. */
 
 export const SITE = {
-  name: 'FinanciallyFree',
+  name: 'GoalCompass',
   legalEntity: 'FutureZenith Insights LLP',
   /** Numeric ARN only — display as ARN-350272 via AMFI_DISCLOSURE */
   amfiArn: '350272',
-  supportEmail: 'support@financiallyfree.in',
-  businessEmail: 'hello@financiallyfree.in',
+  supportEmail: 'support@goalcompass.in',
+  businessEmail: 'hello@goalcompass.in',
   /** Placeholder until ops confirms registered office line — keep non-misleading */
   addressLines: [
     'FutureZenith Insights LLP',
     'India',
   ],
-  url: process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || 'https://financiallyfree.in',
+  url: process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || 'https://goalcompass.in',
   tagline: 'Goal-based mutual fund investing & Techno-Funda research',
 } as const;
 
@@ -128,9 +128,9 @@ export const PLANS = [
 /** Canonical FAQ set — single source of truth for home + /faq. */
 export const HOME_FAQS = [
   {
-    question: 'Is FinanciallyFree a SEBI-registered investment adviser?',
+    question: 'Is GoalCompass a SEBI-registered investment adviser?',
     answer:
-      'No. FinanciallyFree / FutureZenith Insights LLP is an AMFI-registered Mutual Fund Distributor (ARN-350272). Techno-Funda tools are educational decision-support only (not investment advice, and not SEBI RA or IA advisory services).',
+      'No. GoalCompass / FutureZenith Insights LLP is an AMFI-registered Mutual Fund Distributor (ARN-350272). Techno-Funda tools are educational decision-support only (not investment advice, and not SEBI RA or IA advisory services).',
   },
   {
     question: 'What is included in the free Starter plan?',

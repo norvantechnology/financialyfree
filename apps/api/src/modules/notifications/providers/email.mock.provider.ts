@@ -16,7 +16,7 @@ export class EmailMockProvider implements IMessagingProvider {
   async sendMessage(payload: SendMessagePayload): Promise<SendMessageResult> {
     const messageId = `email_ses_mock_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.logger.log(
-      `[Mock Email] Sent to ${payload.recipient} | Subject: "${payload.subject || 'FinanciallyFree Alert'}": ${payload.body.substring(0, 80)}... (ID: ${messageId})`,
+      `[Mock Email] Sent to ${payload.recipient} | Subject: "${payload.subject || 'GoalCompass Alert'}": ${payload.body.substring(0, 80)}... (ID: ${messageId})`,
     );
 
     return {
