@@ -591,33 +591,51 @@
 
 .sm-layout-root {
   display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-  padding: 1rem 1.5rem;
+  gap: 0.75rem;
+  align-items: stretch;
+  padding: 0.75rem 1rem;
   width: 100%;
+  box-sizing: border-box;
 }
 
 @media (max-width: 1080px) {
   .sm-layout-root {
     flex-direction: column;
-    padding: 0.75rem 1rem;
+    padding: 0.5rem;
+    gap: 0.75rem;
   }
 }
 
 /* ── Left Option Chain Ladder Panel ─────────────────────────────────── */
 .sm-chain-panel {
-  width: 440px;
+  width: 380px;
+  min-width: 380px;
   flex-shrink: 0;
   background: #FFFFFF;
   border: 1px solid #E2E8F0;
-  border-radius: 10px;
+  border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
-  height: 840px;
+  height: clamp(560px, calc(100vh - 120px), 760px);
   overflow: hidden;
   position: relative;
   transition: all 0.2s ease;
+}
+
+@media (max-width: 1280px) {
+  .sm-chain-panel {
+    width: 350px;
+    min-width: 350px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .sm-chain-panel {
+    width: 100%;
+    min-width: 100%;
+    height: 480px;
+  }
 }
 
 .sm-chain-panel.collapsed {
@@ -938,6 +956,7 @@
 .sm-ladder-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 0.72rem;
 }
 
@@ -950,7 +969,7 @@
 }
 
 .sm-ladder-table th {
-  padding: 0.4rem 0.2rem;
+  padding: 0.35rem 0.15rem;
   font-weight: 700;
   color: #475569;
   text-align: center;
@@ -970,24 +989,25 @@
 
 .sm-ladder-row.atm-row {
   background: #FEF9C3 !important;
-  border-top: 1px solid #F59E0B;
-  border-bottom: 1px solid #F59E0B;
 }
 
+.th-delta,
 .td-delta {
   text-align: center;
   font-family: monospace;
   color: #64748B;
-  font-size: 0.7rem;
-  width: 44px;
+  font-size: 0.68rem;
+  width: 36px;
+  padding: 0.25rem 0.1rem;
 }
 
+.th-ltp,
 .td-ltp {
   font-family: monospace;
   font-weight: 600;
-  padding: 0.25rem 0.45rem;
+  padding: 0.25rem 0.35rem;
   cursor: pointer;
-  width: 68px;
+  width: 66px;
   user-select: none;
   transition: background 0.15s;
 }
@@ -1012,6 +1032,11 @@
   background: #E0F2FE !important;
 }
 
+.atm-put-highlight {
+  background: #FCE7F3 !important;
+}
+
+.th-strike,
 .td-strike {
   text-align: center;
   font-weight: 800;
@@ -1020,7 +1045,7 @@
   color: #0F172A;
   border-left: 1px solid #E2E8F0;
   border-right: 1px solid #E2E8F0;
-  width: 60px;
+  width: 58px;
   padding: 0.25rem 0;
 }
 
@@ -1029,32 +1054,32 @@
   color: #854D0E;
 }
 
+.th-oi,
 .td-oi {
-  width: 46px;
-  padding: 0 0.25rem;
+  width: 54px;
+  padding: 0.25rem 0.25rem;
 }
 
 .sm-oi-bar-wrapper {
   width: 100%;
-  height: 9px;
+  height: 8px;
   background: #F1F5F9;
-  border-radius: 2px;
+  border-radius: 999px;
   overflow: hidden;
 }
 
 .sm-oi-bar-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: 999px;
+  background: #FECDD3 !important;
 }
 
-.sm-oi-bar-fill.ce,
-.sm-oi-bar-fill.pe {
-  background: #FECDD3;
+.itm-call {
+  background-color: #FEFCE8 !important;
 }
 
-.itm-call,
 .itm-put {
-  background-color: #FEFCE8;
+  background-color: #FFFFFF;
 }
 
 .sm-leg-badge {
@@ -1716,5 +1741,27 @@
   font-size: 0.75rem;
   color: #64748B;
   margin-top: 0.25rem;
+}
+
+.sm-quick-tpl-btn {
+  padding: 0.35rem 0.75rem;
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.sm-quick-tpl-btn:hover {
+  border-color: #2563EB;
+  color: #1D4ED8;
+  background: #EFF6FF;
 }
 

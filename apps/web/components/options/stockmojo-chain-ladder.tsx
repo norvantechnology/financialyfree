@@ -8,8 +8,6 @@ import {
   Settings,
   EyeOff,
   Check,
-  TrendingUp,
-  TrendingDown,
 } from 'lucide-react';
 import { OptionChainRowDto, StrategyLegDto, TradeSide, OptionType } from '@ff/types';
 
@@ -283,14 +281,13 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
         </button>
       </div>
 
-      {/* ── Option Chain Table (Dual CE/PE Ladder) ── */}
+      {/* ── Option Chain Table (Dual CE/PE Ladder - 6 Columns matching StockMojo) ── */}
       <div className="sm-chain-table-container" ref={tableContainerRef}>
         <table className="sm-ladder-table">
           <thead>
             <tr>
               <th className="th-delta">Call Δ</th>
               <th className="th-ltp">LTP</th>
-              <th className="th-oi">OI</th>
               <th className="th-strike">Strike</th>
               <th className="th-oi">OI</th>
               <th className="th-ltp">LTP</th>
@@ -311,8 +308,20 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                 (l) => l.strike === row.strike && l.optionType === 'PE'
               );
 
-              const ceOiPct = Math.min(100, Math.round((row.ce.oi / maxOi) * 100));
-              const peOiPct = Math.min(100, Math.round((row.pe.oi / maxOi) * 100));
+              const oiPct = Math.min(100, Math.round(((row.ce.oi + row.pe.oi) / (maxOi * 1.5)) * 100));
+
+              // Format Deltas matching StockMojo
+              const formatCallDelta = (d?: number | null) => {
+                if (d == null) return '—';
+                if (d >= 0.995) return '1';
+                return d.toFixed(2);
+              };
+
+              const formatPutDelta = (d?: number | null) => {
+                if (d == null) return '—';
+                if (Math.abs(d) <= 0.005) return '0';
+                return d.toFixed(2);
+              };
 
               return (
                 <tr
@@ -320,12 +329,12 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                   ref={isAtm ? atmRowRef : null}
                   className={`sm-ladder-row ${isAtm ? 'atm-row' : ''}`}
                 >
-                  {/* Call Delta */}
+                  {/* 1. Call Delta */}
                   <td className={`td-delta ${isCeItm ? 'itm-call' : ''}`}>
-                    {row.ce.delta != null ? row.ce.delta.toFixed(2) : '—'}
+                    {formatCallDelta(row.ce.delta)}
                   </td>
 
-                  {/* Call LTP */}
+                  {/* 2. Call LTP */}
                   <td
                     className={`td-ltp call ${isCeItm ? 'itm-call' : ''} ${activeCeLeg ? 'has-leg' : ''}`}
                     onClick={() =>
@@ -341,47 +350,41 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                     title="Click to add Call leg"
                   >
                     <div className="flex items-center justify-between gap-1">
-                      <span className="font-mono font-semibold">
-                        {row.ce.ltp > 0 ? row.ce.ltp.toFixed(2) : '—'}
-                      </span>
                       {activeCeLeg ? (
                         <span className={`sm-leg-badge ${activeCeLeg.side.toLowerCase()}`}>
                           {activeCeLeg.side === 'BUY' ? 'B' : 'S'}
                         </span>
-                      ) : (
-                        <TrendingUp className="w-2.5 h-2.5 text-slate-300 opacity-60" />
+                      ) : null}
+                      <span className="font-mono font-semibold">
+                        {row.ce.ltp > 0 ? row.ce.ltp.toFixed(2) : '—'}
+                      </span>
+                      {!activeCeLeg && isCeItm && (
+                        <span className="text-amber-500 font-bold" style={{ fontSize: '9px' }}>▲</span>
                       )}
                     </div>
                   </td>
 
-                  {/* Call OI Bar */}
-                  <td className={`td-oi ${isCeItm ? 'itm-call' : ''}`}>
-                    <div className="sm-oi-bar-wrapper">
-                      <div
-                        className="sm-oi-bar-fill ce"
-                        style={{ width: `${ceOiPct}%` }}
-                      />
-                    </div>
-                  </td>
-
-                  {/* Strike (Center Column) */}
-                  <td className={`td-strike ${isAtm ? 'atm-cell' : ''}`}>
+                  {/* 3. Strike (Center Column) */}
+                  <td className={`td-strike ${isAtm ? 'atm-cell' : ''} ${isCeItm ? 'itm-call' : ''}`}>
                     <span className="strike-text">{row.strike}</span>
                   </td>
 
-                  {/* Put OI Bar */}
-                  <td className={`td-oi ${isPeItm ? 'itm-put' : ''}`}>
+                  {/* 4. Horizontal Pink OI Depth Bar */}
+                  <td className="td-oi">
                     <div className="sm-oi-bar-wrapper">
                       <div
-                        className="sm-oi-bar-fill pe"
-                        style={{ width: `${peOiPct}%` }}
+                        className="sm-oi-bar-fill"
+                        style={{
+                          width: `${Math.max(12, oiPct)}%`,
+                          background: '#FECDD3',
+                        }}
                       />
                     </div>
                   </td>
 
-                  {/* Put LTP */}
+                  {/* 5. Put LTP */}
                   <td
-                    className={`td-ltp put ${isPeItm ? 'itm-put' : ''} ${activePeLeg ? 'has-leg' : ''}`}
+                    className={`td-ltp put ${isPeItm ? 'itm-put' : ''} ${activePeLeg ? 'has-leg' : ''} ${isAtm ? 'atm-put-highlight' : ''}`}
                     onClick={() =>
                       onAddOrToggleLeg({
                         side: activePeLeg?.side === 'BUY' ? 'SELL' : 'BUY',
@@ -395,22 +398,20 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                     title="Click to add Put leg"
                   >
                     <div className="flex items-center justify-between gap-1">
+                      <span className="font-mono font-semibold">
+                        {row.pe.ltp > 0 ? row.pe.ltp.toFixed(2) : '—'}
+                      </span>
                       {activePeLeg ? (
                         <span className={`sm-leg-badge ${activePeLeg.side.toLowerCase()}`}>
                           {activePeLeg.side === 'BUY' ? 'B' : 'S'}
                         </span>
-                      ) : (
-                        <TrendingDown className="w-2.5 h-2.5 text-slate-300 opacity-60" />
-                      )}
-                      <span className="font-mono font-semibold">
-                        {row.pe.ltp > 0 ? row.pe.ltp.toFixed(2) : '—'}
-                      </span>
+                      ) : null}
                     </div>
                   </td>
 
-                  {/* Put Delta */}
+                  {/* 6. Put Delta */}
                   <td className={`td-delta ${isPeItm ? 'itm-put' : ''}`}>
-                    {row.pe.delta != null ? row.pe.delta.toFixed(2) : '—'}
+                    {formatPutDelta(row.pe.delta)}
                   </td>
                 </tr>
               );

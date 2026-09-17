@@ -248,14 +248,8 @@ export default function OptionsLabPage() {
 
   // ECharts Option for Payoff Diagram with SD lines and Strike OI distribution
   const payoffChartOption = useMemo(() => {
-    if (!payoffResult.payoffPoints || payoffResult.payoffPoints.length === 0) return {};
-    const spots = payoffResult.payoffPoints.map((p) => p.spotPrice);
-    const expiryPayoffs = payoffResult.payoffPoints.map((p) => p.expiryPayoff);
-    const targetPayoffs = payoffResult.payoffPoints.map((p) => p.targetDatePayoff);
-    const currentSpot = chainData?.spotPrice || 0;
+    const currentSpot = chainData?.spotPrice || 23270.6;
     const atmIv = chainData?.atmIv || 13.8;
-
-    // Standard Deviation markers
     const tteYears = (7 + daysForward) / 365;
     const oneSd = currentSpot * (atmIv / 100) * Math.sqrt(tteYears);
     const sdMinus2 = String(Math.round(currentSpot - 2 * oneSd));
@@ -263,8 +257,106 @@ export default function OptionsLabPage() {
     const sdPlus1 = String(Math.round(currentSpot + oneSd));
     const sdPlus2 = String(Math.round(currentSpot + 2 * oneSd));
 
+    // Baseline chart when no legs are active
+    if (!payoffResult.payoffPoints || payoffResult.payoffPoints.length === 0) {
+      const step = symbol === 'BANKNIFTY' ? 100 : 50;
+      const baselineSpots: string[] = [];
+      for (
+        let s = Math.round((currentSpot - 2.5 * oneSd) / step) * step;
+        s <= Math.round((currentSpot + 2.5 * oneSd) / step) * step;
+        s += step
+      ) {
+        baselineSpots.push(String(s));
+      }
+
+      return {
+        backgroundColor: '#FFFFFF',
+        grid: { left: 55, right: 35, bottom: 25, top: 40, containLabel: true },
+        xAxis: {
+          type: 'category',
+          data: baselineSpots,
+          axisLine: { lineStyle: { color: '#CBD5E1' } },
+          axisLabel: { color: '#64748B', fontSize: 10 },
+        },
+        yAxis: {
+          type: 'value',
+          min: -15000,
+          max: 15000,
+          splitLine: { lineStyle: { color: '#F1F5F9' } },
+          axisLabel: {
+            color: '#64748B',
+            formatter: (v: number) => `₹${v.toLocaleString('en-IN')}`,
+            fontSize: 10,
+          },
+        },
+        series: [
+          {
+            name: 'Zero Baseline',
+            type: 'line',
+            data: baselineSpots.map(() => 0),
+            lineStyle: { width: 1.5, color: '#94A3B8', type: 'dashed' },
+            markLine: {
+              silent: true,
+              symbol: 'none',
+              data: [
+                {
+                  xAxis: String(Math.round(currentSpot / step) * step),
+                  lineStyle: { color: '#0F172A', type: 'solid', width: 2 },
+                  label: {
+                    formatter: `Spot: ${Math.round(currentSpot).toLocaleString('en-IN')}`,
+                    position: 'top',
+                    color: '#0F172A',
+                    fontSize: 10,
+                    fontWeight: 700,
+                  },
+                },
+                {
+                  xAxis: sdMinus2,
+                  lineStyle: { color: '#94A3B8', type: 'dashed' },
+                  label: { formatter: '-2SD', color: '#64748B', position: 'top', fontSize: 10 },
+                },
+                {
+                  xAxis: sdMinus1,
+                  lineStyle: { color: '#94A3B8', type: 'dashed' },
+                  label: { formatter: '-1SD', color: '#64748B', position: 'top', fontSize: 10 },
+                },
+                {
+                  xAxis: sdPlus1,
+                  lineStyle: { color: '#94A3B8', type: 'dashed' },
+                  label: { formatter: '+1SD', color: '#64748B', position: 'top', fontSize: 10 },
+                },
+                {
+                  xAxis: sdPlus2,
+                  lineStyle: { color: '#94A3B8', type: 'dashed' },
+                  label: { formatter: '+2SD', color: '#64748B', position: 'top', fontSize: 10 },
+                },
+              ],
+            },
+          },
+        ],
+        graphic: [
+          {
+            type: 'text',
+            left: 'center',
+            top: 'center',
+            style: {
+              text: 'Click strikes on the Option Chain to add legs\nor choose a strategy template below',
+              fill: '#94A3B8',
+              fontSize: 13,
+              fontWeight: 600,
+              textAlign: 'center',
+            },
+          },
+        ],
+      };
+    }
+
+    const spots = payoffResult.payoffPoints.map((p) => p.spotPrice);
+    const expiryPayoffs = payoffResult.payoffPoints.map((p) => p.expiryPayoff);
+    const targetPayoffs = payoffResult.payoffPoints.map((p) => p.targetDatePayoff);
+
     return {
-      backgroundColor: 'transparent',
+      backgroundColor: '#FFFFFF',
       tooltip: {
         trigger: 'axis',
         formatter: (params: any[]) => {
@@ -284,7 +376,7 @@ export default function OptionsLabPage() {
         textStyle: { color: '#64748B', fontSize: 11 },
         top: 4,
       },
-      grid: { left: 45, right: 30, bottom: 25, top: 35, containLabel: true },
+      grid: { left: 55, right: 35, bottom: 25, top: 40, containLabel: true },
       xAxis: {
         type: 'category',
         data: spots,
@@ -301,31 +393,35 @@ export default function OptionsLabPage() {
           fontSize: 10,
         },
       },
+      visualMap: {
+        show: false,
+        dimension: 1,
+        pieces: [
+          { lte: 0, color: '#DC2626' },
+          { gt: 0, color: '#16A34A' },
+        ],
+      },
       series: [
         {
           name: 'At Expiry Payoff',
           type: 'line',
           data: expiryPayoffs,
           smooth: true,
-          lineStyle: { width: 2.5, color: '#10B981' },
-          areaStyle: {
-            color: {
-              type: 'linear',
-              x: 0,
-              y: 0,
-              x2: 0,
-              y2: 1,
-              colorStops: [
-                { offset: 0, color: 'rgba(16, 185, 129, 0.18)' },
-                { offset: 1, color: 'rgba(16, 185, 129, 0.0)' },
+          lineStyle: { width: 2.5 },
+          markArea: {
+            silent: true,
+            data: [
+              [
+                { yAxis: 0, itemStyle: { color: 'rgba(239, 68, 68, 0.04)' } },
+                { yAxis: -100000 },
               ],
-            },
+            ],
           },
           markLine: {
             silent: true,
             symbol: 'none',
             data: [
-              { yAxis: 0, lineStyle: { color: '#CBD5E1', type: 'dashed' } },
+              { yAxis: 0, lineStyle: { color: '#94A3B8', type: 'dashed' } },
               {
                 xAxis: String(Math.round(currentSpot)),
                 lineStyle: { color: '#0F172A', type: 'solid', width: 2 },
@@ -374,7 +470,7 @@ export default function OptionsLabPage() {
         },
       ],
     };
-  }, [payoffResult, daysForward, chainData?.spotPrice, chainData?.atmIv]);
+  }, [payoffResult, chainData?.spotPrice, chainData?.atmIv, daysForward, symbol]);
 
   // Strategy Template Application
   const applyTemplate = (tplName: string) => {
@@ -400,12 +496,45 @@ export default function OptionsLabPage() {
         symLotSize = 10;
       }
 
-      const legs = tpl.createLegs(spotVal, step, selectedExpiry || '2026-09-24', symLotSize);
+      const expiryToUse =
+        selectedExpiry || chainData.selectedExpiry || chainData.expiryDates[0] || '2026-09-24';
+      const baseLegs = tpl.createLegs(spotVal, step, expiryToUse, symLotSize);
+
+      // Enrich with live contract LTPs and Greeks from chainData
+      const legs = baseLegs.map((leg) => {
+        const contract = chainData.contracts?.find((c) => c.strike === leg.strike);
+        if (contract) {
+          const sideContract = leg.optionType === 'CE' ? contract.ce : contract.pe;
+          if (sideContract && sideContract.ltp > 0) {
+            return {
+              ...leg,
+              entryPrice: sideContract.ltp,
+              currentPrice: sideContract.ltp,
+              iv: sideContract.iv || leg.iv,
+              delta: sideContract.delta || leg.delta,
+              gamma: sideContract.gamma || leg.gamma,
+              theta: sideContract.theta || leg.theta,
+              vega: sideContract.vega || leg.vega,
+            };
+          }
+        }
+        return leg;
+      });
+
       setStrategyLegs(legs);
       setNotification(`Loaded "${tpl.name}" strategy template.`);
       setTimeout(() => setNotification(null), 3000);
     }
   };
+
+  // Auto-initialize default demo strategy on first load (Short Strangle matching StockMojo)
+  const hasInitializedStrategy = useRef(false);
+  useEffect(() => {
+    if (!hasInitializedStrategy.current && chainData?.spotPrice) {
+      hasInitializedStrategy.current = true;
+      applyTemplate('Short Strangle');
+    }
+  }, [chainData?.spotPrice]);
 
   // Quick Action: Add or Toggle leg from Option Chain
   const onAddOrToggleLeg = (input: {
@@ -1160,18 +1289,18 @@ export default function OptionsLabPage() {
                         </tbody>
                       </table>
                     ) : (
-                      <div className="p-8 text-center">
-                        <p className="text-sm font-semibold text-slate-700">No active positions</p>
+                      <div className="p-6 text-center bg-slate-50/50">
+                        <p className="text-sm font-bold text-slate-700">No active positions</p>
                         <p className="text-xs text-slate-500 mt-1">
                           Click any strike in the Option Chain on the left, or load a popular strategy template below:
                         </p>
-                        <div className="flex flex-wrap justify-center gap-2 mt-4">
+                        <div className="flex flex-wrap justify-center gap-2 mt-3">
                           {['Bull Call Spread', 'Bear Put Spread', 'Short Straddle', 'Short Strangle', 'Iron Condor'].map(
                             (tpl) => (
                               <button
                                 key={tpl}
                                 onClick={() => applyTemplate(tpl)}
-                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-50 hover:bg-teal-50 text-slate-800 border border-slate-200 hover:border-teal-400 transition-all shadow-sm"
+                                className="sm-quick-tpl-btn"
                               >
                                 + {tpl}
                               </button>
