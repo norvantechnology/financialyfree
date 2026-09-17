@@ -297,9 +297,18 @@ export default function OptionsLabPage() {
           const source = json.data.source as string | undefined;
           const hasContracts = (json.data.contracts?.length || 0) > 0;
           const isExchangeLive =
-            (source === 'NSE_LIVE' || source === 'BROKER_LIVE') && hasContracts;
-          setConnectionStatus(isExchangeLive ? 'connected' : json.data.spotPrice > 0 ? 'reconnecting' : 'closed');
-          setLatencyMs(isExchangeLive ? Math.round(performance.now() - started) : 0);
+            (source === 'NSE_LIVE' || source === 'BROKER_LIVE' || source === 'NSE_CACHED') &&
+            hasContracts;
+          setConnectionStatus(
+            isExchangeLive
+              ? source === 'NSE_CACHED'
+                ? 'reconnecting'
+                : 'connected'
+              : json.data.spotPrice > 0
+                ? 'reconnecting'
+                : 'closed',
+          );
+          setLatencyMs(isExchangeLive && source !== 'NSE_CACHED' ? Math.round(performance.now() - started) : 0);
         }
       } else {
         setConnectionStatus('closed');
@@ -990,7 +999,9 @@ export default function OptionsLabPage() {
             className={`opt-feed-banner ${
               chainData.source === 'NSE_LIVE' || chainData.source === 'BROKER_LIVE'
                 ? 'live'
-                : 'warn'
+                : chainData.source === 'NSE_CACHED'
+                  ? 'cached'
+                  : 'warn'
             }`}
           >
             <strong>{chainData.source || 'UNKNOWN'}</strong>
@@ -1002,7 +1013,7 @@ export default function OptionsLabPage() {
                 })} IST`
               : ''}
             {(chainData.contracts?.length || 0) === 0
-              ? ' · Connect Upstox/Dhan via Connect Broker for live OI/LTP, or retry during NSE market hours.'
+              ? ' · Broker connect unlocks live OI when NSE is blocked.'
               : ''}
           </div>
         ) : null}

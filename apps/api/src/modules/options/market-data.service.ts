@@ -16,11 +16,69 @@ export class MarketDataService {
   private nseSessionCache: { cookies: string; expiresAt: number } | null = null;
   private nseSessionInFlight: Promise<string> | null = null;
   private liveVixCache: { vix: number; expiresAt: number } | null = null;
+  /** Last successful NSE/broker chain — served when live scrape fails (honest stale label). */
+  private readonly chainCache = new Map<
+    string,
+    { chain: OptionChainDto; fetchedAt: number }
+  >();
+  private static readonly CHAIN_CACHE_TTL_MS = 30 * 60 * 1000;
+  private static readonly NSE_UA =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
   constructor(
     private readonly brokerAuthService: BrokerAuthService,
     private readonly instrumentsService: InstrumentsService,
   ) {}
+
+  private cacheKey(symbol: string, expiry?: string): string {
+    return `${symbol.toUpperCase()}:${expiry || 'nearest'}`;
+  }
+
+  private rememberChain(chain: OptionChainDto): void {
+    if (!chain.contracts?.length) return;
+    if (chain.source === 'DELAYED_SPOT_ONLY') return;
+    this.chainCache.set(this.cacheKey(chain.underlying, chain.selectedExpiry), {
+      chain: { ...chain },
+      fetchedAt: Date.now(),
+    });
+    // Also store under nearest key for default lookups
+    this.chainCache.set(this.cacheKey(chain.underlying), {
+      chain: { ...chain },
+      fetchedAt: Date.now(),
+    });
+  }
+
+  private readCachedChain(
+    symbol: string,
+    expiry: string | undefined,
+    liveSpot: {
+      spotPrice: number;
+      spotChange: number;
+      spotChangePct: number;
+      vix?: number;
+      lotSize?: number;
+      futures?: Array<{ expiry: string; ltp: number; lots: string }>;
+    },
+  ): OptionChainDto | null {
+    const hit =
+      this.chainCache.get(this.cacheKey(symbol, expiry)) ||
+      this.chainCache.get(this.cacheKey(symbol));
+    if (!hit) return null;
+    if (Date.now() - hit.fetchedAt > MarketDataService.CHAIN_CACHE_TTL_MS) return null;
+    const ageMin = Math.max(1, Math.round((Date.now() - hit.fetchedAt) / 60000));
+    return {
+      ...hit.chain,
+      spotPrice: liveSpot.spotPrice || hit.chain.spotPrice,
+      spotChange: liveSpot.spotChange,
+      spotChangePct: liveSpot.spotChangePct,
+      vix: liveSpot.vix ?? hit.chain.vix,
+      lotSize: liveSpot.lotSize ?? hit.chain.lotSize,
+      futures: liveSpot.futures?.length ? liveSpot.futures : hit.chain.futures,
+      timestamp: new Date().toISOString(),
+      source: 'NSE_CACHED',
+      dataNote: `Cached NSE option-chain from ~${ageMin}m ago (live NSE scrape unavailable from this host). Spot refreshed from delayed feed.`,
+    };
+  }
 
   /**
    * Standard Indian F&O contract lot sizes (NSE/BSE).
@@ -264,6 +322,7 @@ export class MarketDataService {
             futures: brokerChain.futures ?? liveSpot.futures,
           };
           void this.persistLiveInstruments(enriched);
+          this.rememberChain(enriched);
           return enriched;
         }
       } catch (err: any) {
@@ -271,7 +330,7 @@ export class MarketDataService {
       }
     }
 
-    // 2) Official NSE option-chain (index/equity) when reachable
+    // 2) Official NSE option-chain (direct scrape)
     try {
       const nseLive = await this.fetchNseOptionChain(cleanSymbol, expiry, liveSpot);
       if (nseLive && nseLive.contracts.length > 0) {
@@ -284,6 +343,7 @@ export class MarketDataService {
             nseLive.dataNote ||
             'Official NSE option-chain (v3). OI/LTP refresh during market hours.',
         };
+        this.rememberChain(enriched);
         void this.persistLiveInstruments(enriched);
         return enriched;
       }
@@ -291,8 +351,78 @@ export class MarketDataService {
       this.logger.warn(`Direct NSE chain fetch failed: ${err.message}`);
     }
 
+    // 2b) Vercel/Next NSE proxy — Render datacenter IPs are often blocked by NSE
+    try {
+      const proxied = await this.fetchNseOptionChainViaProxy(cleanSymbol, expiry, liveSpot);
+      if (proxied && proxied.contracts.length > 0) {
+        this.rememberChain(proxied);
+        void this.persistLiveInstruments(proxied);
+        return proxied;
+      }
+    } catch (err: any) {
+      this.logger.warn(`NSE proxy chain fetch failed: ${err.message}`);
+    }
+
+    // 2c) Recent in-memory cache (real quotes, labeled stale — not invented)
+    const cached = this.readCachedChain(cleanSymbol, expiry, liveSpot);
+    if (cached) {
+      return cached;
+    }
+
     // 3) Honest delayed-spot shell — ZERO fabricated OI / LTP / IV
     return this.buildDelayedSpotOnlyChain(cleanSymbol, liveSpot, expiry);
+  }
+
+  /** Call Next.js NSE scrape when Nest host cannot reach NSE. */
+  private async fetchNseOptionChainViaProxy(
+    symbol: string,
+    selectedExpiry: string | undefined,
+    liveSpot: { spotPrice: number; spotChange: number; spotChangePct: number },
+  ): Promise<OptionChainDto | null> {
+    const explicit = (process.env.NSE_PROXY_URL || '').replace(/\/+$/, '');
+    const base = (
+      explicit ||
+      process.env.FRONTEND_URL ||
+      process.env.WEB_URL ||
+      ''
+    ).replace(/\/+$/, '');
+    if (!base) return null;
+    // Skip accidental localhost FRONTEND_URL in cloud; allow explicit NSE_PROXY_URL always
+    if (!explicit && /localhost|127\.0\.0\.1/.test(base)) return null;
+
+    const qs = new URLSearchParams({ symbol });
+    if (selectedExpiry) qs.set('expiry', selectedExpiry);
+    const url = `${base}/api/internal/nse-chain?${qs.toString()}`;
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    const secret = process.env.NSE_PROXY_SECRET;
+    if (secret) headers['x-nse-proxy-secret'] = secret;
+
+    const res = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(28000),
+    });
+    if (!res.ok) {
+      this.logger.warn(`NSE proxy HTTP ${res.status}`);
+      return null;
+    }
+    const body = (await res.json()) as {
+      success?: boolean;
+      data?: { selectedExpiryIso?: string; nseJson?: unknown };
+    };
+    if (!body?.success || !body.data?.nseJson) return null;
+
+    const mapped = this.mapNseOptionChainJson(
+      symbol,
+      body.data.selectedExpiryIso || selectedExpiry,
+      liveSpot,
+      body.data.nseJson,
+    );
+    if (!mapped) return null;
+    return {
+      ...mapped,
+      source: 'NSE_LIVE',
+      dataNote: 'Official NSE option-chain via edge proxy (v3).',
+    };
   }
 
   /** Persist live strikes/expiries into instruments — never static seed rows. */
@@ -385,8 +515,7 @@ export class MarketDataService {
   ): Promise<OptionChainDto | null> {
     const cookies = await this.ensureNseSession();
     const isIndex = ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY', 'SENSEX'].includes(symbol);
-    const userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 GoalCompass/1.0';
+    const userAgent = MarketDataService.NSE_UA;
 
     const nseHeaders = (cookieJar: string) => ({
       'User-Agent': userAgent,
@@ -400,7 +529,7 @@ export class MarketDataService {
     const fetchJson = async (url: string, cookieJar: string): Promise<{ ok: boolean; status: number; json: any }> => {
       const res = await fetch(url, {
         headers: nseHeaders(cookieJar),
-        signal: AbortSignal.timeout(12000),
+        signal: AbortSignal.timeout(20000),
       });
       if (res.status === 401 || res.status === 403) {
         this.logger.warn(`NSE ${url} returned ${res.status} — refreshing session`);
@@ -408,7 +537,7 @@ export class MarketDataService {
         const fresh = await this.ensureNseSession();
         const retry = await fetch(url, {
           headers: nseHeaders(fresh),
-          signal: AbortSignal.timeout(12000),
+          signal: AbortSignal.timeout(20000),
         });
         if (!retry.ok) {
           return { ok: false, status: retry.status, json: null };
@@ -771,8 +900,7 @@ export class MarketDataService {
   }
 
   private async warmNseSession(): Promise<string> {
-    const userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+    const userAgent = MarketDataService.NSE_UA;
     let cookies = '';
     const mergeCookies = (res: Response) => {
       const anyHeaders = res.headers as any;
@@ -789,11 +917,7 @@ export class MarketDataService {
       }
     };
 
-    for (const url of [
-      'https://www.nseindia.com',
-      'https://www.nseindia.com/option-chain',
-      'https://www.nseindia.com/market-data/live-equity-market',
-    ]) {
+    for (const url of ['https://www.nseindia.com', 'https://www.nseindia.com/option-chain']) {
       try {
         const res = await fetch(url, {
           headers: {
@@ -802,12 +926,12 @@ export class MarketDataService {
             'Accept-Language': 'en-US,en;q=0.9',
             Cookie: cookies,
           },
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(10000),
           redirect: 'follow',
         });
         mergeCookies(res);
-      } catch {
-        // continue warming
+      } catch (err: any) {
+        this.logger.debug(`NSE warm ${url} skipped: ${err?.message || err}`);
       }
     }
     this.nseSessionCache = { cookies, expiresAt: Date.now() + 10 * 60 * 1000 };

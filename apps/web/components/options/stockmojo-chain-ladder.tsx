@@ -437,14 +437,16 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
         </table>
 
         {/* Floating "Go to ATM" button */}
-        <button
-          onClick={scrollToAtm}
-          className="sm-go-to-atm-floating-btn"
-          title="Jump to current At-The-Money strike"
-        >
-          <Check className="w-3.5 h-3.5 text-white" />
-          <span>Go to ATM</span>
-        </button>
+        {contracts.length > 0 ? (
+          <button
+            onClick={scrollToAtm}
+            className="sm-go-to-atm-floating-btn"
+            title="Jump to current At-The-Money strike"
+          >
+            <Check className="w-3.5 h-3.5 text-white" />
+            <span>Go to ATM</span>
+          </button>
+        ) : null}
       </div>
     </div>
   );

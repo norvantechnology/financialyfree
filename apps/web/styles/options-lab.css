@@ -1208,10 +1208,10 @@
 }
 
 .sm-chain-empty-cell {
-  padding: 2rem 1rem;
+  padding: 1.25rem 0.85rem;
   text-align: center;
   color: #64748b;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   line-height: 1.45;
   background: #f8fafc;
 }
@@ -2134,11 +2134,20 @@
   line-height: 1.4;
   color: #0f172a;
   background: #F8FAFC;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .opt-feed-banner.live {
   background: rgba(16, 185, 129, 0.08);
   border-color: rgba(16, 185, 129, 0.25);
+}
+
+.opt-feed-banner.cached {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.28);
 }
 
 .opt-feed-banner.sandbox {
