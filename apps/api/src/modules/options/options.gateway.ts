@@ -24,7 +24,6 @@ export class OptionsGateway implements OnGatewayConnection, OnGatewayDisconnect 
   server!: Server;
 
   private readonly logger = new Logger(OptionsGateway.name);
-  private readonly clientCount = new Map<string, number>();
 
   constructor(
     private readonly jwtService: JwtService,
