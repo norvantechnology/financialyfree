@@ -139,7 +139,20 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         textStyle: { color: '#475569', fontSize: 11, fontWeight: '600' },
         top: 0,
       },
-      grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
+      grid: { left: '3%', right: '4%', bottom: '18%', top: '15%', containLabel: true },
+      dataZoom: [
+        { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true },
+        {
+          type: 'slider',
+          xAxisIndex: 0,
+          height: 16,
+          bottom: 4,
+          borderColor: '#E2E8F0',
+          fillerColor: 'rgba(15, 118, 110, 0.14)',
+          handleStyle: { color: '#0F766E' },
+          textStyle: { fontSize: 9, color: '#64748B' },
+        },
+      ],
       xAxis: {
         type: 'category',
         data: strikes,
@@ -226,7 +239,20 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         textStyle: { color: '#475569', fontSize: 11, fontWeight: '600' },
         top: 0,
       },
-      grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
+      grid: { left: '3%', right: '4%', bottom: '18%', top: '15%', containLabel: true },
+      dataZoom: [
+        { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true },
+        {
+          type: 'slider',
+          xAxisIndex: 0,
+          height: 16,
+          bottom: 4,
+          borderColor: '#E2E8F0',
+          fillerColor: 'rgba(15, 118, 110, 0.14)',
+          handleStyle: { color: '#0F766E' },
+          textStyle: { fontSize: 9, color: '#64748B' },
+        },
+      ],
       xAxis: {
         type: 'category',
         data: strikes,
@@ -286,7 +312,20 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         textStyle: { color: '#475569', fontSize: 11, fontWeight: '600' },
         top: 0,
       },
-      grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
+      grid: { left: '3%', right: '4%', bottom: '18%', top: '15%', containLabel: true },
+      dataZoom: [
+        { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true },
+        {
+          type: 'slider',
+          xAxisIndex: 0,
+          height: 16,
+          bottom: 4,
+          borderColor: '#E2E8F0',
+          fillerColor: 'rgba(15, 118, 110, 0.14)',
+          handleStyle: { color: '#0F766E' },
+          textStyle: { fontSize: 9, color: '#64748B' },
+        },
+      ],
       xAxis: {
         type: 'category',
         data: times,
@@ -297,6 +336,7 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         {
           type: 'value',
           name: 'PCR',
+          scale: true,
           nameTextStyle: { color: '#0284C7', fontSize: 10, fontWeight: 'bold' },
           axisLine: { lineStyle: { color: '#CBD5E1' } },
           splitLine: { lineStyle: { color: '#F1F5F9', type: 'dashed' } },
@@ -305,10 +345,15 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         {
           type: 'value',
           name: 'Spot Price',
+          scale: true,
           nameTextStyle: { color: '#D97706', fontSize: 10, fontWeight: 'bold' },
           axisLine: { lineStyle: { color: '#CBD5E1' } },
           splitLine: { show: false },
-          axisLabel: { color: '#D97706', fontSize: 10 },
+          axisLabel: {
+            color: '#D97706',
+            fontSize: 10,
+            formatter: (v: number) => Math.round(v).toLocaleString('en-IN'),
+          },
         },
       ],
       series: [
@@ -318,6 +363,7 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
           yAxisIndex: 0,
           data: pcrs,
           smooth: true,
+          showSymbol: oiHistory.length < 3,
           lineStyle: { width: 2.5, color: '#0284C7' },
         },
         {
@@ -326,6 +372,7 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
           yAxisIndex: 1,
           data: spots,
           smooth: true,
+          showSymbol: oiHistory.length < 3,
           lineStyle: { width: 2, color: '#D97706', type: 'dashed' },
         },
       ],
@@ -416,7 +463,12 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         </div>
 
         <div className="opt-chart-container" style={{ height: '340px' }}>
-          <ReactECharts option={oiBarOption} style={{ height: '100%', width: '100%' }} />
+          <ReactECharts
+            option={oiBarOption}
+            style={{ height: '100%', width: '100%' }}
+            notMerge={false}
+            lazyUpdate
+          />
         </div>
       </div>
 

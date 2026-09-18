@@ -367,37 +367,59 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
     let totalUnrealizedPnl = 0;
     let deployedMargin = 0;
 
-    // Refresh live CMP for open positions
-    for (const pos of openPositions) {
+    // One chain fetch per symbol:expiry (shared HOT cache) instead of N scrapes
+    const chainCache = new Map<string, Awaited<ReturnType<typeof this.marketDataService.getOptionChain>>>();
+    const resolveLivePrice = async (pos: (typeof openPositions)[number]): Promise<number> => {
+      const fallback =
+        Number(pos.currentPrice) > 0
+          ? Number(pos.currentPrice)
+          : Number(pos.entryPrice) > 0
+            ? Number(pos.entryPrice)
+            : 0;
       try {
-        const chain = await this.marketDataService.getOptionChain(pos.symbol, pos.expiry);
-        let livePrice = pos.currentPrice;
+        const key = `${pos.symbol}|${pos.expiry}`;
+        let chain = chainCache.get(key);
+        if (!chain) {
+          chain = await this.marketDataService.getOptionChain(pos.symbol, pos.expiry);
+          chainCache.set(key, chain);
+        }
 
         if (pos.strike && pos.optionType !== 'FUT') {
-          const row = chain.contracts.find((c) => c.strike === Number(pos.strike));
+          const strike = Number(pos.strike);
+          const row = chain.contracts.find((c) => Number(c.strike) === strike);
           if (row) {
-            livePrice = pos.optionType === 'CE' ? row.ce.ltp : row.pe.ltp;
+            const side = pos.optionType === 'CE' ? row.ce : row.pe;
+            const ltp = Number(side?.ltp) || 0;
+            const bid = Number(side?.bidPrice) || 0;
+            const ask = Number(side?.askPrice) || 0;
+            const mid = bid > 0 && ask > 0 ? (bid + ask) / 2 : 0;
+            const quote = ltp > 0 ? ltp : mid;
+            if (quote > 0) return quote;
           }
-        } else {
-          livePrice = chain.spotPrice;
+        } else if (chain.spotPrice > 0) {
+          return chain.spotPrice;
         }
-
-        pos.currentPrice = livePrice;
-        const totalQty = pos.quantity * pos.lotSize;
-
-        if (pos.side === 'BUY') {
-          pos.unrealizedPnl = Math.round((livePrice - pos.entryPrice) * totalQty * 100) / 100;
-          deployedMargin += pos.entryPrice * totalQty;
-        } else {
-          pos.unrealizedPnl = Math.round((pos.entryPrice - livePrice) * totalQty * 100) / 100;
-          deployedMargin += livePrice * totalQty * 1.2 + 40000 * pos.quantity;
-        }
-
-        totalUnrealizedPnl += pos.unrealizedPnl;
-        await this.sandboxRepo.save(pos);
       } catch (e) {
         this.logger.debug(`Could not refresh price for position ${pos.id}: ${(e as any)?.message}`);
       }
+      return fallback;
+    };
+
+    for (const pos of openPositions) {
+      const livePrice = await resolveLivePrice(pos);
+      pos.currentPrice = livePrice;
+      const totalQty = pos.quantity * pos.lotSize;
+
+      if (pos.side === 'BUY') {
+        pos.unrealizedPnl = Math.round((livePrice - pos.entryPrice) * totalQty * 100) / 100;
+        deployedMargin += pos.entryPrice * totalQty;
+      } else {
+        pos.unrealizedPnl = Math.round((pos.entryPrice - livePrice) * totalQty * 100) / 100;
+        deployedMargin += Math.max(livePrice, pos.entryPrice) * totalQty * 1.2 + 40000 * pos.quantity;
+      }
+
+      totalUnrealizedPnl += pos.unrealizedPnl;
+      await this.sandboxRepo.save(pos);
     }
 
     const totalRealizedPnl = closedPositions.reduce((acc, p) => acc + Number(p.realizedPnl || 0), 0);
@@ -436,6 +458,9 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
    * Squares off an open sandbox position.
    */
   async squareOffPosition(userId: string, positionId: string) {
+    if (!userId || !positionId) {
+      return { success: false, message: 'Sign in required' };
+    }
     const pos = await this.sandboxRepo.findOne({ where: { id: positionId, userId } });
     if (!pos || pos.status === 'CLOSED') {
       return { success: false, message: 'Position not found or already closed' };
@@ -443,13 +468,24 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
 
     // Refresh live CMP
     const chain = await this.marketDataService.getOptionChain(pos.symbol, pos.expiry);
-    let livePrice = pos.currentPrice;
+    let livePrice =
+      Number(pos.currentPrice) > 0
+        ? Number(pos.currentPrice)
+        : Number(pos.entryPrice) > 0
+          ? Number(pos.entryPrice)
+          : 0;
     if (pos.strike && pos.optionType !== 'FUT') {
-      const row = chain.contracts.find((c) => c.strike === Number(pos.strike));
+      const row = chain.contracts.find((c) => Number(c.strike) === Number(pos.strike));
       if (row) {
-        livePrice = pos.optionType === 'CE' ? row.ce.ltp : row.pe.ltp;
+        const side = pos.optionType === 'CE' ? row.ce : row.pe;
+        const ltp = Number(side?.ltp) || 0;
+        const bid = Number(side?.bidPrice) || 0;
+        const ask = Number(side?.askPrice) || 0;
+        const mid = bid > 0 && ask > 0 ? (bid + ask) / 2 : 0;
+        const quote = ltp > 0 ? ltp : mid;
+        if (quote > 0) livePrice = quote;
       }
-    } else {
+    } else if (chain.spotPrice > 0) {
       livePrice = chain.spotPrice;
     }
 
@@ -473,21 +509,39 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
    * Squares off all open positions for a user.
    */
   async squareOffAll(userId: string) {
+    if (!userId) {
+      return { success: false, message: 'Sign in required', count: 0 };
+    }
     const openPositions = await this.sandboxRepo.find({
       where: { userId, status: 'OPEN' },
     });
 
+    let closed = 0;
+    const errors: string[] = [];
     for (const p of openPositions) {
-      await this.squareOffPosition(userId, p.id);
+      const result = await this.squareOffPosition(userId, p.id);
+      if (result.success) closed += 1;
+      else if (result.message) errors.push(result.message);
     }
 
-    return { success: true, count: openPositions.length };
+    return {
+      success: errors.length === 0 || closed > 0,
+      count: closed,
+      message:
+        closed > 0
+          ? `Squared off ${closed} position${closed === 1 ? '' : 's'}`
+          : errors[0] || 'No open positions to square off',
+      errors: errors.length ? errors : undefined,
+    };
   }
 
   /**
    * Resets entire sandbox portfolio.
    */
   async resetSandbox(userId: string) {
+    if (!userId) {
+      return { success: false, message: 'Sign in required' };
+    }
     await this.sandboxRepo.delete({ userId });
     return { success: true, message: 'Sandbox portfolio reset to ₹10,00,000' };
   }

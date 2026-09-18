@@ -75,6 +75,35 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
   const [isExpiryDropdownOpen, setIsExpiryDropdownOpen] = useState(false);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const atmRowRef = useRef<HTMLTableRowElement | null>(null);
+  const expiryMoreRef = useRef<HTMLDivElement | null>(null);
+
+  const EXPIRY_PILL_COUNT = 4;
+  const visibleExpiries = React.useMemo(() => {
+    const first = expiryDates.slice(0, EXPIRY_PILL_COUNT);
+    if (selectedExpiry && !first.includes(selectedExpiry)) {
+      return [...first.slice(0, Math.max(0, EXPIRY_PILL_COUNT - 1)), selectedExpiry];
+    }
+    return first;
+  }, [expiryDates, selectedExpiry]);
+  const showExpiryMore = expiryDates.length > EXPIRY_PILL_COUNT;
+
+  useEffect(() => {
+    if (!isExpiryDropdownOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (expiryMoreRef.current && !expiryMoreRef.current.contains(e.target as Node)) {
+        setIsExpiryDropdownOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsExpiryDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isExpiryDropdownOpen]);
 
   // Maximum OI across both CE and PE for scaling horizontal bars
   const maxOi = React.useMemo(() => {
@@ -271,12 +300,16 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
       {/* ── Top Row 3: Horizontal Expiry Date Tabs ── */}
       <div className="sm-chain-expiries-row">
         <div className="sm-expiry-pills-list">
-          {expiryDates.slice(0, 5).map((exp) => {
+          {visibleExpiries.map((exp) => {
             const isSelected = exp === selectedExpiry;
             return (
               <button
                 key={exp}
-                onClick={() => onExpiryChange(exp)}
+                type="button"
+                onClick={() => {
+                  setIsExpiryDropdownOpen(false);
+                  onExpiryChange(exp);
+                }}
                 className={`sm-expiry-pill ${isSelected ? 'active' : ''}`}
               >
                 {formatExpiryLabel(exp)}
@@ -285,20 +318,29 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
           })}
         </div>
 
-        {expiryDates.length > 5 && (
-          <div className="relative">
+        {showExpiryMore && (
+          <div className="sm-expiry-more-wrap" ref={expiryMoreRef}>
             <button
-              onClick={() => setIsExpiryDropdownOpen((p) => !p)}
-              className="sm-expiry-more-btn"
-              title="More Expiries"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpiryDropdownOpen((p) => !p);
+              }}
+              className={`sm-expiry-more-btn ${isExpiryDropdownOpen ? 'open' : ''}`}
+              title="All expiries"
+              aria-expanded={isExpiryDropdownOpen}
+              aria-haspopup="listbox"
             >
               <ChevronDown className="w-3.5 h-3.5" />
             </button>
             {isExpiryDropdownOpen && (
-              <div className="sm-expiry-more-popover">
-                {expiryDates.slice(5).map((exp) => (
-                  <div
+              <div className="sm-expiry-more-popover" role="listbox" aria-label="Expiry dates">
+                {expiryDates.map((exp) => (
+                  <button
                     key={exp}
+                    type="button"
+                    role="option"
+                    aria-selected={exp === selectedExpiry}
                     onClick={() => {
                       onExpiryChange(exp);
                       setIsExpiryDropdownOpen(false);
@@ -306,7 +348,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                     className={`sm-expiry-more-item ${exp === selectedExpiry ? 'active' : ''}`}
                   >
                     {formatExpiryLabel(exp)}
-                  </div>
+                  </button>
                 ))}
               </div>
             )}

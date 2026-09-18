@@ -246,5 +246,81 @@ describe('Options Module: Encryption & Broker OAuth Pipeline', () => {
       expect(portfolio.deployedMargin).toBe(5000); // 100 * 50
       expect(portfolio.availableMargin).toBe(995000); // 1000000 - 5000
     });
+
+    it('squares off a sandbox position at live LTP and books realized P&L', async () => {
+      const openPos = {
+        id: 'pos-1',
+        userId: 'user-123',
+        symbol: 'NIFTY',
+        strike: 25000,
+        optionType: 'CE',
+        expiry: '2026-09-22',
+        side: 'BUY',
+        quantity: 2,
+        lotSize: 25,
+        entryPrice: 100,
+        currentPrice: 120,
+        unrealizedPnl: 1000,
+        realizedPnl: 0,
+        status: 'OPEN',
+        entryAt: new Date(),
+      };
+      (mockSandboxRepo.findOne as jest.Mock).mockResolvedValueOnce({ ...openPos });
+      const result = await analyticsService.squareOffPosition('user-123', 'pos-1');
+      expect(result.success).toBe(true);
+      expect(mockSandboxRepo.save).toHaveBeenCalled();
+      const saved = (mockSandboxRepo.save as jest.Mock).mock.calls.at(-1)?.[0];
+      expect(saved.status).toBe('CLOSED');
+      expect(saved.unrealizedPnl).toBe(0);
+      expect(saved.realizedPnl).toBe(1000); // (120-100)*50
+    });
+
+    it('does not overwrite CMP with zero LTP when squaring off', async () => {
+      const openPos = {
+        id: 'pos-2',
+        userId: 'user-123',
+        symbol: 'NIFTY',
+        strike: 25000,
+        optionType: 'CE',
+        expiry: '2026-09-22',
+        side: 'SELL',
+        quantity: 1,
+        lotSize: 25,
+        entryPrice: 70,
+        currentPrice: 70,
+        unrealizedPnl: 0,
+        realizedPnl: 0,
+        status: 'OPEN',
+        entryAt: new Date(),
+      };
+      (mockSandboxRepo.findOne as jest.Mock).mockResolvedValueOnce({ ...openPos });
+      (mockMarketDataService.getOptionChain as jest.Mock).mockResolvedValueOnce({
+        ...mockChain,
+        contracts: [
+          {
+            strike: 25000,
+            ce: { ltp: 0, iv: 14, delta: 0.5, gamma: 0, theta: 0, vega: 0, oi: 1, oiChange: 0, volume: 0, buildup: 'Neutral', bidPrice: 0, askPrice: 0 },
+            pe: { ltp: 0, iv: 14, delta: -0.5, gamma: 0, theta: 0, vega: 0, oi: 1, oiChange: 0, volume: 0, buildup: 'Neutral' },
+          },
+        ],
+      });
+      const result = await analyticsService.squareOffPosition('user-123', 'pos-2');
+      expect(result.success).toBe(true);
+      const saved = (mockSandboxRepo.save as jest.Mock).mock.calls.at(-1)?.[0];
+      expect(saved.currentPrice).toBe(70);
+      expect(saved.status).toBe('CLOSED');
+      (mockMarketDataService.getOptionChain as jest.Mock).mockResolvedValue(mockChain);
+    });
+
+    it('resets sandbox portfolio for the user', async () => {
+      const result = await analyticsService.resetSandbox('user-123');
+      expect(result.success).toBe(true);
+      expect(mockSandboxRepo.delete).toHaveBeenCalledWith({ userId: 'user-123' });
+    });
+
+    it('rejects square-off without user id', async () => {
+      const result = await analyticsService.squareOffPosition('', 'pos-1');
+      expect(result.success).toBe(false);
+    });
   });
 });

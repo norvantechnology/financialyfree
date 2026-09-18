@@ -105,8 +105,7 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
     <div className="opt-root">
       <header className="opt-header">
         <div className="opt-header-inner">
-          {/* Row 1: brand + live + actions */}
-          <div className="opt-header-top-row">
+          <div className="opt-header-bar">
             <div className="opt-brand-group">
               <div className="opt-brand-icon" aria-hidden>
                 <Activity className="w-3.5 h-3.5" />
@@ -117,7 +116,27 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
               </div>
             </div>
 
-            <div className="opt-selectors-row opt-header-actions">
+            <nav className="opt-tabs-nav" aria-label="Options Lab sections">
+              {TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => onTabChange(tab.id)}
+                    className={`opt-tab-btn ${isActive ? 'active' : ''}`}
+                    title={tab.label}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span className="opt-tab-label-full">{tab.label}</span>
+                    <span className="opt-tab-label-short">{tab.short}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="opt-header-actions">
               {activeTab !== 'strategy' && (
                 <>
                   <div className="opt-select-wrap">
@@ -178,7 +197,10 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                 <span className="opt-live-spot">
                   {selectedSymbol}{' '}
                   {spotPrice > 0
-                    ? `₹${spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    ? `₹${spotPrice.toLocaleString('en-IN', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}`
                     : '—'}
                 </span>
                 {spotPrice > 0 && (
@@ -190,52 +212,39 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={onToggleSandbox}
-                className={`opt-btn-pill ${isSandbox ? 'active' : ''}`}
-                title="Toggle Paper Trading / Live Broker Mode"
-              >
-                {isSandbox ? 'Paper' : 'Live'}
-              </button>
-
-              <button
-                type="button"
-                onClick={onOpenBrokerModal}
-                className={`opt-btn-broker ${brokerConnected ? 'connected' : ''}`}
-              >
-                {brokerConnected ? (
-                  <Link2 className="sm-icon" aria-hidden />
-                ) : null}
-                <span className="opt-broker-label">
-                  {brokerConnected ? connectedBroker!.toUpperCase() : 'Broker'}
-                </span>
-              </button>
+              <div className="opt-mode-toggle" role="group" aria-label="Trading mode">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isSandbox) onToggleSandbox();
+                  }}
+                  className={`opt-mode-btn ${isSandbox ? 'active' : ''}`}
+                  title="Paper trading"
+                >
+                  Paper
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isSandbox) onToggleSandbox();
+                    if (!brokerConnected) onOpenBrokerModal();
+                  }}
+                  className={`opt-mode-btn ${!isSandbox ? 'active' : ''}`}
+                  title={brokerConnected ? `Broker: ${connectedBroker}` : 'Connect broker'}
+                >
+                  {brokerConnected ? (
+                    <>
+                      <Link2 className="sm-icon" aria-hidden />
+                      <span className="opt-broker-label">{connectedBroker!.toUpperCase()}</span>
+                    </>
+                  ) : (
+                    'Broker'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Row 2: always-visible scrollable tabs */}
-          <nav className="opt-tabs-nav" aria-label="Options Lab sections">
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => onTabChange(tab.id)}
-                  className={`opt-tab-btn ${isActive ? 'active' : ''}`}
-                  title={tab.label}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span className="opt-tab-label-full">{tab.label}</span>
-                  <span className="opt-tab-label-short">{tab.short}</span>
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Row 3: compact metrics — skip on Strategy */}
           {showMetrics && (
             <div className="opt-ticker-grid">
               <div className="opt-ticker-chip">

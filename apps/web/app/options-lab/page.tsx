@@ -5,7 +5,6 @@ import '../../styles/options-lab.css';
 import dynamic from 'next/dynamic';
 import {
   X,
-  RefreshCw,
   CheckCircle2,
   Play,
   Undo2,
@@ -18,10 +17,12 @@ import {
   Minimize2,
   Minus,
   Plus,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
 } from 'lucide-react';
 import {
   OptionChainDto,
-  OptionChainRowDto,
   StrategyLegDto,
   LiveTickDto,
   TradeSide,
@@ -36,10 +37,12 @@ import { SidebarLayout } from '../../components/sidebar-layout';
 import { OptionsShell, OptionsTab, POPULAR_UNDERLYINGS } from '../../components/options/options-shell';
 import { BrokerConnectModal } from '../../components/options/broker-connect-modal';
 import { SaveStrategyModal } from '../../components/options/save-strategy-modal';
+import { SavedStrategiesModal } from '../../components/options/saved-strategies-modal';
 import { OiTrackerView } from '../../components/options/oi-tracker-view';
 import { IvSurfaceView } from '../../components/options/iv-surface-view';
 import { SandboxPortfolioView } from '../../components/options/sandbox-portfolio-view';
 import { StockMojoChainLadder } from '../../components/options/stockmojo-chain-ladder';
+import { OptionChainTable } from '../../components/options/option-chain-table';
 import { NiftyCandlestickChart } from '../../components/options/nifty-candlestick-chart';
 import {
   PanelResizeHandle,
@@ -232,11 +235,22 @@ const StrategyPayoffPreviewSvg: React.FC<{ name: string }> = ({ name }) => {
 
 export default function OptionsLabPage() {
   const [activeTab, setActiveTab] = useState<OptionsTab>('strategy');
+  const [visitedTabs, setVisitedTabs] = useState<Set<OptionsTab>>(() => new Set(['strategy']));
+
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
   const [symbol, setSymbol] = useState('NIFTY');
   const [selectedExpiry, setSelectedExpiry] = useState('');
   const [isSandbox, setIsSandbox] = useState(true);
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isSavedListOpen, setIsSavedListOpen] = useState(false);
   const [connectedBroker, setConnectedBroker] = useState<string | null>(null);
   const [chainData, setChainData] = useState<OptionChainDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -246,6 +260,7 @@ export default function OptionsLabPage() {
   const chainDataRef = useRef<OptionChainDto | null>(null);
   const chainFetchGenRef = useRef(0);
   const chainInFlightRef = useRef(false);
+  const payoffChartRef = useRef<any>(null);
 
   useEffect(() => {
     chainDataRef.current = chainData;
@@ -288,10 +303,6 @@ export default function OptionsLabPage() {
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
   }, []);
-
-  // Chain Filter State (For full Option Chain tab)
-  const [strikeFilter, setStrikeFilter] = useState<'all' | '10' | '15' | '20'>('15');
-  const [showGreeks, setShowGreeks] = useState(true);
 
   // Strategy Builder State
   const [strategyLegs, setStrategyLegs] = useState<StrategyLegDto[]>([]);
@@ -549,18 +560,6 @@ export default function OptionsLabPage() {
     });
   }, [chainData?.timestamp, chainData?.contracts]);
 
-  // Filtered Option Chain Contracts for full tab
-  const filteredChainRows = useMemo(() => {
-    if (!chainData?.contracts) return [];
-    if (strikeFilter === 'all') return chainData.contracts;
-
-    const limit = parseInt(strikeFilter, 10);
-    const atmIndex = chainData.contracts.findIndex((c) => c.strike >= chainData.atmStrike);
-    const start = Math.max(0, atmIndex - limit);
-    const end = Math.min(chainData.contracts.length, atmIndex + limit + 1);
-    return chainData.contracts.slice(start, end);
-  }, [chainData, strikeFilter]);
-
   // Strategy Payoff Calculation Engine — depends on structure/entry, not live LTP ticks
   const activeEnabledLegs = useMemo(() => {
     return strategyLegs.filter((l) => enabledLegIds.has(l.id));
@@ -618,8 +617,29 @@ export default function OptionsLabPage() {
         : currentSpot * 0.02;
     const roundSpot = Math.round(currentSpot);
 
-    const baseGrid = { left: 52, right: 28, bottom: 36, top: 28, containLabel: true };
+    const baseGrid = { left: 52, right: 28, bottom: 52, top: 36, containLabel: true };
     const baseAnim = { animation: false, animationDurationUpdate: 0 };
+    const baseZoom = [
+      {
+        type: 'inside' as const,
+        xAxisIndex: 0,
+        filterMode: 'none' as const,
+        zoomOnMouseWheel: true,
+        moveOnMouseMove: true,
+        moveOnMouseWheel: false,
+      },
+      {
+        type: 'slider' as const,
+        xAxisIndex: 0,
+        height: 16,
+        bottom: 8,
+        borderColor: '#E2E8F0',
+        fillerColor: 'rgba(15, 118, 110, 0.14)',
+        handleStyle: { color: '#0F766E' },
+        textStyle: { color: '#64748B', fontSize: 9 },
+        filterMode: 'none' as const,
+      },
+    ];
 
     // Baseline chart when no legs are active
     if (!payoffResult.payoffPoints || payoffResult.payoffPoints.length === 0) {
@@ -630,6 +650,8 @@ export default function OptionsLabPage() {
         ...baseAnim,
         backgroundColor: '#FFFFFF',
         grid: baseGrid,
+        dataZoom: baseZoom,
+        toolbox: { show: false },
         xAxis: {
           type: 'value',
           min: minX,
@@ -737,12 +759,14 @@ export default function OptionsLabPage() {
       legend: {
         data: ['At Expiry', `T+${daysForward}`],
         textStyle: { color: '#64748B', fontSize: 11 },
-        bottom: 2,
+        top: 4,
         left: 'center',
         itemWidth: 14,
         itemHeight: 8,
       },
       grid: baseGrid,
+      dataZoom: baseZoom,
+      toolbox: { show: false },
       xAxis: {
         type: 'value',
         min: minSpot,
@@ -825,6 +849,47 @@ export default function OptionsLabPage() {
       ],
     };
   }, [payoffResult, chartSpot, chartAtmIv, daysForward, spot]);
+
+  const zoomPayoffChart = useCallback((factor: number) => {
+    const inst = payoffChartRef.current?.getEchartsInstance?.();
+    if (!inst) return;
+    const opt = inst.getOption() as any;
+    const dz = opt?.dataZoom?.[0];
+    const start = typeof dz?.start === 'number' ? dz.start : 0;
+    const end = typeof dz?.end === 'number' ? dz.end : 100;
+    const center = (start + end) / 2;
+    const span = Math.max(8, (end - start) * factor);
+    let nextStart = center - span / 2;
+    let nextEnd = center + span / 2;
+    if (nextStart < 0) {
+      nextEnd = Math.min(100, nextEnd - nextStart);
+      nextStart = 0;
+    }
+    if (nextEnd > 100) {
+      nextStart = Math.max(0, nextStart - (nextEnd - 100));
+      nextEnd = 100;
+    }
+    inst.dispatchAction({ type: 'dataZoom', start: nextStart, end: nextEnd });
+  }, []);
+
+  const resetPayoffZoom = useCallback(() => {
+    const inst = payoffChartRef.current?.getEchartsInstance?.();
+    if (!inst) return;
+    inst.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
+  }, []);
+
+  // Resize payoff chart when returning to the tab (avoids blank / clipped first paint)
+  useEffect(() => {
+    if (analyticsTab !== 'payoff') return;
+    const t = window.setTimeout(() => {
+      try {
+        payoffChartRef.current?.getEchartsInstance?.()?.resize?.();
+      } catch {
+        /* ignore */
+      }
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [analyticsTab]);
 
   // Strategy Template Application
   const applyTemplate = (tplName: string) => {
@@ -1077,8 +1142,39 @@ export default function OptionsLabPage() {
 
   const resetAllLegs = () => {
     setStrategyLegs([]);
+    setEnabledLegIds(new Set());
+    setMultiplier(1);
+    setDaysForward(0);
+    setSpotShiftPct(0);
+    setIvShiftPoints(0);
     setNotification('Cleared all strategy positions.');
     setTimeout(() => setNotification(null), 3000);
+  };
+
+  const loadSavedStrategy = (strategy: {
+    name: string;
+    underlying: string;
+    legs: StrategyLegDto[];
+  }) => {
+    if (strategy.underlying && strategy.underlying !== symbol) {
+      setSymbol(strategy.underlying);
+    }
+    const legs = (strategy.legs || []).map((l, i) => ({
+      ...l,
+      id: l.id || `leg-load-${Date.now()}-${i}`,
+      symbol: l.symbol || strategy.underlying || symbol,
+      lots: Math.max(1, l.lots || 1),
+      lotSize: l.lotSize || lotSize,
+      entryPrice: Number(l.entryPrice) || 0,
+      currentPrice: Number(l.currentPrice ?? l.entryPrice) || 0,
+    }));
+    setStrategyLegs(legs);
+    setEnabledLegIds(new Set(legs.map((l) => l.id)));
+    setMultiplier(1);
+    setAnalyticsTab('payoff');
+    setActiveTab('strategy');
+    setNotification(`Loaded "${strategy.name}" strategy.`);
+    setTimeout(() => setNotification(null), 3500);
   };
 
   // Aggregated Strategy Metrics
@@ -1132,7 +1228,9 @@ export default function OptionsLabPage() {
       const json = await res.json().catch(() => (null as any));
       if (res.ok && json?.success) {
         setNotification(json.message || `Filled ${orders.length} paper position(s).`);
+        setVisitedTabs((prev) => new Set(prev).add('sandbox'));
         setActiveTab('sandbox');
+        window.dispatchEvent(new CustomEvent('sandbox:refresh'));
       } else {
         setNotification(
           json?.message ||
@@ -1299,7 +1397,7 @@ export default function OptionsLabPage() {
 
                   <button
                     type="button"
-                    onClick={() => setIsSaveModalOpen(true)}
+                    onClick={() => setIsSavedListOpen(true)}
                     className="sm-action-btn sm-action-btn--ghost"
                     title="Saved strategies"
                   >
@@ -1382,7 +1480,7 @@ export default function OptionsLabPage() {
 
                   <div className="sm-toolbar-actions">
                     <button type="button" onClick={executeInSandbox} className="sm-btn-paper">
-                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <Play className="fill-current" strokeWidth={2} />
                       <span className="sm-tab-label-full">Paper Trade</span>
                       <span className="sm-tab-label-short">Paper</span>
                     </button>
@@ -1400,45 +1498,47 @@ export default function OptionsLabPage() {
                         </span>
                       </button>
                     )}
-                    <button
-                      type="button"
-                      className="sm-panel-icon-btn"
-                      title={isAnalyticsCollapsed ? 'Expand analytics' : 'Collapse analytics'}
-                      aria-label={isAnalyticsCollapsed ? 'Expand analytics' : 'Collapse analytics'}
-                      onClick={() => setIsAnalyticsCollapsed((p) => !p)}
-                    >
-                      {isAnalyticsCollapsed ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronUp className="w-4 h-4" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      className="sm-panel-icon-btn"
-                      title="Maximize analytics"
-                      aria-label="Maximize analytics"
-                      onClick={() => {
-                        setIsAnalyticsCollapsed(false);
-                        setIsPositionsCollapsed(true);
-                        setAnalyticsFlex(78);
-                      }}
-                    >
-                      <Maximize2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      className="sm-panel-icon-btn"
-                      title="Balanced layout"
-                      aria-label="Reset to balanced layout"
-                      onClick={() => {
-                        setIsAnalyticsCollapsed(false);
-                        setIsPositionsCollapsed(false);
-                        setAnalyticsFlex(58);
-                      }}
-                    >
-                      <Minimize2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="sm-panel-chrome-actions" role="group" aria-label="Panel layout">
+                      <button
+                        type="button"
+                        className="sm-panel-icon-btn"
+                        title={isAnalyticsCollapsed ? 'Expand analytics' : 'Collapse analytics'}
+                        aria-label={isAnalyticsCollapsed ? 'Expand analytics' : 'Collapse analytics'}
+                        onClick={() => setIsAnalyticsCollapsed((p) => !p)}
+                      >
+                        {isAnalyticsCollapsed ? (
+                          <ChevronDown strokeWidth={2} />
+                        ) : (
+                          <ChevronUp strokeWidth={2} />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="sm-panel-icon-btn"
+                        title="Maximize analytics"
+                        aria-label="Maximize analytics"
+                        onClick={() => {
+                          setIsAnalyticsCollapsed(false);
+                          setIsPositionsCollapsed(true);
+                          setAnalyticsFlex(78);
+                        }}
+                      >
+                        <Maximize2 strokeWidth={2} />
+                      </button>
+                      <button
+                        type="button"
+                        className="sm-panel-icon-btn"
+                        title="Balanced layout"
+                        aria-label="Reset to balanced layout"
+                        onClick={() => {
+                          setIsAnalyticsCollapsed(false);
+                          setIsPositionsCollapsed(false);
+                          setAnalyticsFlex(58);
+                        }}
+                      >
+                        <Minimize2 strokeWidth={2} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1591,12 +1691,44 @@ export default function OptionsLabPage() {
 
                     {/* Right Chart Column */}
                     <div className="sm-payoff-chart-col">
+                      <div className="sm-chart-zoom-btns" style={{ position: 'absolute', top: 8, right: 8, zIndex: 5 }}>
+                        <button
+                          type="button"
+                          className="sm-chart-zoom-btn"
+                          onClick={() => zoomPayoffChart(0.7)}
+                          title="Zoom in"
+                          aria-label="Zoom in"
+                        >
+                          <ZoomIn strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
+                          className="sm-chart-zoom-btn"
+                          onClick={() => zoomPayoffChart(1.4)}
+                          title="Zoom out"
+                          aria-label="Zoom out"
+                        >
+                          <ZoomOut strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
+                          className="sm-chart-zoom-btn"
+                          onClick={resetPayoffZoom}
+                          title="Reset zoom"
+                          aria-label="Reset zoom"
+                        >
+                          <RotateCcw strokeWidth={2} />
+                        </button>
+                      </div>
                       <ReactECharts
                         option={payoffChartOption}
                         style={{ height: '100%', minHeight: 260, width: '100%' }}
                         notMerge={false}
                         lazyUpdate
                         opts={{ renderer: 'canvas' }}
+                        onChartReady={(inst: any) => {
+                          payoffChartRef.current = { getEchartsInstance: () => inst };
+                        }}
                       />
                     </div>
                   </div>
@@ -1644,15 +1776,16 @@ export default function OptionsLabPage() {
                   </div>
                 )}
 
-                {/* Tab 3 & 4: Interactive Candlestick Chart */}
-                {(analyticsTab === 'nifty_chart' || analyticsTab === 'strategy_chart') && (
-                  <NiftyCandlestickChart
-                    symbol={symbol}
-                    spotPrice={spot}
-                    spotChange={spotChange}
-                    spotChangePct={spotChangePct}
-                  />
-                )}
+                {/* Tab 3 & 4: keep candlestick mounted so tab switch doesn't remount / refetch blank */}
+                <NiftyCandlestickChart
+                  symbol={symbol}
+                  spotPrice={spot}
+                  spotChange={spotChange}
+                  spotChangePct={spotChangePct}
+                  isActive={
+                    analyticsTab === 'nifty_chart' || analyticsTab === 'strategy_chart'
+                  }
+                />
                 </>
                 ) : null}
               </div>
@@ -1744,32 +1877,34 @@ export default function OptionsLabPage() {
                       </strong>
                     </div>
 
-                    <button
-                      type="button"
-                      className="sm-panel-icon-btn"
-                      title={isPositionsCollapsed ? 'Expand positions' : 'Collapse positions'}
-                      aria-label={isPositionsCollapsed ? 'Expand positions' : 'Collapse positions'}
-                      onClick={() => setIsPositionsCollapsed((p) => !p)}
-                    >
-                      {isPositionsCollapsed ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronUp className="w-4 h-4" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      className="sm-panel-icon-btn"
-                      title="Maximize positions"
-                      aria-label="Maximize positions"
-                      onClick={() => {
-                        setIsPositionsCollapsed(false);
-                        setIsAnalyticsCollapsed(true);
-                        setAnalyticsFlex(28);
-                      }}
-                    >
-                      <Maximize2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="sm-panel-chrome-actions" role="group" aria-label="Positions layout">
+                      <button
+                        type="button"
+                        className="sm-panel-icon-btn"
+                        title={isPositionsCollapsed ? 'Expand positions' : 'Collapse positions'}
+                        aria-label={isPositionsCollapsed ? 'Expand positions' : 'Collapse positions'}
+                        onClick={() => setIsPositionsCollapsed((p) => !p)}
+                      >
+                        {isPositionsCollapsed ? (
+                          <ChevronDown strokeWidth={2} />
+                        ) : (
+                          <ChevronUp strokeWidth={2} />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="sm-panel-icon-btn"
+                        title="Maximize positions"
+                        aria-label="Maximize positions"
+                        onClick={() => {
+                          setIsPositionsCollapsed(false);
+                          setIsAnalyticsCollapsed(true);
+                          setAnalyticsFlex(28);
+                        }}
+                      >
+                        <Maximize2 strokeWidth={2} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2027,222 +2162,36 @@ export default function OptionsLabPage() {
             TAB 2: FULL OPTION CHAIN (Expanded Dedicated View)
             ══════════════════════════════════════════════════════════════ */}
         {activeTab === 'chain' && (
-          <div className="opt-view-stack animate-fadeIn">
-            {/* Filters Bar */}
-            <div className="opt-filters-bar">
-              <div className="opt-filter-group">
-                <span className="opt-filter-label">Strikes:</span>
-                {(['10', '15', '20', 'all'] as const).map((filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => setStrikeFilter(filter)}
-                    className={`opt-filter-btn ${strikeFilter === filter ? 'active' : ''}`}
-                  >
-                    {filter === 'all' ? 'All' : `±${filter}`}
-                  </button>
-                ))}
-              </div>
+          <OptionChainTable
+            chainData={chainData}
+            symbol={symbol}
+            selectedExpiry={selectedExpiry}
+            isLoading={isLoading}
+            onAddOrToggleLeg={onAddOrToggleLeg}
+          />
+        )}
 
-              <div className="opt-filter-group" style={{ marginLeft: 'auto' }}>
-                <button
-                  onClick={() => setShowGreeks(!showGreeks)}
-                  className={`opt-filter-btn ${showGreeks ? 'active' : ''}`}
-                >
-                  <Sliders className="w-3.5 h-3.5" />
-                  <span>{showGreeks ? 'Greeks Visible' : 'Compact View'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Full Option Chain Table */}
-            <div className="opt-table-wrap">
-              <table className="opt-table">
-                <thead>
-                  <tr>
-                    <th colSpan={showGreeks ? 8 : 4} className="opt-th-call-header">
-                      CALLS (CE)
-                    </th>
-                    <th className="opt-th-strike-header">STRIKE</th>
-                    <th colSpan={showGreeks ? 8 : 4} className="opt-th-put-header">
-                      PUTS (PE)
-                    </th>
-                  </tr>
-                  <tr>
-                    <th style={{ textAlign: 'center' }}>Action</th>
-                    <th style={{ textAlign: 'right' }}>OI</th>
-                    <th style={{ textAlign: 'right' }}>Chg OI</th>
-                    {showGreeks && <th style={{ textAlign: 'right' }}>IV%</th>}
-                    {showGreeks && <th style={{ textAlign: 'right' }}>Delta</th>}
-                    {showGreeks && <th style={{ textAlign: 'right' }}>Theta</th>}
-                    {showGreeks && <th style={{ textAlign: 'center' }}>Buildup</th>}
-                    <th style={{ textAlign: 'right', color: '#059669', fontWeight: 800 }}>LTP</th>
-                    <th style={{ textAlign: 'center', fontWeight: 800, color: '#D97706' }}>Strike</th>
-                    <th style={{ textAlign: 'left', color: '#E11D48', fontWeight: 800 }}>LTP</th>
-                    {showGreeks && <th style={{ textAlign: 'center' }}>Buildup</th>}
-                    {showGreeks && <th style={{ textAlign: 'left' }}>Theta</th>}
-                    {showGreeks && <th style={{ textAlign: 'left' }}>Delta</th>}
-                    {showGreeks && <th style={{ textAlign: 'left' }}>IV%</th>}
-                    <th style={{ textAlign: 'right' }}>Chg OI</th>
-                    <th style={{ textAlign: 'right' }}>OI</th>
-                    <th style={{ textAlign: 'center' }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredChainRows.length > 0 ? (
-                    filteredChainRows.map((row: OptionChainRowDto) => {
-                      const isAtm = row.strike === atmStrike;
-                      const isItmCall = row.strike < spot;
-                      const isItmPut = row.strike > spot;
-                      const fmtLtp = (ltp: number) =>
-                        ltp > 0 ? `₹${ltp.toFixed(2)}` : '—';
-
-                      return (
-                        <tr key={row.strike} className={isAtm ? 'opt-row-atm' : ''}>
-                          <td className={isItmCall ? 'opt-td-itm-call' : ''} style={{ textAlign: 'center' }}>
-                            <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
-                              <button
-                                onClick={() => onAddOrToggleLeg({ side: 'BUY', type: 'CE', strike: row.strike, price: row.ce.ltp, iv: row.ce.iv, expiry: selectedExpiry })}
-                                className="opt-action-btn-buy"
-                                title="Buy Call"
-                              >
-                                B
-                              </button>
-                              <button
-                                onClick={() => onAddOrToggleLeg({ side: 'SELL', type: 'CE', strike: row.strike, price: row.ce.ltp, iv: row.ce.iv, expiry: selectedExpiry })}
-                                className="opt-action-btn-sell"
-                                title="Sell Call"
-                              >
-                                S
-                              </button>
-                            </div>
-                          </td>
-                          <td className={`px-2 py-2 text-right ${isItmCall ? 'bg-emerald-50' : ''}`}>
-                            {row.ce.oi.toLocaleString('en-IN')}
-                          </td>
-                          <td className={`px-2 py-2 text-right ${row.ce.oiChange >= 0 ? 'text-emerald-600' : 'text-rose-600'} ${isItmCall ? 'bg-emerald-50' : ''}`}>
-                            {row.ce.oiChange >= 0 ? '+' : ''}{row.ce.oiChange.toLocaleString('en-IN')}
-                          </td>
-                          {showGreeks && (
-                            <td className={`px-2 py-2 text-right text-slate-500 ${isItmCall ? 'bg-emerald-50' : ''}`}>
-                              {row.ce.iv !== null ? `${row.ce.iv}%` : '-'}
-                            </td>
-                          )}
-                          {showGreeks && (
-                            <td className={`px-2 py-2 text-right ${isItmCall ? 'bg-emerald-50' : ''}`}>
-                              {row.ce.delta ?? '-'}
-                            </td>
-                          )}
-                          {showGreeks && (
-                            <td className={`px-2 py-2 text-right text-slate-500 ${isItmCall ? 'bg-emerald-50' : ''}`}>
-                              {row.ce.theta ?? '-'}
-                            </td>
-                          )}
-                          {showGreeks && (
-                            <td className={`px-2 py-2 text-center ${isItmCall ? 'bg-emerald-50' : ''}`}>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-slate-100 text-slate-700">
-                                {row.ce.buildup}
-                              </span>
-                            </td>
-                          )}
-                          <td className={`px-3 py-2 text-right font-bold text-emerald-700 font-mono ${isItmCall ? 'opt-td-itm-call' : ''}`}>
-                            {fmtLtp(row.ce.ltp)}
-                          </td>
-                          <td className="opt-td-strike">
-                            <span style={{ fontSize: '0.8125rem', fontWeight: 800 }}>{row.strike}</span>
-                            {isAtm && (
-                              <span style={{ marginLeft: '0.35rem', fontSize: '0.625rem', padding: '0.1rem 0.35rem', background: '#F59E0B', color: '#FFFFFF', borderRadius: '4px', fontWeight: 800 }}>
-                                ATM
-                              </span>
-                            )}
-                          </td>
-                          <td className={`px-3 py-2 text-left font-bold text-rose-700 font-mono ${isItmPut ? 'opt-td-itm-put' : ''}`}>
-                            {fmtLtp(row.pe.ltp)}
-                          </td>
-                          {showGreeks && (
-                            <td className={`px-2 py-2 text-center ${isItmPut ? 'bg-rose-50' : ''}`}>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-slate-100 text-slate-700">
-                                {row.pe.buildup}
-                              </span>
-                            </td>
-                          )}
-                          {showGreeks && (
-                            <td className={`px-2 py-2 text-left text-slate-500 ${isItmPut ? 'bg-rose-50' : ''}`}>
-                              {row.pe.theta ?? '-'}
-                            </td>
-                          )}
-                          {showGreeks && (
-                            <td className={`px-2 py-2 text-left ${isItmPut ? 'bg-rose-50' : ''}`}>
-                              {row.pe.delta ?? '-'}
-                            </td>
-                          )}
-                          {showGreeks && (
-                            <td className={`px-2 py-2 text-left text-slate-500 ${isItmPut ? 'bg-rose-50' : ''}`}>
-                              {row.pe.iv !== null ? `${row.pe.iv}%` : '-'}
-                            </td>
-                          )}
-                          <td className={`px-2 py-2 text-right ${row.pe.oiChange >= 0 ? 'text-emerald-600' : 'text-rose-600'} ${isItmPut ? 'bg-rose-50' : ''}`}>
-                            {row.pe.oiChange >= 0 ? '+' : ''}{row.pe.oiChange.toLocaleString('en-IN')}
-                          </td>
-                          <td className={`px-2 py-2 text-right ${isItmPut ? 'bg-rose-50' : ''}`}>
-                            {row.pe.oi.toLocaleString('en-IN')}
-                          </td>
-                          <td className={`px-2 py-2 text-center ${isItmPut ? 'bg-rose-50' : ''}`}>
-                            <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
-                              <button
-                                onClick={() => onAddOrToggleLeg({ side: 'BUY', type: 'PE', strike: row.strike, price: row.pe.ltp, iv: row.pe.iv, expiry: selectedExpiry })}
-                                className="opt-action-btn-buy"
-                                title="Buy Put"
-                              >
-                                B
-                              </button>
-                              <button
-                                onClick={() => onAddOrToggleLeg({ side: 'SELL', type: 'PE', strike: row.strike, price: row.pe.ltp, iv: row.pe.iv, expiry: selectedExpiry })}
-                                className="opt-action-btn-sell"
-                                title="Sell Put"
-                              >
-                                S
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={showGreeks ? 17 : 9} className="py-16 text-center text-slate-500">
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          {isLoading ? (
-                            <>
-                              <RefreshCw className="w-5 h-5 animate-spin text-teal-600" />
-                              <span className="font-semibold text-sm text-slate-800">Loading option chain…</span>
-                            </>
-                          ) : (
-                            <span className="font-semibold text-sm text-slate-800">
-                              No option-chain rows for this expiry. Try another expiry or reconnect the feed.
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+        {/* Keep visited analytics tabs mounted so charts don't remount / flash wrong */}
+        {visitedTabs.has('oi') && (
+          <div className={activeTab === 'oi' ? undefined : 'sm-tab-panel-hidden'} aria-hidden={activeTab !== 'oi'}>
+            <OiTrackerView chainData={chainData} symbol={symbol} selectedExpiry={selectedExpiry} />
           </div>
         )}
 
-        {/* ── TAB 3: OPEN INTEREST TRACKER & MAX PAIN ── */}
-        {activeTab === 'oi' && (
-          <OiTrackerView chainData={chainData} symbol={symbol} selectedExpiry={selectedExpiry} />
+        {visitedTabs.has('iv') && (
+          <div className={activeTab === 'iv' ? undefined : 'sm-tab-panel-hidden'} aria-hidden={activeTab !== 'iv'}>
+            <IvSurfaceView symbol={symbol} selectedExpiry={selectedExpiry} />
+          </div>
         )}
 
-        {/* ── TAB 4: IV SMILE, VOL SURFACE & GEX ── */}
-        {activeTab === 'iv' && (
-          <IvSurfaceView symbol={symbol} selectedExpiry={selectedExpiry} />
+        {visitedTabs.has('sandbox') && (
+          <div
+            className={activeTab === 'sandbox' ? undefined : 'sm-tab-panel-hidden'}
+            aria-hidden={activeTab !== 'sandbox'}
+          >
+            <SandboxPortfolioView isActive={activeTab === 'sandbox'} />
+          </div>
         )}
-
-        {/* ── TAB 5: SIMULATOR / SANDBOX PAPER TRADING ── */}
-        {activeTab === 'sandbox' && <SandboxPortfolioView />}
 
         {/* Modals */}
         <BrokerConnectModal
@@ -2255,11 +2204,17 @@ export default function OptionsLabPage() {
           isOpen={isSaveModalOpen}
           onClose={() => setIsSaveModalOpen(false)}
           underlying={symbol}
-          legs={strategyLegs}
+          legs={strategyLegs.filter((l) => enabledLegIds.has(l.id))}
           onSaveSuccess={() => {
             setNotification('Strategy saved successfully to your account.');
             setTimeout(() => setNotification(null), 3000);
           }}
+        />
+
+        <SavedStrategiesModal
+          isOpen={isSavedListOpen}
+          onClose={() => setIsSavedListOpen(false)}
+          onLoad={loadSavedStrategy}
         />
       </OptionsShell>
     </SidebarLayout>

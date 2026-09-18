@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import '../../styles/options-lab.css';
 import { X, Bookmark, Check } from 'lucide-react';
 import { StrategyLegDto } from '@ff/types';
@@ -26,6 +26,24 @@ export const SaveStrategyModal: React.FC<SaveStrategyModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setName('');
+    setNotes('');
+    setError(null);
+    setIsSaved(false);
+    setIsSaving(false);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSaving) onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, isSaving, onClose]);
+
   if (!isOpen) return null;
 
   const handleSave = async (e: React.FormEvent) => {
@@ -38,9 +56,18 @@ export const SaveStrategyModal: React.FC<SaveStrategyModalProps> = ({
     try {
       setIsSaving(true);
       setError(null);
+      const { getStoredAccessToken } = await import('../../lib/auth-client');
+      const token = getStoredAccessToken();
+      if (!token) {
+        throw new Error('Please sign in to save strategies.');
+      }
+
       const res = await fetch('/api/v1/options/strategies', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           name: name.trim(),
           underlying,
@@ -50,7 +77,8 @@ export const SaveStrategyModal: React.FC<SaveStrategyModalProps> = ({
       });
 
       if (!res.ok) {
-        throw new Error('Failed to save strategy');
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || 'Failed to save strategy');
       }
 
       setIsSaved(true);
@@ -58,94 +86,101 @@ export const SaveStrategyModal: React.FC<SaveStrategyModalProps> = ({
         setIsSaved(false);
         onSaveSuccess();
         onClose();
-      }, 1200);
+      }, 1000);
     } catch (err: any) {
-      setError(err?.message || 'Error saving strategy. Please log in first.');
+      setError(err?.message || 'Error saving strategy. Please sign in and try again.');
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="opt-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-      <div className="opt-modal-card w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-2xl relative">
+    <div
+      className="opt-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="save-strategy-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isSaving) onClose();
+      }}
+    >
+      <div className="opt-save-modal-card">
         <button
+          type="button"
           onClick={onClose}
-          className="opt-modal-close-btn absolute top-4 right-4 p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors"
+          className="opt-save-modal-close"
+          aria-label="Close"
+          disabled={isSaving}
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
-        <div className="flex items-center gap-3 mb-5">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+        <div className="opt-save-modal-header">
+          <div className="opt-save-modal-icon">
             <Bookmark className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-white">Save Strategy</h2>
-            <p className="text-xs text-neutral-400">
-              Persist this {legs.length}-leg {underlying} strategy to your account
+            <h2 id="save-strategy-title" className="opt-save-modal-title">
+              Save Strategy
+            </h2>
+            <p className="opt-save-modal-sub">
+              Persist this {legs.length}-leg {underlying} strategy to your account.
             </p>
           </div>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400">
-            {error}
-          </div>
-        )}
+        {error && <div className="opt-save-modal-error">{error}</div>}
 
         {isSaved ? (
-          <div className="py-8 text-center space-y-2">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto">
+          <div className="opt-save-modal-success">
+            <div className="opt-save-modal-success-icon">
               <Check className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-bold text-white">Strategy Saved!</h3>
-            <p className="text-xs text-neutral-400">Available across your devices</p>
+            <h3>Strategy Saved</h3>
+            <p>Available across your devices</p>
           </div>
         ) : (
-          <form onSubmit={handleSave} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-neutral-300 mb-1">Strategy Name</label>
+          <form onSubmit={handleSave} className="opt-save-modal-form">
+            <label className="opt-save-field">
+              <span className="opt-save-label">Strategy Name</span>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., NIFTY Expiry Iron Condor"
-                className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400 transition-colors"
+                className="opt-save-input"
                 autoFocus
+                maxLength={80}
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-xs font-semibold text-neutral-300 mb-1">Notes / Thesis (Optional)</label>
+            <label className="opt-save-field">
+              <span className="opt-save-label">Notes / Thesis (Optional)</span>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Rationale, target profit, stop loss rule..."
                 rows={3}
-                className="w-full px-3.5 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400 transition-colors resize-none"
+                className="opt-save-textarea"
+                maxLength={500}
               />
+            </label>
+
+            <div className="opt-save-summary">
+              <div>
+                Underlying: <strong>{underlying}</strong>
+              </div>
+              <div>
+                Legs: <strong>{legs.length} active</strong>
+              </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-neutral-950/60 border border-neutral-800/80 text-xs space-y-1">
-              <div className="text-neutral-400">Underlying: <strong className="text-white">{underlying}</strong></div>
-              <div className="text-neutral-400">Legs: <strong className="text-amber-400">{legs.length} active legs</strong></div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-xs font-medium text-neutral-300 hover:text-white bg-neutral-800 hover:bg-neutral-700 rounded-xl transition-colors"
-              >
+            <div className="opt-save-actions">
+              <button type="button" onClick={onClose} className="opt-save-btn secondary" disabled={isSaving}>
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="px-4 py-2 text-xs font-bold text-neutral-950 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 rounded-xl transition-colors"
-              >
-                {isSaving ? 'Saving...' : 'Save Strategy'}
+              <button type="submit" disabled={isSaving || !name.trim()} className="opt-save-btn primary">
+                {isSaving ? 'Saving…' : 'Save Strategy'}
               </button>
             </div>
           </form>

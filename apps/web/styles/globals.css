@@ -4116,11 +4116,19 @@ input:checked + .toggle-slider:before {
   .sidebar-main-content {
     padding: 12px 12px !important;
   }
+
+  .sidebar-main-content:has(.opt-root) {
+    padding: 0 !important;
+  }
 }
 
 @media (max-width: 640px) {
   .sidebar-main-content {
     padding: 10px 10px !important;
+  }
+
+  .sidebar-main-content:has(.opt-root) {
+    padding: 0 !important;
   }
 
   .sidebar-topbar {

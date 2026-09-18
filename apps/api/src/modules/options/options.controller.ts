@@ -235,6 +235,7 @@ export class OptionsController {
   @Get('sandbox/portfolio')
   async getSandboxPortfolio(@Req() req: any) {
     const userId = req.user?.id || req.user?.userId;
+    if (!userId) return { success: false, message: 'Sign in required' };
     const portfolio = await this.analyticsService.getSandboxPortfolio(userId);
     return { success: true, data: portfolio };
   }
@@ -366,28 +367,28 @@ export class OptionsController {
   @Post('sandbox/square-off/:id')
   async squareOffPosition(@Param('id') id: string, @Req() req: any) {
     const userId = req.user?.id || req.user?.userId;
-    const result = await this.analyticsService.squareOffPosition(userId, id);
-    return result;
+    if (!userId) return { success: false, message: 'Sign in required' };
+    return this.analyticsService.squareOffPosition(userId, id);
   }
 
   @Delete('sandbox/positions/:id')
   async closeSandboxPosition(@Param('id') id: string, @Req() req: any) {
     const userId = req.user?.id || req.user?.userId;
-    const result = await this.analyticsService.squareOffPosition(userId, id);
-    return result;
+    if (!userId) return { success: false, message: 'Sign in required' };
+    return this.analyticsService.squareOffPosition(userId, id);
   }
 
   @Post('sandbox/square-off-all')
   async squareOffAll(@Req() req: any) {
     const userId = req.user?.id || req.user?.userId;
-    const result = await this.analyticsService.squareOffAll(userId);
-    return result;
+    if (!userId) return { success: false, message: 'Sign in required' };
+    return this.analyticsService.squareOffAll(userId);
   }
 
   @Post('sandbox/reset')
   async resetSandbox(@Req() req: any) {
     const userId = req.user?.id || req.user?.userId;
-    const result = await this.analyticsService.resetSandbox(userId);
-    return result;
+    if (!userId) return { success: false, message: 'Sign in required' };
+    return this.analyticsService.resetSandbox(userId);
   }
 }

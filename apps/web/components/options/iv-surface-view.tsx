@@ -104,7 +104,20 @@ export const IvSurfaceView: React.FC<IvSurfaceViewProps> = ({ symbol, selectedEx
           return `<div style="font-family: inherit; padding: 2px;"><strong>Strike: ₹${Number(s).toLocaleString('en-IN')}</strong><br/><span style="color:#0284C7">●</span> Implied Vol: <strong>${val}%</strong></div>`;
         },
       },
-      grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
+      grid: { left: '3%', right: '4%', bottom: '18%', top: '15%', containLabel: true },
+      dataZoom: [
+        { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true },
+        {
+          type: 'slider',
+          xAxisIndex: 0,
+          height: 16,
+          bottom: 4,
+          borderColor: '#E2E8F0',
+          fillerColor: 'rgba(2, 132, 199, 0.14)',
+          handleStyle: { color: '#0284C7' },
+          textStyle: { fontSize: 9, color: '#64748B' },
+        },
+      ],
       xAxis: {
         type: 'category',
         data: strikes,
