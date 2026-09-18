@@ -565,10 +565,10 @@ describe('truncatePermittedExcerpt (PRD Section 22 Copyright Compliance)', () =>
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// 10. VALUATION LAB AUDIT — EXACT HARDCODED ASSERTIONS (DEMO & EDGE CASES)
+// 10. VALUATION LAB AUDIT - EXACT HARDCODED ASSERTIONS (DEMO & EDGE CASES)
 // ═══════════════════════════════════════════════════════════════════════
 
-describe('Valuation Lab Audit — Exact Hardcoded Assertions for Demo & Edge Cases', () => {
+describe('Valuation Lab Audit - Exact Hardcoded Assertions for Demo & Edge Cases', () => {
   // 1. DCF Model (Demo Tata Motors consolidated)
   describe('Model 1: DCF (Discounted Cash Flow)', () => {
     test('Demo Case: Tata Motors Base, Bear, Bull, EV, Equity Value', () => {

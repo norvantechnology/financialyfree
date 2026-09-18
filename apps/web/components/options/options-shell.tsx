@@ -35,21 +35,12 @@ interface OptionsShellProps {
   atmIv: number | null;
   onOpenBrokerModal: () => void;
   connectedBroker?: string | null;
+  /** Live underlyings from /options/underlyings (Upstox FO master). */
+  symbolList?: string[];
+  /** ATM from live chain - do not recompute with a static strike step. */
+  atmStrike?: number;
   children: React.ReactNode;
 }
-
-export const POPULAR_UNDERLYINGS = [
-  'NIFTY',
-  'BANKNIFTY',
-  'FINNIFTY',
-  'SENSEX',
-  'RELIANCE',
-  'HDFCBANK',
-  'ICICIBANK',
-  'INFY',
-  'TCS',
-  'SBIN',
-];
 
 const TABS: Array<{ id: OptionsTab; label: string; short: string; icon: typeof Sliders }> = [
   { id: 'strategy', label: 'Strategy Builder', short: 'Strategy', icon: Sliders },
@@ -94,10 +85,13 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
   atmIv,
   onOpenBrokerModal,
   connectedBroker,
+  symbolList = [],
+  atmStrike: atmStrikeProp = 0,
   children,
 }) => {
   const isPositive = spotChange >= 0;
-  const atmStrike = spotPrice > 0 ? Math.round(spotPrice / 50) * 50 : 0;
+  const atmStrike = atmStrikeProp > 0 ? atmStrikeProp : 0;
+  const underlyings = symbolList.length > 0 ? symbolList : selectedSymbol ? [selectedSymbol] : [];
   const showMetrics = activeTab !== 'strategy';
   const brokerConnected = Boolean(connectedBroker && connectedBroker !== 'sandbox');
 
@@ -146,7 +140,7 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                       className="opt-select-dropdown"
                       aria-label="Underlying"
                     >
-                      {POPULAR_UNDERLYINGS.map((sym) => (
+                      {underlyings.map((sym) => (
                         <option key={sym} value={sym}>
                           {sym}
                         </option>
@@ -201,7 +195,7 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}`
-                    : '—'}
+                    : '-'}
                 </span>
                 {spotPrice > 0 && (
                   <span className={`opt-live-chg ${isPositive ? 'opt-text-green' : 'opt-text-red'}`}>
@@ -250,7 +244,7 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
               <div className="opt-ticker-chip">
                 <div className="opt-ticker-chip-label">ATM</div>
                 <div className="opt-ticker-chip-val">
-                  {atmStrike > 0 ? `₹${atmStrike.toLocaleString('en-IN')}` : '—'}
+                  {atmStrike > 0 ? `₹${atmStrike.toLocaleString('en-IN')}` : '-'}
                 </div>
               </div>
               <div className="opt-ticker-chip">
@@ -269,13 +263,13 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
               <div className="opt-ticker-chip">
                 <div className="opt-ticker-chip-label">Max Pain</div>
                 <div className="opt-ticker-chip-val opt-text-gold">
-                  {maxPain > 0 ? `₹${maxPain.toLocaleString('en-IN')}` : '—'}
+                  {maxPain > 0 ? `₹${maxPain.toLocaleString('en-IN')}` : '-'}
                 </div>
               </div>
               <div className="opt-ticker-chip">
                 <div className="opt-ticker-chip-label">ATM IV</div>
                 <div className="opt-ticker-chip-val opt-text-sky">
-                  {atmIv != null ? `${atmIv.toFixed(1)}%` : '—'}
+                  {atmIv != null ? `${atmIv.toFixed(1)}%` : '-'}
                 </div>
               </div>
             </div>

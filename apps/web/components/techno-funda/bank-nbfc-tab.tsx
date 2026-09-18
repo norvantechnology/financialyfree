@@ -18,7 +18,7 @@ const YEARS = [
   'Sep 2025',
 ];
 
-/** Screener sector strings are unreliable ([1], Website, etc.) — classify by ticker/name */
+/** Screener sector strings are unreliable ([1], Website, etc.) - classify by ticker/name */
 const PSU_BANK_TICKERS = new Set([
   'SBIN',
   'BANKBARODA',
@@ -166,7 +166,7 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
     return { all: costOfFundsData.length, private: privateCount, psu: psuCount };
   }, [costOfFundsData]);
 
-  // NPM % — higher is better
+  // NPM % - higher is better
   const getMarginCellBg = (val: number | null) => {
     if (val === null) return '#F8FAFC';
     if (val >= 25) return '#DCFCE7';
@@ -187,7 +187,7 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
 
   const getRoaCellBg = (val: number | null) => {
     if (val === null) return '#F8FAFC';
-    // EPS ₹ — relative green scale
+    // EPS ₹ - relative green scale
     if (val >= 40) return '#DCFCE7';
     if (val >= 25) return '#ECFDF5';
     if (val >= 15) return '#FEF3C7';
@@ -265,7 +265,7 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
     return list;
   };
 
-  // Hooks must run unconditionally (before any early returns) — React #310
+  // Hooks must run unconditionally (before any early returns) - React #310
   const sortedCostOfFunds = useMemo(
     () => getSortedRows(costOfFundsData),
     [costOfFundsData, sortColumn, sortDirection, selectedBank, sectorFilter, bankSearch, periods],
@@ -298,7 +298,7 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
   if (isLoading && costOfFundsData.length === 0) {
     return (
       <TfLoadingState
-        title="Loading Bank & NBFC dashboard…"
+        title="Loading Bank & NBFC dashboard..."
         subtitle="Pulling Nifty Bank constituents and live balance-sheet series."
         variant="table"
         rows={6}
@@ -381,8 +381,8 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
                   sec.id === 'All'
                     ? 'Show all lenders'
                     : sec.id === 'Private'
-                      ? 'Private-sector banks (HDFC, ICICI, Axis, Kotak…)'
-                      : 'Public-sector banks (SBI, PNB, Bank of Baroda…)'
+                      ? 'Private-sector banks (HDFC, ICICI, Axis, Kotak...)'
+                      : 'Public-sector banks (SBI, PNB, Bank of Baroda...)'
                 }
                 style={{
                   background: sectorFilter === sec.id ? '#0F766E' : 'transparent',
@@ -596,7 +596,7 @@ export function BankNbfcTab({ liveData, isLoading = false, onRefresh }: BankNbfc
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
             <div>
               <h3 style={{ fontSize: '14.5px', fontWeight: 700, color: '#0F172A', margin: 0 }}>
-                Net Profit Margin (%) — PAT / Interest Income
+                Net Profit Margin (%) - PAT / Interest Income
               </h3>
               <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '1px' }}>
                 Free Screener.in bank P&L. Green = higher margin. Statutory Cost of Funds is not in this free feed.

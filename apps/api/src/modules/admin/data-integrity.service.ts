@@ -118,7 +118,7 @@ export class DataIntegrityService implements OnModuleInit {
     for (const def of DATA_SOURCES_CATALOG) {
       const existing = await this.healthRepo.findOne({ where: { sourceKey: def.sourceKey } });
       if (!existing) {
-        // Placeholder only — never scrape all feeds on boot (contends with user traffic)
+        // Placeholder only - never scrape all feeds on boot (contends with user traffic)
         this.logger.log(`Seeding health placeholder for data source: ${def.sourceKey}`);
         await this.healthRepo.save(
           this.healthRepo.create({
@@ -129,7 +129,7 @@ export class DataIntegrityService implements OnModuleInit {
             upstreamRef: def.upstreamRef,
             lastFetchedAt: new Date(0),
             durationMs: 0,
-            rawResponseSnippet: 'Placeholder — use Admin → Refresh to fetch live data.',
+            rawResponseSnippet: 'Placeholder - use Admin → Refresh to fetch live data.',
             errorMessage: null,
           }),
         );

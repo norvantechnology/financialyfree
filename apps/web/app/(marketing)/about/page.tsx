@@ -35,7 +35,7 @@ export default function AboutPage() {
             </h1>
             <p className="mkt-lead">
               GoalCompass helps Indian investors plan clear financial goals, build wealth with discipline,
-              and access institutional-style market research — all in one platform.
+              and access institutional-style market research - all in one platform.
             </p>
           </Reveal>
 
@@ -54,7 +54,7 @@ export default function AboutPage() {
                 Our Approach
               </h2>
               <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6 }}>
-                We build transparent tools that help you understand your investments — not tell you what to buy.
+                We build transparent tools that help you understand your investments - not tell you what to buy.
                 All research tools are designed for self-directed learning and exploration.
               </p>
             </article>
@@ -63,7 +63,7 @@ export default function AboutPage() {
                 Track A: Wealth Planning
               </h2>
               <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6 }}>
-                Goal planners, paperless KYC, Academy courses, and seamless mutual fund execution —
+                Goal planners, paperless KYC, Academy courses, and seamless mutual fund execution -
                 everything you need to invest with a clear plan.
               </p>
             </article>

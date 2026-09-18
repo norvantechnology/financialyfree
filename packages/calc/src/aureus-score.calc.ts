@@ -1,5 +1,5 @@
 // ── packages/calc/src/aureus-score.calc.ts ───────────────────────────────────
-// Aureus Score (0–100): Composite Indian Equity Quality Score.
+// Aureus Score (0-100): Composite Indian Equity Quality Score.
 // Evaluates 4 fundamental pillars:
 //   1. ROCE (30% weight) - Operational Capital Efficiency
 //   2. Debt-to-Equity (25% weight) - Financial Solvency & Leverage
@@ -106,7 +106,7 @@ export function calculateRoceSubScore(roce: number | null | undefined): {
     return {
       score: s,
       status: 'HEALTHY',
-      notes: 'Strong capital efficiency (20–25% ROCE).',
+      notes: 'Strong capital efficiency (20-25% ROCE).',
       displayValue,
     };
   }
@@ -115,7 +115,7 @@ export function calculateRoceSubScore(roce: number | null | undefined): {
     return {
       score: s,
       status: 'HEALTHY',
-      notes: 'Healthy returns exceeding cost of capital (15–20% ROCE).',
+      notes: 'Healthy returns exceeding cost of capital (15-20% ROCE).',
       displayValue,
     };
   }
@@ -124,7 +124,7 @@ export function calculateRoceSubScore(roce: number | null | undefined): {
     return {
       score: s,
       status: 'MODERATE',
-      notes: 'Acceptable return matching average cost of capital (10–15% ROCE).',
+      notes: 'Acceptable return matching average cost of capital (10-15% ROCE).',
       displayValue,
     };
   }
@@ -179,7 +179,7 @@ export function calculateDebtToEquitySubScore(de: number | null | undefined): {
     return {
       score: s,
       status: 'HEALTHY',
-      notes: 'Prudent conservative leverage (D/E 0.1x–0.5x).',
+      notes: 'Prudent conservative leverage (D/E 0.1x-0.5x).',
       displayValue,
     };
   }
@@ -188,7 +188,7 @@ export function calculateDebtToEquitySubScore(de: number | null | undefined): {
     return {
       score: s,
       status: 'MODERATE',
-      notes: 'Manageable leverage within comfort boundary (D/E 0.5x–1.0x).',
+      notes: 'Manageable leverage within comfort boundary (D/E 0.5x-1.0x).',
       displayValue,
     };
   }
@@ -197,7 +197,7 @@ export function calculateDebtToEquitySubScore(de: number | null | undefined): {
     return {
       score: s,
       status: 'WEAK',
-      notes: 'Elevated debt requiring monitoring (D/E 1.0x–1.5x).',
+      notes: 'Elevated debt requiring monitoring (D/E 1.0x-1.5x).',
       displayValue,
     };
   }
@@ -206,7 +206,7 @@ export function calculateDebtToEquitySubScore(de: number | null | undefined): {
     return {
       score: s,
       status: 'CRITICAL',
-      notes: 'High debt burden; interest coverage vulnerability (D/E 1.5x–2.0x).',
+      notes: 'High debt burden; interest coverage vulnerability (D/E 1.5x-2.0x).',
       displayValue,
     };
   }
@@ -268,7 +268,7 @@ export function calculatePromoterHoldingSubScore(
     return {
       score: s,
       status: 'HEALTHY',
-      notes: 'Majority promoter holding ensuring stability (50–65%).',
+      notes: 'Majority promoter holding ensuring stability (50-65%).',
       displayValue,
     };
   }
@@ -277,7 +277,7 @@ export function calculatePromoterHoldingSubScore(
     return {
       score: s,
       status: 'MODERATE',
-      notes: 'Decent promoter presence (35–50%).',
+      notes: 'Decent promoter presence (35-50%).',
       displayValue,
     };
   }
@@ -286,7 +286,7 @@ export function calculatePromoterHoldingSubScore(
     return {
       score: s,
       status: 'WEAK',
-      notes: 'Low promoter stake; takeover or dilution vulnerability (25–35%).',
+      notes: 'Low promoter stake; takeover or dilution vulnerability (25-35%).',
       displayValue,
     };
   }
@@ -343,7 +343,7 @@ export function calculatePledgeSubScore(pledge: number | null | undefined): {
     return {
       score: s,
       status: 'MODERATE',
-      notes: 'Moderate pledge; warrants monitoring for collateral calls (5–15%).',
+      notes: 'Moderate pledge; warrants monitoring for collateral calls (5-15%).',
       displayValue,
     };
   }
@@ -352,7 +352,7 @@ export function calculatePledgeSubScore(pledge: number | null | undefined): {
     return {
       score: s,
       status: 'WEAK',
-      notes: 'High encumbrance risk (15–30% of promoter stake pledged).',
+      notes: 'High encumbrance risk (15-30% of promoter stake pledged).',
       displayValue,
     };
   }
@@ -365,7 +365,7 @@ export function calculatePledgeSubScore(pledge: number | null | undefined): {
 }
 
 /**
- * Computes the 0–100 Aureus Composite Stock Quality Score.
+ * Computes the 0-100 Aureus Composite Stock Quality Score.
  */
 export function calculateAureusScore(input: AureusScoreInput): AureusScoreResult {
   const BASE_WEIGHTS = {
@@ -516,27 +516,27 @@ export function calculateAureusScore(input: AureusScoreInput): AureusScoreResult
 
   if (finalScore >= 80) {
     tier = 'EXCEPTIONAL';
-    tierLabel = 'Grade AAA — Exceptional Quality';
+    tierLabel = 'Grade AAA - Exceptional Quality';
     tierColor = '#10B981'; // emerald-500
     summary = 'Outstanding fundamentals: robust capital compounding, pristine balance sheet, and strong promoter alignment.';
   } else if (finalScore >= 65) {
     tier = 'STRONG';
-    tierLabel = 'Grade AA — High Quality';
+    tierLabel = 'Grade AA - High Quality';
     tierColor = '#06B6D4'; // cyan-500
     summary = 'Well-rounded financial profile with solid capital returns and disciplined balance sheet leverage.';
   } else if (finalScore >= 50) {
     tier = 'MODERATE';
-    tierLabel = 'Grade A- — Moderate Quality';
+    tierLabel = 'Grade A- - Moderate Quality';
     tierColor = '#F59E0B'; // amber-500
     summary = 'Acceptable baseline fundamentals with average return metrics or moderate debt obligations.';
   } else if (finalScore >= 35) {
     tier = 'CAUTION';
-    tierLabel = 'Grade B — Elevated Risk';
+    tierLabel = 'Grade B - Elevated Risk';
     tierColor = '#F97316'; // orange-500
     summary = 'Notable vulnerabilities detected in capital efficiency, leverage levels, or promoter structure.';
   } else {
     tier = 'HIGH_RISK';
-    tierLabel = 'Grade C — Distressed Quality';
+    tierLabel = 'Grade C - Distressed Quality';
     tierColor = '#EF4444'; // red-500
     summary = 'High-risk quality profile: weak/negative returns or severe financial leverage.';
   }

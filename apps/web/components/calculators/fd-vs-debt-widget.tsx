@@ -158,7 +158,7 @@ export function FdVsDebtWidget() {
             onChange={(e) => setFdInterestRatePct(Number(e.target.value))}
             style={{ width: '100%' }}
           />
-          <span style={{ fontSize: '11px', color: '#64748B' }}>Top bank rack rate ~7.0–7.25%</span>
+          <span style={{ fontSize: '11px', color: '#64748B' }}>Top bank rack rate ~7.0-7.25%</span>
         </div>
 
         <div>

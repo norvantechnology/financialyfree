@@ -127,6 +127,7 @@ describe('Options Module: Encryption & Broker OAuth Pipeline', () => {
       maxPain: 25000,
       atmStrike: 25000,
       atmIv: 14.5,
+      lotSize: 65,
       contracts: [
         {
           strike: 24900,

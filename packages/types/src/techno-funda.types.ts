@@ -4,7 +4,7 @@ import { UUID, ISO8601 } from './common.types';
 export type MoodLabel = 'extreme_fear' | 'fear' | 'neutral' | 'greed' | 'extreme_greed';
 
 export interface MarketMoodDto {
-  score: number; // 0–100
+  score: number; // 0-100
   label: MoodLabel;
   components: {
     breadth: number;

@@ -66,7 +66,7 @@ function chainKey(symbol: string, expiry: string): string {
 
 export const SandboxPortfolioView: React.FC<{
   isActive?: boolean;
-  /** Live option chain from Strategy Builder / WS — overlays CMP instantly */
+  /** Live option chain from Strategy Builder / WS - overlays CMP instantly */
   liveChain?: OptionChainDto | null;
 }> = ({ isActive = true, liveChain = null }) => {
   const [portfolio, setPortfolio] = useState<SandboxPortfolioDto | null>(null);
@@ -98,9 +98,12 @@ export const SandboxPortfolioView: React.FC<{
   };
 
   const authHeaders = useCallback(async (): Promise<HeadersInit | null> => {
-    const { getStoredAccessToken } = await import('../../lib/auth-client');
-    const token = getStoredAccessToken();
-    if (!token) return null;
+    const { ensureFreshAccessToken, redirectToLogin } = await import('../../lib/auth-client');
+    const token = await ensureFreshAccessToken();
+    if (!token) {
+      redirectToLogin('/options-lab');
+      return null;
+    }
     return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   }, []);
 
@@ -113,7 +116,7 @@ export const SandboxPortfolioView: React.FC<{
         if (!silent) setIsLoading(true);
         const headers = await authHeaders();
         if (!headers) {
-          setAuthError('Sign in to view and manage paper positions.');
+          setAuthError('Session expired - redirecting to sign in...');
           setPortfolio(null);
           hasPortfolioRef.current = false;
           return;
@@ -123,8 +126,34 @@ export const SandboxPortfolioView: React.FC<{
           cache: 'no-store',
         });
         if (res.status === 401) {
-          setAuthError('Session expired — sign in again.');
-          setPortfolio(null);
+          const { ensureFreshAccessToken, redirectToLogin } = await import('../../lib/auth-client');
+          const retryToken = await ensureFreshAccessToken();
+          if (!retryToken) {
+            setAuthError('Session expired - redirecting to sign in...');
+            setPortfolio(null);
+            redirectToLogin('/options-lab');
+            return;
+          }
+          const retry = await fetch('/api/v1/options/sandbox/portfolio', {
+            headers: {
+              Authorization: `Bearer ${retryToken}`,
+              'Content-Type': 'application/json',
+            },
+            cache: 'no-store',
+          });
+          if (retry.status === 401) {
+            setAuthError('Session expired - redirecting to sign in...');
+            setPortfolio(null);
+            redirectToLogin('/options-lab');
+            return;
+          }
+          const retryJson = await retry.json().catch(() => null);
+          if (retry.ok && retryJson?.data) {
+            setPortfolio(retryJson.data);
+            hasPortfolioRef.current = true;
+            setAuthError(null);
+            setLastMarkAt(Date.now());
+          }
           return;
         }
         const json = await res.json().catch(() => null);
@@ -146,7 +175,7 @@ export const SandboxPortfolioView: React.FC<{
     [authHeaders],
   );
 
-  // Fast poll while Simulator tab is active (3s — marks use shared hot cache)
+  // Fast poll while Simulator tab is active (3s - marks use shared hot cache)
   useEffect(() => {
     void fetchPortfolio({ silent: false });
     const interval = setInterval(() => {
@@ -500,7 +529,7 @@ export const SandboxPortfolioView: React.FC<{
                 className="opt-sandbox-btn opt-sandbox-btn--danger"
                 disabled={isBusy}
               >
-                {busy === 'square-all' ? 'Squaring…' : 'Square Off'}
+                {busy === 'square-all' ? 'Squaring...' : 'Square Off'}
               </button>
             )}
 
@@ -510,7 +539,7 @@ export const SandboxPortfolioView: React.FC<{
               className="opt-sandbox-btn"
               disabled={isBusy}
             >
-              {busy === 'reset' ? 'Resetting…' : 'Reset'}
+              {busy === 'reset' ? 'Resetting...' : 'Reset'}
             </button>
           </div>
         </div>
@@ -567,7 +596,7 @@ export const SandboxPortfolioView: React.FC<{
                           disabled={isBusy}
                           onClick={() => void squareOffPosition(pos.id)}
                         >
-                          {rowBusy ? '…' : 'Square Off'}
+                          {rowBusy ? '...' : 'Square Off'}
                         </button>
                       </td>
                     </tr>
@@ -650,7 +679,7 @@ export const SandboxPortfolioView: React.FC<{
                               hour: '2-digit',
                               minute: '2-digit',
                             })
-                          : '—'}
+                          : '-'}
                       </td>
                     </tr>
                   );

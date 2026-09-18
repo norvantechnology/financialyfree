@@ -12,11 +12,11 @@ interface TfLoadingStateProps {
 }
 
 /**
- * Shared Techno-Funda loading state — skeleton + linear progress.
+ * Shared Techno-Funda loading state - skeleton + linear progress.
  * Use when a tab/feed is fetching and has no cached data yet.
  */
 export function TfLoadingState({
-  title = 'Loading live market data…',
+  title = 'Loading live market data...',
   subtitle = 'Fetching exchange and market feeds. This usually takes a few seconds.',
   variant = 'panel',
   rows = 4,
@@ -69,7 +69,7 @@ export function TfLoadingState({
         </div>
       )}
 
-      <p className="tf-loading-hint">Tip: switch tabs freely — each feed loads on demand and stays cached.</p>
+      <p className="tf-loading-hint">Tip: switch tabs freely - each feed loads on demand and stays cached.</p>
     </div>
   );
 }

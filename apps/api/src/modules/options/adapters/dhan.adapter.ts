@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { BrokerType, LiveTickDto, OptionChainDto } from '@ff/types';
 import { IBrokerAdapter, BrokerTokenResult } from './broker.interface';
 
-/** Stub until Dhan option-chain is wired — fails closed without credentials. */
+/** Stub until Dhan option-chain is wired - fails closed without credentials. */
 @Injectable()
 export class DhanAdapter implements IBrokerAdapter {
   readonly broker: BrokerType = 'dhan';

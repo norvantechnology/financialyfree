@@ -83,7 +83,7 @@ export function CircuitBreakersTab({ data, isLoading, onRefresh }: CircuitBreake
   if (isLoading && !data) {
     return (
       <TfLoadingState
-        title="Loading circuit breaker watch…"
+        title="Loading circuit breaker watch..."
         subtitle="Pulling live exchange and market data for this workspace."
         variant="table"
       />

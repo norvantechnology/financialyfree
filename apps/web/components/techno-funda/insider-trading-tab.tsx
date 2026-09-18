@@ -96,7 +96,7 @@ export function InsiderTradingTab({ data, isLoading, onRefresh }: InsiderTrading
   if (isLoading && !data) {
     return (
       <TfLoadingState
-        title="Loading insider trading disclosures…"
+        title="Loading insider trading disclosures..."
         subtitle="Pulling live exchange and market data for this workspace."
         variant="table"
       />

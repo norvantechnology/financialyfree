@@ -325,7 +325,7 @@ export class OptionsController {
       return { success: false, message: 'Invalid paper order expiry' };
     }
 
-    // Shared NSE cache path — force expiry-specific fresh quotes for paper fills
+    // Shared NSE cache path - force expiry-specific fresh quotes for paper fills
     const chain = await this.marketDataService.getOptionChain(
       order.symbol,
       expiryIso,
@@ -333,7 +333,7 @@ export class OptionsController {
       undefined,
       { forceRefresh: true },
     );
-    // MARKET fills must use live LTP — never trust client leg price alone
+    // MARKET fills must use live LTP - never trust client leg price alone
     const isMarket = !order.orderType || order.orderType === 'MARKET';
     let fillPrice: number | null =
       !isMarket && order.price && order.price > 0 ? order.price : null;

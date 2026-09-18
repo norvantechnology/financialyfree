@@ -41,7 +41,7 @@ interface WatchlistItem {
   lastPriceUpdated: string;
 }
 
-/** Empty until an API-driven suggestions endpoint is wired — never hardcode popular tickers. */
+/** Empty until an API-driven suggestions endpoint is wired - never hardcode popular tickers. */
 const POPULAR_SUGGESTIONS: Array<{ symbol: string; name: string }> = [];
 
 export default function WatchlistPage() {
@@ -574,7 +574,7 @@ export default function WatchlistPage() {
 
                               {/* CMP */}
                               <td style={{ textAlign: 'right', fontWeight: 700, color: '#0F172A', fontSize: '14.5px', fontFamily: 'var(--font-serif)' }}>
-                                {item.currentPrice !== null ? `₹${item.currentPrice.toLocaleString('en-IN')}` : '—'}
+                                {item.currentPrice !== null ? `₹${item.currentPrice.toLocaleString('en-IN')}` : '-'}
                               </td>
 
                               {/* Day Change */}
@@ -589,7 +589,7 @@ export default function WatchlistPage() {
                                     </span>
                                   </span>
                                 ) : (
-                                  <span style={{ color: '#94A3B8' }}>—</span>
+                                  <span style={{ color: '#94A3B8' }}>-</span>
                                 )}
                               </td>
 
@@ -764,7 +764,7 @@ export default function WatchlistPage() {
                             <div>
                               <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Current Price</div>
                               <div className="wl-m-cmp">
-                                {item.currentPrice !== null ? `₹${item.currentPrice.toLocaleString('en-IN')}` : '—'}
+                                {item.currentPrice !== null ? `₹${item.currentPrice.toLocaleString('en-IN')}` : '-'}
                               </div>
                             </div>
                             <div>
@@ -778,7 +778,7 @@ export default function WatchlistPage() {
                                   </span>
                                 </span>
                               ) : (
-                                <span style={{ color: '#94A3B8' }}>—</span>
+                                <span style={{ color: '#94A3B8' }}>-</span>
                               )}
                             </div>
                           </div>

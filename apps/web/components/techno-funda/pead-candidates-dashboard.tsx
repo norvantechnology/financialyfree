@@ -62,15 +62,15 @@ function peadScore(row: PeadEventRow): number {
 }
 
 function fmtPct(v: number | null | undefined, digits = 1): string {
-  if (v == null || !Number.isFinite(Number(v))) return '—';
+  if (v == null || !Number.isFinite(Number(v))) return '-';
   const n = Number(v);
   return `${n >= 0 ? '+' : ''}${n.toFixed(digits)}%`;
 }
 
 function fmtNum(v: number | string | null | undefined, digits = 1): string {
-  if (v == null || v === '' || v === '-') return '—';
+  if (v == null || v === '' || v === '-') return '-';
   const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/,/g, ''));
-  if (!Number.isFinite(n) || n === 0) return '—';
+  if (!Number.isFinite(n) || n === 0) return '-';
   return n.toFixed(digits);
 }
 
@@ -238,7 +238,7 @@ export function PeadCandidatesDashboard({
   if (isLoading && !data) {
     return (
       <TfLoadingState
-        title="Loading PEAD Screener…"
+        title="Loading PEAD Screener..."
         subtitle="Fetching post-earnings surprises and 20-day price drift from live filings."
         variant="table"
         rows={8}
@@ -268,7 +268,7 @@ export function PeadCandidatesDashboard({
         <div>
           <h3 className="pead-dash-title">PEAD Candidates</h3>
           <p className="pead-dash-sub">
-            Post-earnings announcement drift — surprise, fundamentals &amp; 20-day price reaction
+            Post-earnings announcement drift - surprise, fundamentals &amp; 20-day price reaction
           </p>
         </div>
         <div className="pead-dash-top-actions">
@@ -301,7 +301,7 @@ export function PeadCandidatesDashboard({
         </div>
       </div>
 
-      {/* KPI strip — Screener-style summary */}
+      {/* KPI strip - Screener-style summary */}
       <div className="pead-kpi-strip">
         <div className="pead-kpi">
           <span className="pead-kpi-label">Screened</span>
@@ -342,7 +342,7 @@ export function PeadCandidatesDashboard({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search company or NSE symbol…"
+            placeholder="Search company or NSE symbol..."
             aria-label="Search PEAD candidates"
           />
           {search && (
@@ -403,7 +403,7 @@ export function PeadCandidatesDashboard({
             <span>Surprise %</span>
             <div className="pead-range">
               <input type="number" placeholder="Min" value={minSurprise} onChange={(e) => setMinSurprise(e.target.value)} />
-              <span>–</span>
+              <span>-</span>
               <input type="number" placeholder="Max" value={maxSurprise} onChange={(e) => setMaxSurprise(e.target.value)} />
             </div>
           </label>
@@ -411,7 +411,7 @@ export function PeadCandidatesDashboard({
             <span>20D Drift %</span>
             <div className="pead-range">
               <input type="number" placeholder="Min" value={minDrift} onChange={(e) => setMinDrift(e.target.value)} />
-              <span>–</span>
+              <span>-</span>
               <input type="number" placeholder="Max" value={maxDrift} onChange={(e) => setMaxDrift(e.target.value)} />
             </div>
           </label>
@@ -486,7 +486,7 @@ export function PeadCandidatesDashboard({
                 </div>
                 <div>
                   <span>Days</span>
-                  <strong>{days != null ? days : '—'}</strong>
+                  <strong>{days != null ? days : '-'}</strong>
                 </div>
               </div>
               {onOpenPulse && (
@@ -560,7 +560,7 @@ export function PeadCandidatesDashboard({
                 ? String(s.resultDate).includes('T')
                   ? String(s.resultDate).split('T')[0]
                   : String(s.resultDate)
-                : '—';
+                : '-';
 
               return (
                 <tr key={s.symbol}>
@@ -579,7 +579,7 @@ export function PeadCandidatesDashboard({
                       {days != null && <span className="pead-days">{days}d ago</span>}
                     </div>
                   </td>
-                  <td className="pead-td-num">{s.currentPrice ? `₹${fmtNum(s.currentPrice, 2)}` : '—'}</td>
+                  <td className="pead-td-num">{s.currentPrice ? `₹${fmtNum(s.currentPrice, 2)}` : '-'}</td>
                   <td className="pead-td-num" style={{ color: pctColor(surp), fontWeight: 700 }}>
                     {fmtPct(surp)}
                   </td>
@@ -609,7 +609,7 @@ export function PeadCandidatesDashboard({
                   </td>
                   <td className="pead-td-num pead-td-muted">{resultLabel}</td>
                   <td>
-                    {s.stage ? <span className="pead-stage-pill">{s.stage.replace('Stage 2 ', '')}</span> : '—'}
+                    {s.stage ? <span className="pead-stage-pill">{s.stage.replace('Stage 2 ', '')}</span> : '-'}
                   </td>
                   <td>
                     {onOpenPulse && (

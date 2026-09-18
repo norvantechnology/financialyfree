@@ -9,7 +9,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import type { Request, Response, NextFunction } from 'express';
 
-// Render (and many PaaS) lack IPv6 egress — prefer IPv4 for Supabase DNS
+// Render (and many PaaS) lack IPv6 egress - prefer IPv4 for Supabase DNS
 dns.setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
@@ -164,7 +164,7 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  // Render (and most PaaS) require binding 0.0.0.0 — localhost/:: alone fails health checks
+  // Render (and most PaaS) require binding 0.0.0.0 - localhost/:: alone fails health checks
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port, '0.0.0.0');
   console.log(`\n🚀 GoalCompass API running on http://0.0.0.0:${port}/api/v1`);

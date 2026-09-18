@@ -51,7 +51,7 @@ interface TradingViewAdvancedChartProps {
 
 /**
  * Official TradingView Advanced Chart embed (not legacy tv.js).
- * Locks symbol to the requested NSE/BSE ticker — never falls back to AAPL.
+ * Locks symbol to the requested NSE/BSE ticker - never falls back to AAPL.
  */
 export const TradingViewAdvancedChart: React.FC<TradingViewAdvancedChartProps> = ({
   symbol,

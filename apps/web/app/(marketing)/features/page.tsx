@@ -45,7 +45,7 @@ const FEATURE_FAQS = [
   {
     question: 'What is included in the 7-day free trial for Track B?',
     answer:
-      'You get unrestricted access to all 20 research tools: the 9-model Valuation Lab, all 6 Smart Screeners (PEAD earnings surprises, Order wins, Breakouts), the live Market Mood Index, and alternative data feeds — no commitments required.',
+      'You get unrestricted access to all 20 research tools: the 9-model Valuation Lab, all 6 Smart Screeners (PEAD earnings surprises, Order wins, Breakouts), the live Market Mood Index, and alternative data feeds - no commitments required.',
   },
 ];
 
@@ -138,7 +138,7 @@ export default function FeaturesPage() {
                   </div>
                 </div>
                 <p className="fp-track-description">
-                  Built for active equity investors who want raw data, fair-value models, and early institutional signals — instead of risky social media tips.
+                  Built for active equity investors who want raw data, fair-value models, and early institutional signals - instead of risky social media tips.
                 </p>
                 <div className="fp-track-features-list">
                   <span className="fp-pill-chip"><CheckCircle2 size={13} /> 9 Valuation Models (DCF, PEG)</span>
@@ -201,13 +201,13 @@ export default function FeaturesPage() {
                 <div className="fp-mmi-rules">
                   <div className="fp-mmi-rule-card">
                     <span className="fp-mmi-rule-tag" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
-                      Extreme Fear (0–30)
+                      Extreme Fear (0-30)
                     </span>
                     <p>Good quality stocks are trading at discount prices. The highest-probability time to accumulate more.</p>
                   </div>
                   <div className="fp-mmi-rule-card">
                     <span className="fp-mmi-rule-tag" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
-                      Extreme Greed (70–100)
+                      Extreme Greed (70-100)
                     </span>
                     <p>Valuations are stretched and euphoric. A signal to be cautious, review stop-losses, and avoid FOMO buying.</p>
                   </div>
@@ -278,7 +278,7 @@ export default function FeaturesPage() {
             <div className="fp-core-satellite-grid">
               {/* Core Side */}
               <div className="fp-cs-card fp-cs-core">
-                <div className="fp-cs-badge">Core Portfolio (70%–80% of Savings)</div>
+                <div className="fp-cs-badge">Core Portfolio (70%-80% of Savings)</div>
                 <h3 className="mkt-serif fp-cs-title">Track A: Automated Wealth Foundation</h3>
                 <p className="fp-cs-desc">
                   Set up automated, diversified equity &amp; debt mutual fund SIPs that compound steadily over 5 to 25 years. You never need to watch daily price tickers.
@@ -294,7 +294,7 @@ export default function FeaturesPage() {
               {/* Satellite Side */}
               <div className="fp-cs-card fp-cs-satellite">
                 <div className="fp-cs-badge" style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#6366f1' }}>
-                  Satellite Portfolio (20%–30% of Savings)
+                  Satellite Portfolio (20%-30% of Savings)
                 </div>
                 <h3 className="mkt-serif fp-cs-title">Track B: High-Conviction Stock Research</h3>
                 <p className="fp-cs-desc">
@@ -304,7 +304,7 @@ export default function FeaturesPage() {
                   <li><CheckCircle2 size={16} /> DCF, Graham, and Peter Lynch fair value calculators</li>
                   <li><CheckCircle2 size={16} /> PEAD earnings beat and corporate contract screeners</li>
                   <li><CheckCircle2 size={16} /> Market Mood Index fear &amp; greed indicators</li>
-                  <li><CheckCircle2 size={16} /> Zero social media noise — 100% raw exchange data</li>
+                  <li><CheckCircle2 size={16} /> Zero social media noise - 100% raw exchange data</li>
                 </ul>
               </div>
             </div>

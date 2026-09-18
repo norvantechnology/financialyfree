@@ -61,7 +61,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
       stock.symbol,
       stock.cmp,
       `${stock.priceChangePct >= 0 ? '+' : ''}${stock.priceChangePct.toFixed(2)}%`,
-      `+${stock.oiChangePct != null ? stock.oiChangePct.toFixed(1) : '—'}%`,
+      `+${stock.oiChangePct != null ? stock.oiChangePct.toFixed(1) : '-'}%`,
       stock.interpretation,
     ]);
     exportTableToCsv(`NSE_FNO_DERIVATIVE_SIGNALS_${selectedIndex}`, headers, rows);
@@ -74,7 +74,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
   if (isLoading && !data) {
     return (
       <TfLoadingState
-        title="Loading F&O open interest…"
+        title="Loading F&O open interest..."
         subtitle="Pulling live exchange and market data for this workspace."
         variant="cards"
       />
@@ -144,7 +144,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
             </span>
           </div>
           <div className="tf-kpi-val" style={{ fontSize: '26px', fontWeight: 800, color: '#0F172A', marginTop: '6px' }}>
-            {currentIndex?.pcr != null ? currentIndex.pcr.toFixed(2) : '—'}
+            {currentIndex?.pcr != null ? currentIndex.pcr.toFixed(2) : '-'}
           </div>
           <div className="tf-kpi-sub" style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
             {currentIndex?.pcr && currentIndex.pcr > 1.15
@@ -161,7 +161,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
             Max Pain Strike
           </div>
           <div className="tf-kpi-val" style={{ fontSize: '26px', fontWeight: 800, color: '#4338CA', marginTop: '6px' }}>
-            {currentIndex?.maxPainStrike != null ? currentIndex.maxPainStrike.toLocaleString('en-IN') : '—'}
+            {currentIndex?.maxPainStrike != null ? currentIndex.maxPainStrike.toLocaleString('en-IN') : '-'}
           </div>
           <div className="tf-kpi-sub" style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
             Least option seller loss strike
@@ -174,7 +174,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
             Resistance (Call Wall)
           </div>
           <div className="tf-kpi-val" style={{ fontSize: '26px', fontWeight: 800, color: '#DC2626', marginTop: '6px' }}>
-            {currentIndex?.highestCallOiStrike != null ? currentIndex.highestCallOiStrike.toLocaleString('en-IN') : '—'}
+            {currentIndex?.highestCallOiStrike != null ? currentIndex.highestCallOiStrike.toLocaleString('en-IN') : '-'}
           </div>
           <div className="tf-kpi-sub" style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
             Highest Call concentration
@@ -187,7 +187,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
             Support (Put Base)
           </div>
           <div className="tf-kpi-val" style={{ fontSize: '26px', fontWeight: 800, color: '#059669', marginTop: '6px' }}>
-            {currentIndex?.highestPutOiStrike != null ? currentIndex.highestPutOiStrike.toLocaleString('en-IN') : '—'}
+            {currentIndex?.highestPutOiStrike != null ? currentIndex.highestPutOiStrike.toLocaleString('en-IN') : '-'}
           </div>
           <div className="tf-kpi-sub" style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
             Highest Put concentration
@@ -346,7 +346,7 @@ export function FnoAnalyticsTab({ data, isLoading, onRefresh }: FnoAnalyticsTabP
                         </span>
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 750, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                        {stock.oiChangePct != null ? `+${stock.oiChangePct.toFixed(1)}%` : '—'}
+                        {stock.oiChangePct != null ? `+${stock.oiChangePct.toFixed(1)}%` : '-'}
                       </td>
                       <td style={{ padding: '12px 18px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span style={{

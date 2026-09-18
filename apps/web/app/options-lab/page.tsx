@@ -34,7 +34,7 @@ import {
 } from '@ff/calc';
 import { io, Socket } from 'socket.io-client';
 import { SidebarLayout } from '../../components/sidebar-layout';
-import { OptionsShell, OptionsTab, POPULAR_UNDERLYINGS } from '../../components/options/options-shell';
+import { OptionsShell, OptionsTab } from '../../components/options/options-shell';
 import { BrokerConnectModal } from '../../components/options/broker-connect-modal';
 import { SaveStrategyModal } from '../../components/options/save-strategy-modal';
 import { SavedStrategiesModal } from '../../components/options/saved-strategies-modal';
@@ -49,6 +49,7 @@ import {
   PanelResizeHandle,
   usePersistedLayoutNumber,
 } from '../../components/options/panel-resize-handle';
+import { useRequireAuth } from '../../lib/use-require-auth';
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
@@ -235,6 +236,7 @@ const StrategyPayoffPreviewSvg: React.FC<{ name: string }> = ({ name }) => {
 };
 
 export default function OptionsLabPage() {
+  useRequireAuth('/auth/login', true);
   const [activeTab, setActiveTab] = useState<OptionsTab>('strategy');
   const [visitedTabs, setVisitedTabs] = useState<Set<OptionsTab>>(() => new Set(['strategy']));
 
@@ -247,6 +249,10 @@ export default function OptionsLabPage() {
     });
   }, [activeTab]);
   const [symbol, setSymbol] = useState('NIFTY');
+  const [underlyingSymbols, setUnderlyingSymbols] = useState<string[]>(['NIFTY']);
+  const [underlyingMeta, setUnderlyingMeta] = useState<
+    Record<string, { lotSize: number; step: number }>
+  >({});
   const [selectedExpiry, setSelectedExpiry] = useState('');
   const [isSandbox, setIsSandbox] = useState(true);
   const [isBrokerModalOpen, setIsBrokerModalOpen] = useState(false);
@@ -385,6 +391,44 @@ export default function OptionsLabPage() {
     return () => mq.removeEventListener('change', apply);
   }, []);
 
+  // Live F&O underlyings + lot/step from Upstox master via API (no static symbol table)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/v1/options/underlyings');
+        if (!res.ok) return;
+        const json = await res.json();
+        const rows = (json?.data || []) as Array<{
+          symbol: string;
+          lotSize?: number;
+          step?: number;
+        }>;
+        if (cancelled || !rows.length) return;
+        const symbols = rows.map((r) => r.symbol).filter(Boolean);
+        const meta: Record<string, { lotSize: number; step: number }> = {};
+        for (const r of rows) {
+          if (!r.symbol) continue;
+          meta[r.symbol] = {
+            lotSize: Math.max(1, Number(r.lotSize) || 1),
+            step: Math.max(1, Number(r.step) || 50),
+          };
+        }
+        setUnderlyingSymbols(symbols);
+        setUnderlyingMeta(meta);
+        if (!symbols.includes(symbol) && symbols[0]) {
+          setSymbol(symbols[0]);
+        }
+      } catch {
+        /* keep bootstrap NIFTY until master loads */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
+  }, []);
+
   useEffect(() => {
     if (!isChartFullscreen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -430,7 +474,7 @@ export default function OptionsLabPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch Option Chain — first paint shows loading; polls patch live data without blanking the table
+  // Fetch Option Chain - first paint shows loading; polls patch live data without blanking the table
   const fetchChain = useCallback(async (opts?: { silent?: boolean; fresh?: boolean }) => {
     const prev = chainDataRef.current;
     const hasExisting = Boolean(prev?.contracts?.length);
@@ -443,7 +487,7 @@ export default function OptionsLabPage() {
       Boolean(opts?.silent) && hasExisting && !expiryMismatch && !opts?.fresh;
     const started = performance.now();
 
-    // Never cancel a slow NSE request every poll — skip overlapping silent polls instead
+    // Never cancel a slow NSE request every poll - skip overlapping silent polls instead
     if (opts?.silent && chainInFlightRef.current) return;
 
     const gen = ++chainFetchGenRef.current;
@@ -477,7 +521,7 @@ export default function OptionsLabPage() {
         setIsRefreshing(true);
       }
 
-      // Public NSE chain is shared — only attach JWT when a real broker is connected
+      // Public NSE chain is shared - only attach JWT when a real broker is connected
       // (avoids per-user broker lookup latency on every poll).
       const headers: Record<string, string> = {};
       if (connectedBroker && connectedBroker !== 'sandbox') {
@@ -554,7 +598,7 @@ export default function OptionsLabPage() {
     void fetchChain({ silent: false, fresh: Boolean(selectedExpiry) });
     const interval = setInterval(() => {
       void fetchChain({ silent: true, fresh: true });
-    }, 8000);
+    }, 5000);
     return () => {
       clearInterval(interval);
       chainFetchGenRef.current += 1;
@@ -660,14 +704,37 @@ export default function OptionsLabPage() {
     });
   }, [strategyLegs]);
 
-  // Derived Spot & ATM Strike
+  // Derived Spot & ATM Strike - lot/step from live chain or FO master, never static tables
   const spot = chainData?.spotPrice || 0;
-  const atmStrike = chainData?.atmStrike || Math.round(spot / 50) * 50;
+  const liveStrikeStep = useMemo(() => {
+    const contracts = chainData?.contracts || [];
+    if (contracts.length >= 2) {
+      const uniq = Array.from(new Set(contracts.map((c) => Math.round(c.strike))))
+        .filter((s) => s > 0)
+        .sort((a, b) => a - b);
+      const diffs: number[] = [];
+      for (let i = 1; i < uniq.length; i++) {
+        const d = uniq[i] - uniq[i - 1];
+        if (d > 0) diffs.push(d);
+      }
+      if (diffs.length) {
+        diffs.sort((a, b) => a - b);
+        return diffs[Math.floor(diffs.length / 2)];
+      }
+    }
+    return underlyingMeta[symbol]?.step || 50;
+  }, [chainData?.contracts, underlyingMeta, symbol]);
+  const atmStrike =
+    chainData?.atmStrike ||
+    (spot > 0 ? Math.round(spot / liveStrikeStep) * liveStrikeStep : 0);
   const spotChange = chainData?.spotChange || 0;
   const spotChangePct = chainData?.spotChangePct || 0;
   const vix = chainData?.vix ?? null;
   const futures = chainData?.futures || [];
-  const lotSize = chainData?.lotSize || 50;
+  const lotSize = Math.max(
+    1,
+    Number(chainData?.lotSize) || underlyingMeta[symbol]?.lotSize || 1,
+  );
 
   // Chart/payoff use quantized market inputs so 12s polls don't redraw for tiny ticks
   const [chartSpot, setChartSpot] = useState(0);
@@ -691,7 +758,7 @@ export default function OptionsLabPage() {
     }
   }, [chainData?.spotPrice, chainData?.atmIv]);
 
-  // Sync live LTPs into positions for P&L display — keep entryPrice (payoff curve) stable
+  // Sync live LTPs into positions for P&L display - keep entryPrice (payoff curve) stable
   useEffect(() => {
     if (!chainData?.contracts?.length) return;
     setStrategyLegs((prev) => {
@@ -711,7 +778,7 @@ export default function OptionsLabPage() {
     });
   }, [chainData?.timestamp, chainData?.contracts]);
 
-  // Strategy Payoff Calculation Engine — depends on structure/entry, not live LTP ticks
+  // Strategy Payoff Calculation Engine - depends on structure/entry, not live LTP ticks
   const activeEnabledLegs = useMemo(() => {
     return strategyLegs.filter((l) => enabledLegIds.has(l.id));
   }, [strategyLegs, enabledLegIds]);
@@ -739,7 +806,7 @@ export default function OptionsLabPage() {
       });
     }
 
-    // Entry-priced legs only — ignore live currentPrice so polls don't reshape the curve
+    // Entry-priced legs only - ignore live currentPrice so polls don't reshape the curve
     const shiftedLegs = activeEnabledLegs.map((l) => ({
       ...l,
       currentPrice: l.entryPrice,
@@ -757,7 +824,7 @@ export default function OptionsLabPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payoffLegsSignature, chartSpot, spotShiftPct, ivShiftPoints, daysForward]);
 
-  // ECharts Option — stable unless strategy/settings/spot bucket changes
+  // ECharts Option - stable unless strategy/settings/spot bucket changes
   const payoffChartOption = useMemo(() => {
     const currentSpot = chartSpot || spot || 0;
     const atmIv = chartAtmIv || chainData?.atmIv || 0;
@@ -1030,19 +1097,8 @@ export default function OptionsLabPage() {
       setTimeout(() => setNotification(null), 3000);
       return;
     }
-    let step = 50;
-    let symLotSize = 50;
-
-    if (symbol === 'BANKNIFTY') {
-      step = 100;
-      symLotSize = 15;
-    } else if (symbol === 'FINNIFTY') {
-      step = 50;
-      symLotSize = 40;
-    } else if (symbol === 'SENSEX') {
-      step = 100;
-      symLotSize = 10;
-    }
+    const step = liveStrikeStep;
+    const symLotSize = lotSize;
 
     const expiryToUse =
       selectedExpiry || chainData.selectedExpiry || chainData.expiryDates[0] || '';
@@ -1088,7 +1144,7 @@ export default function OptionsLabPage() {
     }
 
     if (baseLegs.length > 0) {
-      // Enrich with live contract LTPs only — drop legs without a real quote (no fake premiums)
+      // Enrich with live contract LTPs only - drop legs without a real quote (no fake premiums)
       const legs: StrategyLegDto[] = [];
       for (const leg of baseLegs) {
         const contract = chainData.contracts?.find((c) => c.strike === leg.strike);
@@ -1108,7 +1164,7 @@ export default function OptionsLabPage() {
       }
 
       if (legs.length === 0) {
-        setNotification(`No live LTPs for "${tplName}" strikes on this expiry — try another expiry.`);
+        setNotification(`No live LTPs for "${tplName}" strikes on this expiry - try another expiry.`);
         setTimeout(() => setNotification(null), 4000);
         return;
       }
@@ -1154,10 +1210,7 @@ export default function OptionsLabPage() {
     price: number,
     ivVal?: number | null,
   ) => {
-    let symLotSize = 50;
-    if (symbol === 'BANKNIFTY') symLotSize = 15;
-    if (symbol === 'FINNIFTY') symLotSize = 40;
-    if (symbol === 'SENSEX') symLotSize = 10;
+    const symLotSize = lotSize;
 
     const newLeg: StrategyLegDto = {
       id: `leg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -1190,9 +1243,7 @@ export default function OptionsLabPage() {
   };
 
   const shiftLegStrike = (id: string, deltaSteps: number) => {
-    let step = 50;
-    if (symbol === 'BANKNIFTY' || symbol === 'SENSEX') step = 100;
-    else if (symbol === 'MIDCPNIFTY') step = 25;
+    const step = liveStrikeStep;
 
     setStrategyLegs((prev) =>
       prev.map((l) => {
@@ -1327,11 +1378,12 @@ export default function OptionsLabPage() {
     }
 
     try {
-      const { getStoredAccessToken } = await import('../../lib/auth-client');
-      const token = getStoredAccessToken();
+      const { ensureFreshAccessToken, redirectToLogin } = await import('../../lib/auth-client');
+      const token = await ensureFreshAccessToken();
       if (!token) {
-        setNotification('Sign in required to save paper positions.');
-        setTimeout(() => setNotification(null), 4000);
+        setNotification('Session expired - redirecting to sign in...');
+        setTimeout(() => setNotification(null), 2000);
+        redirectToLogin('/options-lab');
         return;
       }
 
@@ -1363,12 +1415,14 @@ export default function OptionsLabPage() {
         setActiveTab('sandbox');
         window.dispatchEvent(new CustomEvent('sandbox:refresh'));
       } else {
-        setNotification(
-          json?.message ||
-            (res.status === 401
-              ? 'Session expired — sign in again to paper trade.'
-              : 'Paper trade failed. Check live chain LTP and try again.'),
-        );
+        if (res.status === 401) {
+          setNotification('Session expired - redirecting to sign in...');
+          redirectToLogin('/options-lab');
+        } else {
+          setNotification(
+            json?.message || 'Paper trade failed. Check live chain LTP and try again.',
+          );
+        }
       }
     } catch {
       setNotification('Network error placing paper orders.');
@@ -1401,6 +1455,8 @@ export default function OptionsLabPage() {
         atmIv={chainData?.atmIv ?? null}
         onOpenBrokerModal={() => setIsBrokerModalOpen(true)}
         connectedBroker={connectedBroker}
+        symbolList={underlyingSymbols}
+        atmStrike={atmStrike}
       >
         {chainData?.dataNote || chainData?.source ? (
           <div
@@ -1428,7 +1484,7 @@ export default function OptionsLabPage() {
                   })
                 : ''}
             </span>
-            {isRefreshing ? <span>Updating…</span> : null}
+            {isRefreshing ? <span>Updating...</span> : null}
             {(chainData.contracts?.length || 0) === 0 ? (
               <span>Connect broker for live OI</span>
             ) : null}
@@ -1474,7 +1530,7 @@ export default function OptionsLabPage() {
                 setSymbol(s);
                 setSelectedExpiry('');
               }}
-              symbolList={POPULAR_UNDERLYINGS}
+              symbolList={underlyingSymbols}
               lotSize={lotSize}
               spotPrice={spot}
               spotChange={spotChange}
@@ -1801,7 +1857,7 @@ export default function OptionsLabPage() {
 
                       <div className="sm-payoff-metric-row">
                         <span className="sm-metric-label">Est. Margin</span>
-                        <span className="sm-metric-val">₹{estMargin} L</span>
+                        <span className="sm-metric-val">₹{estMargin}L</span>
                       </div>
 
                       <div className="sm-metric-pair">
@@ -1835,9 +1891,11 @@ export default function OptionsLabPage() {
 
                       <div className="sm-payoff-metric-row">
                         <span className="sm-metric-label">Breakevens</span>
-                        <span className="sm-metric-val">
+                        <span className="sm-metric-val sm-metric-val--wrap">
                           {payoffResult.greeks.breakevens.length > 0
-                            ? payoffResult.greeks.breakevens.map((b) => Math.round(b)).join(' — ')
+                            ? payoffResult.greeks.breakevens
+                                .map((b) => Math.round(b).toLocaleString('en-IN'))
+                                .join(' - ')
                             : 'None'}
                         </span>
                       </div>
@@ -2321,19 +2379,19 @@ export default function OptionsLabPage() {
                   <>
                 <div className="sm-guide-steps">
                   <div>
-                    <strong>1. Select symbol and expiry</strong> — Choose a symbol ({POPULAR_UNDERLYINGS.slice(0, 4).join(', ')}) and an expiry date from the ladder above.
+                    <strong>1. Select symbol and expiry</strong> - Choose a symbol ({underlyingSymbols.slice(0, 4).join(', ') || 'NIFTY'}) and an expiry date from the ladder above.
                   </div>
                   <div>
-                    <strong>2. Add your first leg</strong> — Pick Buy or Sell, Call or Put, and select a strike price directly from the Option Chain on the left.
+                    <strong>2. Add your first leg</strong> - Pick Buy or Sell, Call or Put, and select a strike price directly from the Option Chain on the left.
                   </div>
                   <div>
-                    <strong>3. Build multi-leg strategies</strong> — Add more legs (up to 6) to create spread strategies like Iron Condor, Butterfly, or Straddle.
+                    <strong>3. Build multi-leg strategies</strong> - Add more legs (up to 6) to create spread strategies like Iron Condor, Butterfly, or Straddle.
                   </div>
                   <div>
-                    <strong>4. Review the payoff diagram</strong> — Examine the curve showing profit/loss zones, breakeven points, standard deviations, and maximum profit at expiration.
+                    <strong>4. Review the payoff diagram</strong> - Examine the curve showing profit/loss zones, breakeven points, standard deviations, and maximum profit at expiration.
                   </div>
                   <div>
-                    <strong>5. Analyze combined Greeks</strong> — Check the combined Delta, Theta, Vega, and Gamma displayed in the positions panel to manage portfolio risk.
+                    <strong>5. Analyze combined Greeks</strong> - Check the combined Delta, Theta, Vega, and Gamma displayed in the positions panel to manage portfolio risk.
                   </div>
                 </div>
 

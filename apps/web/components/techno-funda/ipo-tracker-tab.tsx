@@ -122,7 +122,7 @@ export function IpoTrackerTab({ data, isLoading, onRefresh }: IpoTrackerTabProps
   if (isLoading && !data) {
     return (
       <TfLoadingState
-        title="Loading IPO tracker…"
+        title="Loading IPO tracker..."
         subtitle="Pulling live exchange and market data for this workspace."
         variant="table"
       />

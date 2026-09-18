@@ -77,7 +77,7 @@ export const ALL_FEATURES: FeatureItem[] = [
     track: 'Track A (Free)',
     title: 'Paperless Digital KYC',
     simpleName: '3-Minute Account Activation',
-    plainEnglish: 'Complete your official investment verification in 3 minutes from your phone using Aadhaar and PAN — no physical forms or branch visits.',
+    plainEnglish: 'Complete your official investment verification in 3 minutes from your phone using Aadhaar and PAN - no physical forms or branch visits.',
     benefits: [
       '100% digital verification with instant identity confirmation',
       'Bank-grade encrypted pipeline with zero paper documents required',
@@ -98,7 +98,7 @@ export const ALL_FEATURES: FeatureItem[] = [
     plainEnglish: 'Set your monthly SIP once using UPI Autopay or e-NACH, and your investments happen automatically on your chosen date.',
     benefits: [
       'Direct exchange settlement via BSE StAR MF straight to the mutual fund house',
-      'Zero manual fund transfers every month — set it, forget it, and let compounding work',
+      'Zero manual fund transfers every month - set it, forget it, and let compounding work',
     ],
     tags: ['UPI Autopay', 'e-NACH Mandate', 'Direct AMC'],
     icon: 'landmark',
@@ -149,7 +149,7 @@ export const ALL_FEATURES: FeatureItem[] = [
     track: 'Track A (Free)',
     title: 'Household & Family Goals',
     simpleName: 'Multi-Member Goal Management',
-    plainEnglish: 'Create and track separate goals for yourself, your spouse, and your children — all organized neatly under one household dashboard.',
+    plainEnglish: 'Create and track separate goals for yourself, your spouse, and your children - all organized neatly under one household dashboard.',
     benefits: [
       'Individual progress bars for each family member’s college, vacation, or retirement fund',
       'Helps whole families stay aligned on long-term financial security',
@@ -277,7 +277,7 @@ export const ALL_FEATURES: FeatureItem[] = [
     track: 'Track B (Research)',
     title: 'Price-to-Book (P/B) ROE Matrix',
     simpleName: 'Bank & Financial Stock Evaluator',
-    plainEnglish: 'Evaluates balance sheet net worth vs return on equity (ROE) — the gold standard method for valuing private and public sector banks.',
+    plainEnglish: 'Evaluates balance sheet net worth vs return on equity (ROE) - the gold standard method for valuing private and public sector banks.',
     benefits: [
       'Essential for financial stocks where traditional P/E ratios are unreliable',
       'RoE vs P/B scatter plot showing which banks are generating high returns at low multiples',
@@ -315,7 +315,7 @@ export const ALL_FEATURES: FeatureItem[] = [
     simpleName: 'Scenario & Stress Testing Grid',
     plainEnglish: 'A 2D matrix that calculates the stock value under 25 different combinations of growth rates and interest rates, so you know the best and worst cases.',
     benefits: [
-      'Eliminates single-point estimates — understand your downside risk in a recession',
+      'Eliminates single-point estimates - understand your downside risk in a recession',
       'Color-coded risk heat map highlighting margin of safety ranges',
     ],
     tags: ['Stress Testing', 'Scenario Analysis', 'Downside Risk'],
@@ -335,7 +335,7 @@ export const ALL_FEATURES: FeatureItem[] = [
     simpleName: 'Earnings Beat Momentum Scanner',
     plainEnglish: 'Catches companies that just beat Wall Street & Dalal Street quarterly profit estimates before their post-earnings price rally fully takes off.',
     benefits: [
-      'Identifies Post-Earnings Announcement Drift (PEAD) — a proven academic market anomaly',
+      'Identifies Post-Earnings Announcement Drift (PEAD) - a proven academic market anomaly',
       'Shows percentage earnings surprise, revenue growth, and initial volume confirmation',
     ],
     tags: ['Quarterly Results', 'Earnings Beats', 'Surprise Momentum'],
@@ -405,7 +405,7 @@ export const ALL_FEATURES: FeatureItem[] = [
     track: 'Track B (Research)',
     title: 'Share Buyback & Tender Tracker',
     simpleName: 'Corporate Share Repurchase Radar',
-    plainEnglish: 'Tracks companies buying back their own shares from the market — a strong signal that management believes the stock is undervalued.',
+    plainEnglish: 'Tracks companies buying back their own shares from the market - a strong signal that management believes the stock is undervalued.',
     benefits: [
       'Calculates buyback premium over current market price and estimated acceptance ratios',
       'Alerts you to tender offer opening and closing dates so you never miss an arbitrage window',
@@ -443,7 +443,7 @@ export const ALL_FEATURES: FeatureItem[] = [
     track: 'Track B (Research)',
     title: 'Market Mood Index (MMI)',
     simpleName: 'Fear & Greed Compass',
-    plainEnglish: 'Combines 6 market indicators into one easy 0–100 score: Extreme Fear means great time to buy; Extreme Greed warns you to be careful.',
+    plainEnglish: 'Combines 6 market indicators into one easy 0-100 score: Extreme Fear means great time to buy; Extreme Greed warns you to be careful.',
     benefits: [
       'Tracks FII flows, India VIX volatility, market breadth, and 200-day moving averages',
       'Stops emotional panic selling during market dips and FOMO chasing at peaks',
@@ -607,7 +607,7 @@ export const ALL_FEATURES: FeatureItem[] = [
     track: 'Track B (Research)',
     title: 'RBI Bank Credit & Deposit Growth',
     simpleName: 'Macro Economic Fuel Gauge',
-    plainEnglish: 'Monitors RBI fortnightly data on overall banking system credit and deposit expansion — the key metric that leads national GDP growth.',
+    plainEnglish: 'Monitors RBI fortnightly data on overall banking system credit and deposit expansion - the key metric that leads national GDP growth.',
     benefits: [
       'Broad economic health gauge to identify expansionary vs contractionary cycles',
       'Credit-to-deposit ratio trends to evaluate liquidity conditions across Indian banks',
@@ -645,7 +645,7 @@ export const ALL_FEATURES: FeatureItem[] = [
     track: 'Academy',
     title: 'Selecting Top Mutual Funds & Asset Mix',
     simpleName: 'Level 2: Fund Selection Framework',
-    plainEnglish: 'Learn how to compare funds beyond simple past returns — master rolling returns, expense ratio drag, portfolio overlap, and risk-adjusted Sharpe ratios.',
+    plainEnglish: 'Learn how to compare funds beyond simple past returns - master rolling returns, expense ratio drag, portfolio overlap, and risk-adjusted Sharpe ratios.',
     benefits: [
       'Stop blindly buying 5-star funds that underperform the next year',
       'Framework to construct a resilient 3-fund core portfolio that beats 80% of active funds',

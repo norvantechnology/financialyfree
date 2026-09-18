@@ -69,10 +69,10 @@ export interface PeadUniverseCompany {
   sector: string;
 }
 
-/** Mutable universe populated from NSE live/CSV feeds — never fabricated prices. */
+/** Mutable universe populated from NSE live/CSV feeds - never fabricated prices. */
 export let PEAD_UNIVERSE: PeadUniverseCompany[] = [];
 
-/** Official Nifty 50 symbol fallback when CSV/API unavailable (symbols only — quotes still live). */
+/** Official Nifty 50 symbol fallback when CSV/API unavailable (symbols only - quotes still live). */
 const NIFTY50_SYMBOL_FALLBACK: Array<{ symbol: string; name: string; sector: string }> = [
   { symbol: 'RELIANCE', name: 'Reliance Industries', sector: 'Energy' },
   { symbol: 'TCS', name: 'Tata Consultancy Services', sector: 'IT' },
@@ -143,7 +143,7 @@ export class TechnoFundaService {
   ) {}
 
   private screenerPlCache = new Map<string, { data: any; timestamp: number }>();
-  /** PDF annexure text — same extractors, avoids re-download within TTL */
+  /** PDF annexure text - same extractors, avoids re-download within TTL */
   private announcementPdfCache = new Map<string, { text: string; timestamp: number }>();
   private newsFeedInFlight: Promise<{
     source: string;
@@ -791,7 +791,7 @@ export class TechnoFundaService {
       // Network or parsing failure, continue to fallback
     }
 
-    // Unavailable — do not cache failures as successful filings
+    // Unavailable - do not cache failures as successful filings
     return {
       companyName: companyHint || cleanSym,
       symbol: cleanSym,
@@ -1007,7 +1007,7 @@ export class TechnoFundaService {
         score: 0,
         label: 'neutral' as MoodLabel,
         components: { breadth: 0, vix: 0, maPositioning: 0, fiiDiiFlow: 0 },
-        advisory: 'Market mood unavailable — live VIX/breadth/technical inputs missing.',
+        advisory: 'Market mood unavailable - live VIX/breadth/technical inputs missing.',
         methodology: 'Requires live Yahoo VIX + NSE breadth + Nifty technicals; no static defaults applied.',
         dataSource: 'UNAVAILABLE',
         lastUpdated: new Date().toISOString(),
@@ -1112,7 +1112,7 @@ export class TechnoFundaService {
     return {
       events,
       methodology:
-        'Post-Earnings Announcement Drift (PEAD): 20D price drift and 50-day SMA setup stages computed dynamically from live Yahoo Finance daily close series. SUE Surprise % uses rule-based proxy: (Reported EPS − Trailing 4Q Run-Rate Baseline) / Baseline × 100. Reported PAT growth anchored to statutory SEBI LODR Reg 33 filings.',
+        'Post-Earnings Announcement Drift (PEAD): 20D price drift and 50-day SMA setup stages computed dynamically from live Yahoo Finance daily close series. SUE Surprise % uses rule-based proxy: (Reported EPS - Trailing 4Q Run-Rate Baseline) / Baseline × 100. Reported PAT growth anchored to statutory SEBI LODR Reg 33 filings.',
       dataSource:
         'NSE / BSE Quarterly Corporate Financial Filings (SEBI LODR Reg 33) & Live Yahoo Finance Historical Price Series',
       lastUpdated: new Date().toISOString(),
@@ -1153,7 +1153,7 @@ export class TechnoFundaService {
     return s.includes('buyback') || s.includes('buy-back') || s.includes('buy back') || s.includes('tender offer');
   }
 
-  /** Screener sector HTML is unreliable — ownership is classified by ticker/name */
+  /** Screener sector HTML is unreliable - ownership is classified by ticker/name */
   private classifyBankOwnership(ticker: string, bankName?: string): 'Private' | 'PSU' {
     const sym = (ticker || '').toUpperCase().replace(/\.(NS|BO)$/i, '').trim();
     const PSU = new Set([
@@ -1480,7 +1480,7 @@ export class TechnoFundaService {
       details: m.bm_desc,
     }));
 
-    // List path: NSE metadata only (no per-row Screener scrape — was 50 parallel HTML fetches)
+    // List path: NSE metadata only (no per-row Screener scrape - was 50 parallel HTML fetches)
     const rawFilings = (resultsItems || []).slice(0, 40).map((r: any) => {
       const sym = r.symbol || '';
       const hasXbrl = !!(r.xbrl && r.xbrl !== '-' && !r.xbrl.endsWith('/-'));
@@ -1522,7 +1522,7 @@ export class TechnoFundaService {
       retrievedAt: new Date().toISOString(),
     };
 
-    // Health metadata — only persist SUCCESS when live arrays are non-empty
+    // Health metadata - only persist SUCCESS when live arrays are non-empty
     void this.healthRepo
       .findOne({ where: { sourceKey: 'results_calendar' } })
       .then(async (record) => {
@@ -1752,7 +1752,7 @@ export class TechnoFundaService {
   normalizeFilingText(text: string): string {
     return String(text || '')
       .replace(/[\u00A0\u202F\u2007]/g, ' ')
-      .replace(/[‐‑‒–—―]/g, '-')
+      .replace(/[‐‑‒--―]/g, '-')
       .replace(/\s+/g, ' ')
       .trim();
   }
@@ -1766,7 +1766,7 @@ export class TechnoFundaService {
     if (!text) return undefined;
     const compact = this.normalizeFilingText(text);
 
-    // Do not use [^.]* here — decimals like "29.34 Crore" would truncate at the point.
+    // Do not use [^.]* here - decimals like "29.34 Crore" would truncate at the point.
     const consideration =
       compact.match(
         /(?:broad\s+commercial\s+consideration|broad\s+consideration\s+or\s+size|size\s+of\s+the\s+order(?:\s*\(\s*s\s*\))??(?:\s*\/\s*contract(?:\s*\(\s*s\s*\))?)?)\s*[:.\-]?\s*(.{0,180}?)(?=\s+Whether\b|\s+promoter\b|\s+Excluding\b|\s+Only\b|$)/i,
@@ -1897,7 +1897,7 @@ export class TechnoFundaService {
   async fetchAnnouncementPdfText(link?: string | null): Promise<string> {
     const urls = this.resolveAnnouncementPdfUrls(link);
     if (!urls.length) return '';
-    const PDF_TTL_MS = 6 * 60 * 60 * 1000; // 6h — annexure amounts do not change
+    const PDF_TTL_MS = 6 * 60 * 60 * 1000; // 6h - annexure amounts do not change
     const headers = {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 GoalCompass/1.0',
@@ -2064,7 +2064,7 @@ export class TechnoFundaService {
         }
       }
 
-      // Same 14×2 window as before — bound sockets to avoid BSE rate-limit storms
+      // Same 14×2 window as before - bound sockets to avoid BSE rate-limit storms
       const settled = await this.mapPool(jobs, 6, async ({ url }) => {
         try {
           const res = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
@@ -2986,7 +2986,7 @@ export class TechnoFundaService {
     }
 
     const universe = await this.loadNseEquityUniverse(50);
-    // Quotes only (no Screener P&L per row) — fundamentals load on demand in Valuation Lab
+    // Quotes only (no Screener P&L per row) - fundamentals load on demand in Valuation Lab
     const companies = (
       await this.mapPool(universe, 8, async (item) => {
         const detail = await this.fetchLiveStockDetail(item.yahooTicker);
@@ -3060,7 +3060,7 @@ export class TechnoFundaService {
       const bv = this.parseOrderValueCr(b.orderValue) > 0 ? 1 : 0;
       return bv - av;
     });
-    // Cap PDF enrichment work — amounts often live only in annexure PDFs
+    // Cap PDF enrichment work - amounts often live only in annexure PDFs
     const candidateWins = ranked.slice(0, 40);
     const orderAnnouncements = await this.enrichOrderAnnouncementsFromPdfs(candidateWins);
     // Re-rank after PDF enrichment so valued contracts surface first
@@ -3118,7 +3118,7 @@ export class TechnoFundaService {
         ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
         : new Date().toISOString().split('T')[0];
 
-      // Counterparty: PDF annexure → title/description "from …"
+      // Counterparty: PDF annexure → title/description "from ..."
       const blob = `${ann.title || ''} ${ann.description || ''}`;
       const fromMatch = blob.match(/\bfrom\s+([A-Z][A-Za-z0-9 &.,-]{2,60}?)(?:\s+for|\s+worth|\s+valued|\s*\(|$)/);
       const customer =
@@ -3313,7 +3313,7 @@ export class TechnoFundaService {
           revenue: pl.years.map((y) => y.revenue),
           pat: pl.years.map((y) => y.pat),
           eps: pl.years.map((y) => y.eps),
-          // Banks rarely expose OPM on Screener — derive NPM (PAT / Interest Income)
+          // Banks rarely expose OPM on Screener - derive NPM (PAT / Interest Income)
           opmPct: pl.years.map((y) => {
             if (y.opmPct != null) return y.opmPct;
             if (y.revenue && y.pat != null && Number(y.revenue) !== 0) {
@@ -3469,7 +3469,7 @@ export class TechnoFundaService {
 
       const result = {
         source: makers.length ? 'LIVE_FETCH' : 'UNAVAILABLE',
-        dataSource: 'MoRTH Vahan ETL (live scrape) — OEM unit matrices not fabricated',
+        dataSource: 'MoRTH Vahan ETL (live scrape) - OEM unit matrices not fabricated',
         totalMakers: makers.length,
         makers,
         lastUpdated: new Date().toISOString(),
@@ -3505,7 +3505,7 @@ export class TechnoFundaService {
   } | null> {
     try {
       // 1y supplies fiftyTwoWeek* meta + daily closes; session % via shared Yahoo helper
-      // (never use chartPreviousClose — that is range-start close on long charts).
+      // (never use chartPreviousClose - that is range-start close on long charts).
       const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y`;
       const resp = await fetch(url, {
         headers: {
@@ -3600,7 +3600,7 @@ export class TechnoFundaService {
         .filter((s) => s.distFromHighPct <= 10)
         .sort((a, b) => a.distFromHighPct - b.distFromHighPct)
         .slice(0, 40);
-      filterNote = 'Few names within 5% of 52W high — showing within 10% proximity.';
+      filterNote = 'Few names within 5% of 52W high - showing within 10% proximity.';
     }
     if (lows.length < 5) {
       lows = validStocks
@@ -3609,7 +3609,7 @@ export class TechnoFundaService {
         .slice(0, 40);
       filterNote = filterNote
         ? `${filterNote} Lows also widened to 10%.`
-        : 'Few names within 5% of 52W low — showing within 10% proximity.';
+        : 'Few names within 5% of 52W low - showing within 10% proximity.';
     }
 
     // Last resort: closest proximity ranks so UI is never blank when quotes exist
@@ -3625,12 +3625,12 @@ export class TechnoFundaService {
     const liveData = {
       lastUpdated: new Date().toISOString(),
       source: validStocks.length ? 'YAHOO_LIVE_52W' : 'UNAVAILABLE',
-      dataSource: 'Yahoo Finance delayed quotes for NSE (.NS) — free third-party feed',
+      dataSource: 'Yahoo Finance delayed quotes for NSE (.NS) - free third-party feed',
       scanned: validStocks.length,
       filterNote:
         filterNote ||
         (highs.length === 0 && validStocks.length > 0
-          ? 'No stocks within 5–10% of 52W high/low — showing closest proximity ranks.'
+          ? 'No stocks within 5-10% of 52W high/low - showing closest proximity ranks.'
           : undefined),
       totalHighs: highsOut.length,
       totalLows: lowsOut.length,
@@ -3891,7 +3891,7 @@ export class TechnoFundaService {
           sharesTraded: toNum(t.secAcq ?? t.buyQuantity ?? t.sellQuantity ?? t.noOfShares ?? t.quantity),
           valueLakh: Math.round((valueInr / 100000) * 100) / 100,
           postHoldingPct: toNum(t.afterAcqSharesPer ?? t.postHoldingPct),
-          modeOfAcquisition: t.acqMode || t.modeOfAcquisition || t.acquisitionMode || '—',
+          modeOfAcquisition: t.acqMode || t.modeOfAcquisition || t.acquisitionMode || '-',
         };
       });
 
@@ -3908,7 +3908,7 @@ export class TechnoFundaService {
         ];
       };
 
-      // NSE PIT often lags / has no rows for future-skewed host clocks — walk back calendar years
+      // NSE PIT often lags / has no rows for future-skewed host clocks - walk back calendar years
       const endpoints: string[] = [];
       const now = new Date();
       for (const yearsBack of [0, 1, 2]) {
@@ -4051,7 +4051,7 @@ export class TechnoFundaService {
       const upcomingRows = Array.isArray(upcomingRaw) ? upcomingRaw : [];
       const pastRows = Array.isArray(pastRaw) ? pastRaw : [];
 
-      // Live bidding (Active) — may include category Total row with subscription
+      // Live bidding (Active) - may include category Total row with subscription
       for (const [idx, item] of currentRows.entries()) {
         const subscriptionTimes = item.noOfTime ? Math.round(parseFloat(item.noOfTime) * 100) / 100 : 0;
         upsert(
@@ -4107,7 +4107,7 @@ export class TechnoFundaService {
         );
       }
 
-      // Past 90d — Listed when listingDate present, else Closed
+      // Past 90d - Listed when listingDate present, else Closed
       for (const [idx, item] of pastRows.entries()) {
         const listingDate = item.listingDate && item.listingDate !== '-' ? String(item.listingDate).trim() : undefined;
         const status = this.normalizeIpoStatus('', listingDate);

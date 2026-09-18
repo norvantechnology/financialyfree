@@ -435,7 +435,7 @@ export function PortfolioRebalancingModal({ isOpen, onClose, holdings }: Portfol
             <strong>
               {rebalanceResult
                 ? `₹${rebalanceResult.totalPortfolioValue.toLocaleString('en-IN')}`
-                : '—'}
+                : '-'}
             </strong>
           </div>
           <button

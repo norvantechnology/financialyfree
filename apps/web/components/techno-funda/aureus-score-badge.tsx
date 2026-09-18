@@ -110,7 +110,7 @@ export function AureusScoreBadge({
         }}
         className="hover:shadow-sm"
       >
-        <span>Aureus {score !== null ? score : '—'}</span>
+        <span>Aureus {score !== null ? score : '-'}</span>
         {isPartial && !isInsufficient && (
           <span
             style={{
@@ -179,7 +179,7 @@ export function AureusScoreBadge({
                   </span>
                 </div>
                 <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
-                  Aureus Score: {result.symbol ? `${result.symbol} — ` : ''}{score !== null ? `${score} / 100` : 'Data Pending'}
+                  Aureus Score: {result.symbol ? `${result.symbol} - ` : ''}{score !== null ? `${score} / 100` : 'Data Pending'}
                 </h3>
                 <div style={{ fontSize: '12.5px', color: '#38BDF8', fontWeight: 600, marginTop: '2px' }}>
                   {tierLabel}
@@ -352,7 +352,7 @@ export function AureusScoreBadge({
 }
 
 /**
- * AureusScoreCard — Full analytical card for Valuation Lab & Shareholding tab
+ * AureusScoreCard - Full analytical card for Valuation Lab & Shareholding tab
  */
 export function AureusScoreCard({
   scoreResult: propResult,

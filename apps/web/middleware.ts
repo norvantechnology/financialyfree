@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 /**
- * Protected route prefixes — any path starting with these requires auth.
+ * Protected route prefixes - any path starting with these requires auth.
  * The middleware runs on the Edge runtime and reads the `accessToken` cookie
  * (which auth-client.ts syncs from localStorage on every login).
  */
@@ -17,12 +17,12 @@ const PROTECTED_PREFIXES = [
 ];
 
 /**
- * Auth-only routes — redirect already-logged-in users away from these.
+ * Auth-only routes - redirect already-logged-in users away from these.
  */
 const AUTH_ROUTES = ['/auth/login', '/auth/register', '/auth/forgot-password'];
 
 /**
- * Lightweight JWT expiry check — no crypto needed, just decode the payload.
+ * Lightweight JWT expiry check - no crypto needed, just decode the payload.
  * Returns true if the token is present and not expired.
  */
 function isTokenValid(token: string): boolean {
@@ -30,7 +30,9 @@ function isTokenValid(token: string): boolean {
     const parts = token.split('.');
     if (parts.length < 2) return false;
     const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(atob(base64 + '=='.slice((base64.length + 3) % 4 === 0 ? 0 : (base64.length + 3) % 4)));
+    const payload = JSON.parse(
+      atob(base64 + '=='.slice((base64.length + 3) % 4 === 0 ? 0 : (base64.length + 3) % 4)),
+    );
     if (payload.exp && Date.now() / 1000 > payload.exp) return false;
     return true;
   } catch {
@@ -60,18 +62,25 @@ export function middleware(request: NextRequest) {
 
   // Read the access token cookie (synced by auth-client.ts on login)
   const accessToken = request.cookies.get('accessToken')?.value;
-  const hasValidToken = accessToken ? isTokenValid(accessToken) : false;
+  const hasValidAccess = accessToken ? isTokenValid(accessToken) : false;
 
-  // Also check refreshToken — if user has a refresh token, they are "logged in"
-  // even if access token is expired (sidebar-layout handles silent refresh)
+  // Refresh token must also be unexpired - expired cookies must not keep the user "logged in"
   const refreshToken = request.cookies.get('refreshToken')?.value;
-  const isAuthenticated = hasValidToken || !!refreshToken;
+  const hasValidRefresh = refreshToken ? isTokenValid(refreshToken) : false;
+  const isAuthenticated = hasValidAccess || hasValidRefresh;
 
   // --- 3. Protect dashboard/app routes ---
   if (isProtected && !isAuthenticated) {
     const loginUrl = new URL('/auth/login', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
     const response = NextResponse.redirect(loginUrl);
+    // Drop stale cookies so the browser does not keep sending expired tokens
+    if (accessToken && !hasValidAccess) {
+      response.cookies.set('accessToken', '', { path: '/', maxAge: 0 });
+    }
+    if (refreshToken && !hasValidRefresh) {
+      response.cookies.set('refreshToken', '', { path: '/', maxAge: 0 });
+    }
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     return response;
   }

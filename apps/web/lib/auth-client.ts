@@ -12,10 +12,25 @@ export interface StoredUser {
   [key: string]: any;
 }
 
+/** Access cookie ~1 day (JWT itself is short-lived; refresh renews it). */
+export const ACCESS_COOKIE_MAX_AGE = 60 * 60 * 24;
+/** Remember-me refresh cookie: 60 days. */
+export const REFRESH_COOKIE_MAX_AGE_REMEMBER = 60 * 60 * 24 * 60;
+/** Without remember-me: 1 day refresh. */
+export const REFRESH_COOKIE_MAX_AGE_SESSION = 60 * 60 * 24;
+
+let refreshInFlight: Promise<string | null> | null = null;
+
 /**
  * Safely parse a JWT payload in the browser.
  */
-export function parseJwtPayload(token: string): { sub?: string; email?: string; role?: string; exp?: number; sessionId?: string } | null {
+export function parseJwtPayload(token: string): {
+  sub?: string;
+  email?: string;
+  role?: string;
+  exp?: number;
+  sessionId?: string;
+} | null {
   try {
     const parts = token.split('.');
     if (parts.length < 2) return null;
@@ -25,7 +40,7 @@ export function parseJwtPayload(token: string): { sub?: string; email?: string; 
       atob(base64)
         .split('')
         .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
+        .join(''),
     );
     return JSON.parse(jsonPayload);
   } catch {
@@ -38,68 +53,184 @@ export function parseJwtPayload(token: string): { sub?: string; email?: string; 
  */
 export function isTokenExpired(token: string, bufferSeconds = 5): boolean {
   const payload = parseJwtPayload(token);
-  if (!payload || !payload.exp) return false;
+  if (!payload || !payload.exp) return true;
   return payload.exp * 1000 - bufferSeconds * 1000 <= Date.now();
 }
 
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
+function writeCookie(name: string, value: string, maxAgeSeconds: number) {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+}
+
 /**
- * Retrieve the current access token from localStorage or document.cookie,
- * keeping both synchronized.
+ * Persist access + refresh tokens to localStorage and cookies.
+ */
+export function persistAuthTokens(opts: {
+  accessToken: string;
+  refreshToken?: string | null;
+  expiresIn?: number;
+  rememberMe?: boolean;
+}): void {
+  if (typeof window === 'undefined') return;
+  const rememberMe = opts.rememberMe !== false;
+  const accessMax = Math.max(60, opts.expiresIn || ACCESS_COOKIE_MAX_AGE);
+  const refreshMax = rememberMe ? REFRESH_COOKIE_MAX_AGE_REMEMBER : REFRESH_COOKIE_MAX_AGE_SESSION;
+
+  try {
+    localStorage.setItem('accessToken', opts.accessToken);
+    writeCookie('accessToken', opts.accessToken, accessMax);
+    localStorage.setItem('ff_remember_me', rememberMe ? '1' : '0');
+
+    if (opts.refreshToken) {
+      localStorage.setItem('refreshToken', opts.refreshToken);
+      writeCookie('refreshToken', opts.refreshToken, refreshMax);
+    }
+  } catch {
+    /* ignore quota / private mode */
+  }
+  dispatchAuthChange();
+}
+
+function getRememberMePreference(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    const v = localStorage.getItem('ff_remember_me');
+    if (v === '0') return false;
+  } catch {}
+  return true;
+}
+
+/**
+ * Retrieve a non-expired access token from localStorage or cookie.
  */
 export function getStoredAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
   let token = localStorage.getItem('accessToken');
 
-  if (!token && typeof document !== 'undefined') {
-    const match = document.cookie.match(/(?:^|;\s*)accessToken=([^;]+)/);
-    if (match && match[1]) {
-      token = match[1];
+  if (!token) {
+    token = readCookie('accessToken');
+    if (token) {
       try {
         localStorage.setItem('accessToken', token);
       } catch {}
     }
   }
 
-  // If token is found in localStorage but not cookie, sync to cookie
-  if (token && typeof document !== 'undefined' && !document.cookie.includes('accessToken=')) {
-    try {
-      document.cookie = `accessToken=${token}; path=/; max-age=604800; SameSite=Lax`;
-    } catch {}
+  if (!token) return null;
+  if (isTokenExpired(token)) return null;
+
+  if (typeof document !== 'undefined' && !document.cookie.includes('accessToken=')) {
+    writeCookie('accessToken', token, ACCESS_COOKIE_MAX_AGE);
   }
 
   return token;
 }
 
 /**
- * Retrieve the refresh token from localStorage or document.cookie,
- * keeping both synchronized.
+ * Retrieve a non-expired refresh token from localStorage or cookie.
  */
 export function getStoredRefreshToken(): string | null {
   if (typeof window === 'undefined') return null;
   let token = localStorage.getItem('refreshToken');
 
-  if (!token && typeof document !== 'undefined') {
-    const match = document.cookie.match(/(?:^|;\s*)refreshToken=([^;]+)/);
-    if (match && match[1]) {
-      token = match[1];
+  if (!token) {
+    token = readCookie('refreshToken');
+    if (token) {
       try {
         localStorage.setItem('refreshToken', token);
       } catch {}
     }
   }
 
-  if (token && typeof document !== 'undefined' && !document.cookie.includes('refreshToken=')) {
-    try {
-      document.cookie = `refreshToken=${token}; path=/; max-age=2592000; SameSite=Lax`;
-    } catch {}
+  if (!token) return null;
+  if (isTokenExpired(token)) return null;
+
+  if (typeof document !== 'undefined' && !document.cookie.includes('refreshToken=')) {
+    writeCookie(
+      'refreshToken',
+      token,
+      getRememberMePreference() ? REFRESH_COOKIE_MAX_AGE_REMEMBER : REFRESH_COOKIE_MAX_AGE_SESSION,
+    );
   }
 
   return token;
 }
 
 /**
+ * Ensure a valid access token - silently refresh when expired.
+ * Returns null and clears auth when refresh is impossible.
+ */
+export async function ensureFreshAccessToken(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+
+  const existing = getStoredAccessToken();
+  if (existing) return existing;
+
+  const refreshToken = getStoredRefreshToken();
+  if (!refreshToken) {
+    clearAuthStorage();
+    return null;
+  }
+
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    try {
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        clearAuthStorage();
+        return null;
+      }
+      const data = await res.json();
+      const newAccess = data.tokens?.accessToken || data.accessToken;
+      const newRefresh = data.tokens?.refreshToken || data.refreshToken;
+      const expiresIn = data.tokens?.expiresIn || data.expiresIn || 900;
+      if (!newAccess) {
+        clearAuthStorage();
+        return null;
+      }
+      persistAuthTokens({
+        accessToken: newAccess,
+        refreshToken: newRefresh || refreshToken,
+        expiresIn,
+        rememberMe: getRememberMePreference(),
+      });
+      return newAccess;
+    } catch {
+      return null;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+
+  return refreshInFlight;
+}
+
+/**
+ * Redirect to login with callbackUrl when the session cannot be restored.
+ */
+export function redirectToLogin(callbackPath?: string): void {
+  if (typeof window === 'undefined') return;
+  clearAuthStorage();
+  const path = callbackPath || window.location.pathname + window.location.search;
+  const loginUrl = `/auth/login?callbackUrl=${encodeURIComponent(path || '/options-lab')}`;
+  window.location.href = loginUrl;
+}
+
+/**
  * Retrieve the current user profile from localStorage.
- * If missing, attempts to reconstruct from the JWT access token payload.
  */
 export function getStoredUser(): StoredUser | null {
   if (typeof window === 'undefined') return null;
@@ -112,9 +243,8 @@ export function getStoredUser(): StoredUser | null {
     }
   } catch {}
 
-  // Fallback: reconstruct minimal user profile from active JWT token
   if (!user) {
-    const token = getStoredAccessToken();
+    const token = getStoredAccessToken() || getStoredRefreshToken();
     if (token) {
       const payload = parseJwtPayload(token);
       if (payload && payload.email) {
@@ -133,9 +263,6 @@ export function getStoredUser(): StoredUser | null {
   return user;
 }
 
-/**
- * Notify all components and tabs of an auth state update.
- */
 export function dispatchAuthChange(): void {
   if (typeof window === 'undefined') return;
   try {
@@ -144,9 +271,6 @@ export function dispatchAuthChange(): void {
   } catch {}
 }
 
-/**
- * Clear all authentication storage, cookies, and entitlements.
- */
 export function clearAuthStorage(): void {
   if (typeof window === 'undefined') return;
   try {
@@ -154,6 +278,7 @@ export function clearAuthStorage(): void {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('ff_active_sub');
+    localStorage.removeItem('ff_remember_me');
 
     if (typeof document !== 'undefined') {
       document.cookie = 'accessToken=; path=/; max-age=0; SameSite=Lax';
@@ -163,11 +288,6 @@ export function clearAuthStorage(): void {
   } catch {}
 }
 
-/**
- * Get API base URL or relative path for client calls.
- * In browser, returns empty string so requests to `/api/v1/...` go through Next.js proxy rewrite,
- * eliminating CORS, devtunnel drops, and localhost network mismatches across devices.
- */
 export function getApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
     return '';
@@ -175,10 +295,6 @@ export function getApiBaseUrl(): string {
   return process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 }
 
-/**
- * Check if the database-backed global access mode is set to FREE.
- * Default is true per requirement. If explicitly set to 'SUBSCRIPTION' in DB/storage, returns false.
- */
 export function isAllAccessFreeMode(): boolean {
   if (typeof window === 'undefined') return true;
   const stored = localStorage.getItem('ff_access_mode');
@@ -186,10 +302,10 @@ export function isAllAccessFreeMode(): boolean {
   return true;
 }
 
-/**
- * Fetch and cache current platform access mode from backend API.
- */
-export async function fetchAppAccessMode(): Promise<{ mode: 'FREE' | 'SUBSCRIPTION'; isAllAccessFree: boolean }> {
+export async function fetchAppAccessMode(): Promise<{
+  mode: 'FREE' | 'SUBSCRIPTION';
+  isAllAccessFree: boolean;
+}> {
   try {
     const baseUrl = getApiBaseUrl();
     const res = await fetch(`${baseUrl}/api/v1/app-config/access-mode`);
@@ -217,10 +333,6 @@ export async function fetchAppAccessMode(): Promise<{ mode: 'FREE' | 'SUBSCRIPTI
   };
 }
 
-/**
- * Synchronously evaluate user authentication and pro subscription/entitlement status.
- * Automatically unlocks access for all users when isAllAccessFreeMode() is active.
- */
 export function isUserSubscribed(): {
   isLoggedIn: boolean;
   isSubscribed: boolean;
@@ -230,19 +342,37 @@ export function isUserSubscribed(): {
 } {
   const isFree = isAllAccessFreeMode();
   if (typeof window === 'undefined') {
-    return { isLoggedIn: false, isSubscribed: isFree, isAllAccessFree: isFree, tier: isFree ? 'entitled' : 'guest', user: null };
+    return {
+      isLoggedIn: false,
+      isSubscribed: isFree,
+      isAllAccessFree: isFree,
+      tier: isFree ? 'entitled' : 'guest',
+      user: null,
+    };
   }
 
   const token = getStoredAccessToken();
   const refreshToken = getStoredRefreshToken();
   const storedUser = getStoredUser();
 
-  if (!token && !refreshToken && !storedUser) {
-    return { isLoggedIn: false, isSubscribed: isFree, isAllAccessFree: isFree, tier: isFree ? 'entitled' : 'guest', user: null };
+  if (!token && !refreshToken) {
+    return {
+      isLoggedIn: false,
+      isSubscribed: isFree,
+      isAllAccessFree: isFree,
+      tier: isFree ? 'entitled' : 'guest',
+      user: null,
+    };
   }
 
   if (storedUser?.role === 'admin') {
-    return { isLoggedIn: true, isSubscribed: true, isAllAccessFree: isFree, tier: 'admin', user: storedUser };
+    return {
+      isLoggedIn: true,
+      isSubscribed: true,
+      isAllAccessFree: isFree,
+      tier: 'admin',
+      user: storedUser,
+    };
   }
 
   let hasActiveSub = false;
@@ -260,12 +390,24 @@ export function isUserSubscribed(): {
     storedUser?.role === 'investor' ||
     (Array.isArray(storedUser?.entitlements) &&
       storedUser.entitlements.some((s: string) =>
-        ['course_lifetime', 'tools_1yr', 'bundle_all', 'bundle_diy'].includes(s)
+        ['course_lifetime', 'tools_1yr', 'bundle_all', 'bundle_diy'].includes(s),
       ));
 
   if (hasEntitlement) {
-    return { isLoggedIn: true, isSubscribed: true, isAllAccessFree: isFree, tier: 'entitled', user: storedUser };
+    return {
+      isLoggedIn: true,
+      isSubscribed: true,
+      isAllAccessFree: isFree,
+      tier: 'entitled',
+      user: storedUser,
+    };
   }
 
-  return { isLoggedIn: true, isSubscribed: false, isAllAccessFree: isFree, tier: 'authenticated', user: storedUser };
+  return {
+    isLoggedIn: true,
+    isSubscribed: false,
+    isAllAccessFree: isFree,
+    tier: 'authenticated',
+    user: storedUser,
+  };
 }

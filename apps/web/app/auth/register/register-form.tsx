@@ -104,7 +104,7 @@ export function RegisterForm() {
         <h3 className="auth-header-title" style={{ fontSize: '20px', marginBottom: '8px' }}>
           Account Created Successfully!
         </h3>
-        <p style={{ color: '#64748B', fontSize: '13.5px' }}>Taking you to your workspace…</p>
+        <p style={{ color: '#64748B', fontSize: '13.5px' }}>Taking you to your workspace...</p>
       </div>
     );
   }

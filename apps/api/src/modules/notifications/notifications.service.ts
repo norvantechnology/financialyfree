@@ -249,7 +249,7 @@ export class NotificationsService {
   }
 
   /**
-   * Public marketing contact form — routes through existing EMAIL_PROVIDER
+   * Public marketing contact form - routes through existing EMAIL_PROVIDER
    * (EmailMockProvider in non-prod; swap provider for live SES/SendGrid).
    */
   async submitContactForm(input: {

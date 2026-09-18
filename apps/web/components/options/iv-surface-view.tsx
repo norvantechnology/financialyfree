@@ -285,9 +285,9 @@ export const IvSurfaceView: React.FC<IvSurfaceViewProps> = ({ symbol, selectedEx
   }, [gexData]);
 
   const formattedAtmIv = useMemo(() => {
-    if (ivSmileData?.atmIv == null) return '—';
+    if (ivSmileData?.atmIv == null) return '-';
     const val = Number(ivSmileData.atmIv);
-    if (!Number.isFinite(val)) return '—';
+    if (!Number.isFinite(val)) return '-';
     const normalized = val > 5 ? val : val * 100;
     return `${normalized.toFixed(1)}%`;
   }, [ivSmileData?.atmIv]);
@@ -317,7 +317,7 @@ export const IvSurfaceView: React.FC<IvSurfaceViewProps> = ({ symbol, selectedEx
         <div className="opt-kpi-card">
           <span className="opt-kpi-label">Zero-Gamma Flip Strike</span>
           <div className="opt-kpi-value" style={{ color: '#D97706' }}>
-            {gexData?.zeroGammaStrike ? `₹${gexData.zeroGammaStrike.toLocaleString('en-IN')}` : '—'}
+            {gexData?.zeroGammaStrike ? `₹${gexData.zeroGammaStrike.toLocaleString('en-IN')}` : '-'}
           </div>
           <span className="opt-kpi-sub">Volatility pivot threshold</span>
         </div>

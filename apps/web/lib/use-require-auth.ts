@@ -1,19 +1,17 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getStoredAccessToken, getStoredRefreshToken, getStoredUser } from './auth-client';
+import {
+  getStoredAccessToken,
+  getStoredRefreshToken,
+  ensureFreshAccessToken,
+  clearAuthStorage,
+} from './auth-client';
 
 /**
- * useRequireAuth
- *
- * Client-side auth guard hook. Use this in any page/component that requires the
- * user to be logged in. It complements the Edge Middleware (which handles the
- * server-side redirect) to also handle cases where auth state changes while the
- * user is already on the page (e.g. token expiry, manual localStorage clear).
- *
- * @param redirectTo  The path to redirect to if unauthenticated. Defaults to '/auth/login'.
- * @param enabled     Set to false to disable the guard (e.g. on public pages). Defaults to true.
+ * Client-side auth guard. Redirects to login when there is no valid access
+ * or refresh token. Attempts a silent refresh once before redirecting.
  */
 export function useRequireAuth(
   redirectTo = '/auth/login',
@@ -21,51 +19,60 @@ export function useRequireAuth(
 ): { isAuthenticated: boolean; isLoading: boolean } {
   const router = useRouter();
   const checked = useRef(false);
-
-  // We use a ref for loading to avoid triggering re-renders inside useEffect
-  const isLoadingRef = useRef(true);
-  const isAuthRef = useRef(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     if (!enabled) {
-      isLoadingRef.current = false;
-      isAuthRef.current = true;
+      setIsLoading(false);
+      setIsAuthenticated(true);
       return;
     }
 
-    const check = () => {
-      const accessToken = getStoredAccessToken();
-      const refreshToken = getStoredRefreshToken();
-      const user = getStoredUser();
-      const isAuthenticated = !!(accessToken || refreshToken || user);
+    let cancelled = false;
 
-      isAuthRef.current = isAuthenticated;
-      isLoadingRef.current = false;
-
-      if (!isAuthenticated && !checked.current) {
-        checked.current = true;
-        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-        const loginUrl = `${redirectTo}?callbackUrl=${encodeURIComponent(currentPath)}`;
-        router.replace(loginUrl);
-      }
+    const goLogin = () => {
+      if (checked.current) return;
+      checked.current = true;
+      clearAuthStorage();
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+      const loginUrl = `${redirectTo}?callbackUrl=${encodeURIComponent(currentPath)}`;
+      router.replace(loginUrl);
     };
 
-    // Run immediately
-    check();
+    const check = async () => {
+      const access = getStoredAccessToken();
+      const refresh = getStoredRefreshToken();
+      if (access || refresh) {
+        const token = await ensureFreshAccessToken();
+        if (cancelled) return;
+        if (token) {
+          setIsAuthenticated(true);
+          setIsLoading(false);
+          return;
+        }
+      }
+      if (cancelled) return;
+      setIsAuthenticated(false);
+      setIsLoading(false);
+      goLogin();
+    };
 
-    // Also re-check when auth state changes (e.g. another tab logs out)
-    const onAuthChange = () => check();
+    void check();
+
+    const onAuthChange = () => {
+      checked.current = false;
+      void check();
+    };
     window.addEventListener('ff_auth_state_changed', onAuthChange);
     window.addEventListener('storage', onAuthChange);
 
     return () => {
+      cancelled = true;
       window.removeEventListener('ff_auth_state_changed', onAuthChange);
       window.removeEventListener('storage', onAuthChange);
     };
   }, [enabled, redirectTo, router]);
 
-  return {
-    isAuthenticated: isAuthRef.current,
-    isLoading: isLoadingRef.current,
-  };
+  return { isAuthenticated, isLoading };
 }

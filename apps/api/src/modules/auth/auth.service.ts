@@ -58,8 +58,8 @@ export class AuthService {
       phone: dto.phone,
     });
 
-    const session = await this.createSession(user, ipAddress);
-    const tokens = await this.issueTokens(user, session.id);
+    const session = await this.createSession(user, ipAddress, true);
+    const tokens = await this.issueTokens(user, session.id, { rememberMe: true });
 
     return {
       user: this.usersService.toDto(user),
@@ -85,8 +85,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const session = await this.createSession(user, ipAddress);
-    const tokens = await this.issueTokens(user, session.id);
+    const rememberMe = dto.rememberMe !== false;
+    const session = await this.createSession(user, ipAddress, rememberMe);
+    const tokens = await this.issueTokens(user, session.id, { rememberMe });
 
     return {
       user: this.usersService.toDto(user),
@@ -121,7 +122,11 @@ export class AuthService {
     const user = await this.usersService.findById(payload.sub);
     if (!user) throw new UnauthorizedException('User not found');
 
-    return this.issueTokens(user, payload.sessionId);
+    return this.issueTokens(user, payload.sessionId, {
+      rememberMe: true,
+      // Keep the same refresh lifetime as the revoked token when possible
+      refreshExpiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', '60d'),
+    });
   }
 
   // ── Logout ───────────────────────────────────────────────────────────
@@ -160,9 +165,14 @@ export class AuthService {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────
-  private async createSession(user: UserEntity, ipAddress?: string): Promise<UserSessionEntity> {
+  private async createSession(
+    user: UserEntity,
+    ipAddress?: string,
+    rememberMe = true,
+  ): Promise<UserSessionEntity> {
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30); // 30-day session
+    // Remember-me sessions track the refresh lifetime (60d); short sessions last 1 day
+    expiresAt.setDate(expiresAt.getDate() + (rememberMe ? 60 : 1));
 
     const session = this.sessionsRepo.create({
       userId: user.id,
@@ -173,7 +183,11 @@ export class AuthService {
     return this.sessionsRepo.save(session);
   }
 
-  private async issueTokens(user: UserEntity, sessionId: string): Promise<AuthTokensDto> {
+  private async issueTokens(
+    user: UserEntity,
+    sessionId: string,
+    opts?: { rememberMe?: boolean; refreshExpiresIn?: string },
+  ): Promise<AuthTokensDto> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -181,22 +195,29 @@ export class AuthService {
       sessionId,
     };
 
+    const accessExpiresIn = this.config.get('JWT_EXPIRES_IN', '15m');
     const accessToken = this.jwtService.sign(payload, {
       secret: this.config.getOrThrow('JWT_SECRET'),
-      expiresIn: this.config.get('JWT_EXPIRES_IN', '15m'),
+      expiresIn: accessExpiresIn,
     });
+
+    const rememberMe = opts?.rememberMe !== false;
+    const refreshExpiresIn =
+      opts?.refreshExpiresIn ||
+      (rememberMe
+        ? this.config.get<string>('JWT_REFRESH_EXPIRES_IN') || '60d'
+        : this.config.get<string>('JWT_REFRESH_EXPIRES_IN_SHORT') || '1d');
 
     const refreshToken = this.jwtService.sign(
       { ...payload, jti: crypto.randomUUID() },
       {
         secret: this.config.getOrThrow('JWT_REFRESH_SECRET'),
-        expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
+        expiresIn: refreshExpiresIn,
       },
     );
 
-    // Store refresh token hash
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    // Store refresh token hash - DB expiry must match JWT lifetime
+    const expiresAt = new Date(Date.now() + parseDurationMs(refreshExpiresIn));
     await this.refreshTokensRepo.save(
       this.refreshTokensRepo.create({
         sessionId,
@@ -205,10 +226,26 @@ export class AuthService {
       }),
     );
 
-    return { accessToken, refreshToken, expiresIn: 900 }; // 15 min in seconds
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: Math.floor(parseDurationMs(accessExpiresIn) / 1000),
+    };
   }
 
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
+}
+
+/** Parse jwt-style durations like 15m / 7d / 60d into milliseconds. */
+function parseDurationMs(value: string): number {
+  const raw = String(value || '').trim();
+  const m = /^(\d+)\s*([smhd])$/i.exec(raw);
+  if (!m) return 60 * 24 * 60 * 60 * 1000; // default 60d
+  const n = Number(m[1]);
+  const unit = m[2].toLowerCase();
+  const mult =
+    unit === 's' ? 1000 : unit === 'm' ? 60_000 : unit === 'h' ? 3_600_000 : 86_400_000;
+  return n * mult;
 }

@@ -39,8 +39,8 @@ function IconCamera({ size = 16 }: { size?: number }) {
 
 /**
  * Live NSE/BSE chart via TradingView Advanced Chart.
- * Drawings, indicators, multi-timeframe — for strategy analysis & long-term testing.
- * (App Feed / delayed Yahoo candles removed — not accurate enough for live work.)
+ * Drawings, indicators, multi-timeframe - for strategy analysis & long-term testing.
+ * (App Feed / delayed Yahoo candles removed - not accurate enough for live work.)
  */
 export const NiftyCandlestickChart: React.FC<NiftyCandlestickChartProps> = ({
   symbol = 'NIFTY',
@@ -132,7 +132,7 @@ export const NiftyCandlestickChart: React.FC<NiftyCandlestickChartProps> = ({
 
       {!immersive && (
         <p className="nifty-chart-hint">
-          Live NSE quotes, drawings, Fibonacci, indicators &amp; multi-timeframe analysis via TradingView —
+          Live NSE quotes, drawings, Fibonacci, indicators &amp; multi-timeframe analysis via TradingView -
           use this to plan and test strategies before paper/live execution.
         </p>
       )}

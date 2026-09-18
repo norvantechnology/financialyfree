@@ -95,7 +95,7 @@ export function BulkBlockDealsTab({ data, isLoading, onRefresh }: BulkBlockDeals
   if (isLoading && !data) {
     return (
       <TfLoadingState
-        title="Loading bulk & block deals…"
+        title="Loading bulk & block deals..."
         subtitle="Pulling live exchange and market data for this workspace."
         variant="table"
       />

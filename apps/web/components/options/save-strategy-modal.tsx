@@ -180,7 +180,7 @@ export const SaveStrategyModal: React.FC<SaveStrategyModalProps> = ({
                 Cancel
               </button>
               <button type="submit" disabled={isSaving || !name.trim()} className="opt-save-btn primary">
-                {isSaving ? 'Saving…' : 'Save Strategy'}
+                {isSaving ? 'Saving...' : 'Save Strategy'}
               </button>
             </div>
           </form>

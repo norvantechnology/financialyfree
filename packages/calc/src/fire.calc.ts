@@ -21,7 +21,7 @@ export interface FireInput {
 export interface FireResult {
   fireNumber: number; // Target corpus in INR
   currentCorpus: number; // Current investments
-  progressPct: number; // 0–100
+  progressPct: number; // 0-100
   projectedCorpusAtRetirement: number;
   fireYear: number; // Calendar year when FIRE is achieved
   yearsToFire: number;

@@ -102,7 +102,7 @@ export function ContactForm() {
         />
       </div>
       <button type="submit" className="mkt-btn mkt-btn-primary" disabled={status === 'loading'}>
-        {status === 'loading' ? 'Sending…' : 'Send message'}
+        {status === 'loading' ? 'Sending...' : 'Send message'}
       </button>
       {status === 'ok' ? (
         <div className="mkt-toast ok" role="status">

@@ -176,7 +176,7 @@ export function PeadHowToUseModal({ isOpen, onClose }: PeadHowToUseModalProps) {
                   Score &gt; 30
                 </span>
                 <span style={{ fontSize: '12.5px', color: '#1E293B', lineHeight: 1.5 }}>
-                  <strong style={{ color: '#0F172A' }}>Strong Positive Surprise:</strong> Actual PAT significantly beats market expectations and guidance. Offers high probability of sustained 20–60 day momentum.
+                  <strong style={{ color: '#0F172A' }}>Strong Positive Surprise:</strong> Actual PAT significantly beats market expectations and guidance. Offers high probability of sustained 20-60 day momentum.
                 </span>
               </div>
 

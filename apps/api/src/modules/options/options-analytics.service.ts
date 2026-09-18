@@ -186,11 +186,8 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
       putGamma: row.pe.gamma || 0.0001,
     }));
 
-    // Lot size: 25 for NIFTY, 15 for BANKNIFTY, 50 for FINNIFTY, default 25
-    let lotSize = 25;
-    if (underlying.toUpperCase() === 'BANKNIFTY') lotSize = 15;
-    if (underlying.toUpperCase() === 'FINNIFTY') lotSize = 40;
-    if (underlying.toUpperCase() === 'SENSEX') lotSize = 10;
+    // Live lot from option-chain / Upstox FO master - never a static schedule table
+    const lotSize = Math.max(1, Number(chain.lotSize) || 1);
 
     const gexResult = calculateGex(chain.spotPrice, strikesData, lotSize);
 
@@ -224,7 +221,7 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
     const chain = await this.marketDataService.getOptionChain(underlying, expiry);
     const selectedExpiry = chain.selectedExpiry || '';
 
-    // Empty expiry cannot query Postgres date columns — return honestly empty
+    // Empty expiry cannot query Postgres date columns - return honestly empty
     if (!selectedExpiry) {
       return { underlying, expiry: '', points: [] };
     }
@@ -276,7 +273,7 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
       return { underlying, expiry: selectedExpiry, points };
     }
 
-    // No invented intraday series — return empty until real oi_snapshots exist
+    // No invented intraday series - return empty until real oi_snapshots exist
     // (or a single current point when live chain OI is available)
     if (chain.contracts.length > 0 && (chain.source === 'NSE_LIVE' || chain.source === 'BROKER_LIVE')) {
       const totalCallOi = chain.contracts.reduce((acc, c) => acc + c.ce.oi, 0);
@@ -370,7 +367,7 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
     let marksSource = 'FALLBACK';
     let liveQuoteCount = 0;
 
-    // One shared-cache chain per symbol:expiry (preferFresh — do not hammer NSE every poll)
+    // One shared-cache chain per symbol:expiry (preferFresh - do not hammer NSE every poll)
     const chainCache = new Map<string, Awaited<ReturnType<typeof this.marketDataService.getOptionChain>>>();
     const loadChain = async (symbol: string, expiry: string | Date) => {
       const expiryIso = this.marketDataService.toExpiryIso(expiry);

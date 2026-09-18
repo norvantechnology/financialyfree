@@ -725,7 +725,7 @@ function TechnoFundaContent() {
     setNetDebt(nd);
     setSharesOutstanding(sh);
     if (growth) setGrowthRate(growth);
-    // WACC / terminal remain user model inputs — do not invent market facts
+    // WACC / terminal remain user model inputs - do not invent market facts
     if (assumptions.waccPct != null) setWacc(Number(assumptions.waccPct));
     if (assumptions.terminalGrowthPct != null) setTerminalGrowth(Number(assumptions.terminalGrowthPct));
 
@@ -968,7 +968,7 @@ function TechnoFundaContent() {
     setPulseModalOpen(true);
   };
 
-  // Used by PEAD table, shareholding table — no MasterStockItem available
+  // Used by PEAD table, shareholding table - no MasterStockItem available
   const openPulseByName = (companyName: string, symbol: string) => {
     setPulseCompanyName(companyName);
     setPulseSymbol(symbol);
@@ -1721,7 +1721,7 @@ function TechnoFundaContent() {
               ₹{cmp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 500 }}>
-              ({valuationData.cmpSymbol || symbolParam || '—'})
+              ({valuationData.cmpSymbol || symbolParam || '-'})
             </span>
           </div>
           <div style={{ fontSize: '11px', color: '#9CA3AF', fontStyle: 'italic' }}>
@@ -1754,7 +1754,7 @@ function TechnoFundaContent() {
             </span>
           )}
           <span style={{ fontSize: '10.5px', color: '#6B7280', fontWeight: 500 }}>
-            • {valuationData.cmpSymbol || symbolParam || '—'}
+            • {valuationData.cmpSymbol || symbolParam || '-'}
           </span>
         </div>
 
@@ -1956,7 +1956,7 @@ function TechnoFundaContent() {
         {activeTab === 'valuation' && (
           <div>
             {isRefreshingFeeds && (!valuationData.targetCompany || valuationData.financialsCr.revenue === 0) ? (
-              <TfLoadingState title="Loading Valuation Financials…" subtitle="Fetching live exchange and market data for this workspace." variant="panel" rows={4} />
+              <TfLoadingState title="Loading Valuation Financials..." subtitle="Fetching live exchange and market data for this workspace." variant="panel" rows={4} />
             ) : (!valuationData.targetCompany || valuationData.financialsCr.revenue === 0) ? (
               <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
                 <Activity size={36} style={{ margin: '0 auto 12px', color: '#94A3B8' }} />
@@ -1990,7 +1990,7 @@ function TechnoFundaContent() {
               const cleanCompanyName = valuationData.targetCompany
                 ? valuationData.targetCompany.replace(/\s*\([^)]*\)/g, '').trim()
                 : (liveStock?.name || sym || 'Select a symbol');
-              const sectorName = (valuationData as any).sector || liveStock?.sector || '—';
+              const sectorName = (valuationData as any).sector || liveStock?.sector || '-';
               const cmp = valuationData.currentMarketPrice || liveStock?.price || 0;
               const cmpChangePct = valuationData.cmpChangePct ?? liveStock?.changePct ?? 0;
 
@@ -2059,7 +2059,7 @@ function TechnoFundaContent() {
                         />
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '11.5px', color: '#64748B', flexWrap: 'wrap' }}>
-                        <span>Period: <strong style={{ color: '#334155' }}>{valuationData.fiscalPeriod || '—'}</strong></span>
+                        <span>Period: <strong style={{ color: '#334155' }}>{valuationData.fiscalPeriod || '-'}</strong></span>
                         <span>•</span>
                         <span>Rev: <strong style={{ color: '#0F172A' }}>₹{(valuationData.financialsCr?.revenue ?? 0).toLocaleString('en-IN')} Cr</strong></span>
                         <span>•</span>
@@ -2198,7 +2198,7 @@ function TechnoFundaContent() {
               const liveStock = masterTrackerData?.stocks?.find((s: any) => s.symbol.toUpperCase() === sym);
               const cleanCompanyName = valuationData.targetCompany
                 ? valuationData.targetCompany.replace(/\s*\([^)]*\)/g, '').trim()
-                : (liveStock?.name || sym || '—');
+                : (liveStock?.name || sym || '-');
 
               const snapshotItems = [
                 {
@@ -2206,7 +2206,7 @@ function TechnoFundaContent() {
                   method: 'DCF' as const,
                   category: 'cashflow' as const,
                   fairValue: dcfOutput ? dcfOutput.baseCase.intrinsicPrice : null,
-                  displayValue: dcfOutput ? (isNaN(dcfOutput.baseCase.intrinsicPrice) ? 'N/A' : `₹${dcfOutput.baseCase.intrinsicPrice}`) : '—',
+                  displayValue: dcfOutput ? (isNaN(dcfOutput.baseCase.intrinsicPrice) ? 'N/A' : `₹${dcfOutput.baseCase.intrinsicPrice}`) : '-',
                 },
                 {
                   name: 'Relative P/E',
@@ -2214,7 +2214,7 @@ function TechnoFundaContent() {
                   subMetric: 'P/E' as const,
                   category: 'relative' as const,
                   fairValue: peOutput ? peOutput.fairValue : null,
-                  displayValue: peOutput ? (isNaN(peOutput.fairValue) ? 'N/A' : `₹${peOutput.fairValue}`) : '—',
+                  displayValue: peOutput ? (isNaN(peOutput.fairValue) ? 'N/A' : `₹${peOutput.fairValue}`) : '-',
                 },
                 {
                   name: 'EV/EBITDA',
@@ -2222,7 +2222,7 @@ function TechnoFundaContent() {
                   subMetric: 'EV/EBITDA' as const,
                   category: 'relative' as const,
                   fairValue: evebOutput ? evebOutput.fairPrice : null,
-                  displayValue: evebOutput ? (isNaN(evebOutput.fairPrice) ? 'N/A' : `₹${evebOutput.fairPrice}`) : '—',
+                  displayValue: evebOutput ? (isNaN(evebOutput.fairPrice) ? 'N/A' : `₹${evebOutput.fairPrice}`) : '-',
                 },
                 {
                   name: 'P/B Multiple',
@@ -2230,56 +2230,56 @@ function TechnoFundaContent() {
                   subMetric: 'P/B' as const,
                   category: 'relative' as const,
                   fairValue: pbOutput ? pbOutput.fairValue : null,
-                  displayValue: pbOutput ? (isNaN(pbOutput.fairValue) ? 'N/A' : `₹${Math.round(pbOutput.fairValue)}`) : '—',
+                  displayValue: pbOutput ? (isNaN(pbOutput.fairValue) ? 'N/A' : `₹${Math.round(pbOutput.fairValue)}`) : '-',
                 },
                 {
                   name: 'Graham Number',
                   method: 'Graham Number & NCAV' as const,
                   category: 'value' as const,
                   fairValue: grahamOutput?.grahamNumber ?? null,
-                  displayValue: grahamOutput ? (grahamOutput.grahamNumber != null ? `₹${grahamOutput.grahamNumber}` : 'N/A') : '—',
+                  displayValue: grahamOutput ? (grahamOutput.grahamNumber != null ? `₹${grahamOutput.grahamNumber}` : 'N/A') : '-',
                 },
                 {
                   name: 'Peter Lynch',
                   method: 'Peter Lynch Fair Value' as const,
                   category: 'value' as const,
                   fairValue: lynchOutput?.fairValue ?? null,
-                  displayValue: lynchOutput ? (lynchOutput.fairValue != null && lynchOutput.fairValue > 0 ? `₹${lynchOutput.fairValue}` : 'N/A') : '—',
+                  displayValue: lynchOutput ? (lynchOutput.fairValue != null && lynchOutput.fairValue > 0 ? `₹${lynchOutput.fairValue}` : 'N/A') : '-',
                 },
                 {
                   name: 'Dividend Discount',
                   method: 'Dividend Discount Model' as const,
                   category: 'cashflow' as const,
                   fairValue: ddmOutput?.intrinsicValue ?? null,
-                  displayValue: ddmOutput ? (ddmOutput.intrinsicValue != null ? `₹${ddmOutput.intrinsicValue}` : 'N/A') : '—',
+                  displayValue: ddmOutput ? (ddmOutput.intrinsicValue != null ? `₹${ddmOutput.intrinsicValue}` : 'N/A') : '-',
                 },
                 {
                   name: 'Residual Income',
                   method: 'Residual Income Model' as const,
                   category: 'cashflow' as const,
                   fairValue: riOutput?.intrinsicValue ?? null,
-                  displayValue: riOutput ? (riOutput.intrinsicValue != null ? `₹${riOutput.intrinsicValue}` : 'N/A') : '—',
+                  displayValue: riOutput ? (riOutput.intrinsicValue != null ? `₹${riOutput.intrinsicValue}` : 'N/A') : '-',
                 },
                 {
                   name: 'Asset Book Value',
                   method: 'Asset-Based / Liquidation' as const,
                   category: 'value' as const,
                   fairValue: assetOutput ? assetOutput.bookValuePerShare : null,
-                  displayValue: assetOutput ? `₹${assetOutput.bookValuePerShare}` : '—',
+                  displayValue: assetOutput ? `₹${assetOutput.bookValuePerShare}` : '-',
                 },
                 {
                   name: 'Historical Median',
                   method: 'Historical Multiple Range' as const,
                   category: 'relative' as const,
                   fairValue: hmOutput ? hmOutput.medianFairValue : null,
-                  displayValue: hmOutput ? (hmOutput.medianFairValue > 0 ? `₹${hmOutput.medianFairValue}` : 'N/A') : '—',
+                  displayValue: hmOutput ? (hmOutput.medianFairValue > 0 ? `₹${hmOutput.medianFairValue}` : 'N/A') : '-',
                 },
                 {
                   name: 'Reverse DCF',
                   method: 'Reverse DCF' as const,
                   category: 'cashflow' as const,
                   fairValue: null,
-                  displayValue: rdcfOutput ? (!isNaN(rdcfOutput.impliedGrowthRate) ? `${rdcfOutput.impliedGrowthRate.toFixed(1)}% p.a.` : 'N/A') : '—',
+                  displayValue: rdcfOutput ? (!isNaN(rdcfOutput.impliedGrowthRate) ? `${rdcfOutput.impliedGrowthRate.toFixed(1)}% p.a.` : 'N/A') : '-',
                 },
               ];
 
@@ -4589,7 +4589,7 @@ function TechnoFundaContent() {
         {activeTab === 'results' && (
           <div>
             {isRefreshingFeeds && resultsData.meetings.length === 0 && (!resultsData.recentResults || resultsData.recentResults.length === 0) ? (
-              <TfLoadingState title="Loading Results Calendar…" subtitle="Fetching live exchange and market data for this workspace." variant="panel" rows={4} />
+              <TfLoadingState title="Loading Results Calendar..." subtitle="Fetching live exchange and market data for this workspace." variant="panel" rows={4} />
             ) : resultsData.meetings.length === 0 && (!resultsData.recentResults || resultsData.recentResults.length === 0) ? (
               <div style={{ padding: '48px 24px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '12px' }}>
                 <Activity size={36} style={{ margin: '0 auto 12px', color: '#94A3B8' }} />
@@ -5502,7 +5502,7 @@ function TechnoFundaContent() {
         {activeTab === 'news' && (() => {
           if (isRefreshingFeeds && (!newsData || newsData.headlines.length === 0)) {
             return (
-              <TfLoadingState title="Loading News Desk…" subtitle="Fetching live exchange and market data for this workspace." variant="panel" rows={4} />
+              <TfLoadingState title="Loading News Desk..." subtitle="Fetching live exchange and market data for this workspace." variant="panel" rows={4} />
             );
           }
 
@@ -5937,7 +5937,7 @@ function TechnoFundaContent() {
       {activeTab === 'shareholding' && (() => {
         if (isRefreshingFeeds && (!shareholdingData || shareholdingData.broadcasts.length === 0)) {
           return (
-            <TfLoadingState title="Loading Shareholding Patterns…" subtitle="Fetching live exchange and market data for this workspace." variant="panel" rows={4} />
+            <TfLoadingState title="Loading Shareholding Patterns..." subtitle="Fetching live exchange and market data for this workspace." variant="panel" rows={4} />
           );
         }
 
@@ -6648,7 +6648,7 @@ function TechnoFundaContent() {
         <div>
           {isRefreshingFeeds && !mmiData ? (
             <TfLoadingState
-              title="Loading Market Mood Index…"
+              title="Loading Market Mood Index..."
               subtitle="Synthesizing breadth, volatility, trend positioning, and liquidity from live feeds."
               variant="cards"
               rows={4}
@@ -6701,7 +6701,7 @@ function TechnoFundaContent() {
                 </span>
 
                 <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '10px', borderTop: '1px solid #E8E4DC', paddingTop: '8px' }}>
-                  India VIX: <strong style={{ color: '#0F172A' }}>{indicesData.indiaVix != null ? indicesData.indiaVix.toFixed(2) : '—'}</strong>
+                  India VIX: <strong style={{ color: '#0F172A' }}>{indicesData.indiaVix != null ? indicesData.indiaVix.toFixed(2) : '-'}</strong>
                 </div>
               </div>
 
@@ -6727,7 +6727,7 @@ function TechnoFundaContent() {
                       {
                         label: 'Volatility (India VIX)',
                         value: mmiData.components.vix,
-                        status: `Inverse VIX ratio · India VIX at ${indicesData.indiaVix != null ? indicesData.indiaVix.toFixed(2) : '—'}`,
+                        status: `Inverse VIX ratio · India VIX at ${indicesData.indiaVix != null ? indicesData.indiaVix.toFixed(2) : '-'}`,
                       },
                       {
                         label: 'Trend Positioning',
@@ -6785,7 +6785,7 @@ function TechnoFundaContent() {
         if (isRefreshingFeeds && !vahanData) {
           return (
             <TfLoadingState
-              title="Loading Vahan registration data…"
+              title="Loading Vahan registration data..."
               subtitle="Pulling MoRTH vehicle registration series across 2W, PV, CV, 3W, and Tractor."
               variant="cards"
               rows={5}

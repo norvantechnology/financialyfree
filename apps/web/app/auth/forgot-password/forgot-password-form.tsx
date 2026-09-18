@@ -74,7 +74,7 @@ export function ForgotPasswordForm() {
         {isLoading ? (
           <>
             <Loader2 size={16} className="animate-spin" />
-            <span>Sending recovery link…</span>
+            <span>Sending recovery link...</span>
           </>
         ) : (
           <>

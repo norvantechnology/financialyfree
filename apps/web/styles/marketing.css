@@ -1,10 +1,10 @@
-/* Marketing layer — mobile-first, semantic contrast tokens under .mkt
+/* Marketing layer - mobile-first, semantic contrast tokens under .mkt
  *
  * Breakpoints (min-width):
- *   375px  — small phones (base styles target ≤374 + fluid up)
- *   768px  — tablet (md)
- *   1024px — small desktop (lg) — nav breakpoint
- *   1280px — large desktop (xl)
+ *   375px  - small phones (base styles target ≤374 + fluid up)
+ *   768px  - tablet (md)
+ *   1024px - small desktop (lg) - nav breakpoint
+ *   1280px - large desktop (xl)
  */
 
 .mkt {
@@ -89,7 +89,7 @@
 
 /*
  * HIGH-SPECIFICITY DARK-SURFACE HEADING OVERRIDES
- * Uses `.mkt` parent prefix to defeat globals.css `h1–h6 { color: var(--text-primary) }`
+ * Uses `.mkt` parent prefix to defeat globals.css `h1-h6 { color: var(--text-primary) }`
  * regardless of CSS chunk load order in Next.js App Router builds.
  * The `.mkt` wrapper scope ensures these rules always have higher specificity.
  */
@@ -191,7 +191,7 @@
 .mkt-header.is-top {
   /* Dark navy background so white text is always readable.
    * The hero section is BELOW the header in DOM flow (not behind it),
-   * so a fully transparent header shows the cream page bg — making
+   * so a fully transparent header shows the cream page bg - making
    * white nav/brand text invisible. We use a solid dark bg instead.
    * When scrolled (is-scrolled), a blurred frosted glass effect takes over. */
   background: var(--bg-dark, #0a0f1d);
@@ -228,7 +228,7 @@
   align-items: center;
   gap: 0.625rem;
   text-decoration: none;
-  /* Explicit white — never inherits a color that could be invisible */
+  /* Explicit white - never inherits a color that could be invisible */
   color: var(--text-on-dark, #ffffff);
   min-height: 44px;
   min-width: 0;
@@ -273,7 +273,7 @@
 }
 
 .mkt-nav-link {
-  /* Readable white-ish — always on dark header background */
+  /* Readable white-ish - always on dark header background */
   color: rgba(255, 255, 255, 0.82);
   text-decoration: none;
   font-size: 0.9375rem;
@@ -682,7 +682,7 @@
   margin-bottom: 0 !important;
 }
 
-/* Compact variant for the final CTA section before footer — seamlessly connects to footer */
+/* Compact variant for the final CTA section before footer - seamlessly connects to footer */
 .mkt-section-cta {
   padding: clamp(2.5rem, 5vw, 3.5rem) 0 clamp(2rem, 4vw, 3rem) !important;
   margin-bottom: 0 !important;
@@ -987,7 +987,7 @@
 }
 
 .mkt-footer a {
-  color: rgba(203, 213, 225, 0.8); /* slate-300 at 80% — readable but subtle */
+  color: rgba(203, 213, 225, 0.8); /* slate-300 at 80% - readable but subtle */
   text-decoration: none;
   min-height: 44px;
   display: inline-flex;
@@ -1502,7 +1502,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HOMEPAGE — Premium redesign styles
+   HOMEPAGE - Premium redesign styles
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Hero enhancements ─────────────────────────────────────── */

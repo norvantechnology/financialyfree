@@ -58,12 +58,12 @@ type ColumnKey =
   | 'theta'
   | 'action';
 
-/** StockMojo-style defaults — live NSE columns only */
+/** StockMojo-style defaults - Volume + OI Chg% on; abs OI Chg optional */
 const DEFAULT_COLUMNS: Record<ColumnKey, boolean> = {
   buildup: true,
-  volume: false,
+  volume: true,
   oiChgPct: true,
-  oiChgAbs: true,
+  oiChgAbs: false,
   oi: true,
   ltp: true,
   iv: true,
@@ -74,12 +74,12 @@ const DEFAULT_COLUMNS: Record<ColumnKey, boolean> = {
 
 const COLUMN_LABELS: { key: ColumnKey; label: string }[] = [
   { key: 'buildup', label: 'Buildup' },
-  { key: 'oi', label: 'OI' },
+  { key: 'volume', label: 'Volume' },
   { key: 'oiChgPct', label: 'OI Chg%' },
+  { key: 'oi', label: 'OI' },
   { key: 'oiChgAbs', label: 'OI Chg' },
   { key: 'ltp', label: 'LTP' },
-  { key: 'iv', label: 'IV' },
-  { key: 'volume', label: 'Volume' },
+  { key: 'iv', label: 'IV (center)' },
   { key: 'delta', label: 'Delta' },
   { key: 'theta', label: 'Theta' },
   { key: 'action', label: 'Buy / Sell' },
@@ -100,8 +100,10 @@ interface OptionChainTableProps {
   }) => void;
 }
 
-function formatQty(n: number): string {
-  if (!n || n <= 0) return '—';
+/** Format qty in underlying units (contracts × lot) - StockMojo Cr/L style */
+function formatUnits(contracts: number, lotSize: number): string {
+  const n = (Number(contracts) || 0) * Math.max(1, lotSize || 1);
+  if (n <= 0) return '-';
   if (n >= 10000000) return `${(n / 10000000).toFixed(2)} Cr`;
   if (n >= 100000) return `${(n / 100000).toFixed(2)} L`;
   if (n >= 1000) return `${(n / 1000).toFixed(1)} K`;
@@ -109,7 +111,7 @@ function formatQty(n: number): string {
 }
 
 function formatLtp(n: number): string {
-  if (!n || n <= 0) return '—';
+  if (!n || n <= 0) return '-';
   return n.toFixed(2);
 }
 
@@ -125,6 +127,16 @@ function effectiveLtp(contract: OptionContractDto): number {
   return 0;
 }
 
+/** StockMojo-style smile IV: OTM put below spot, OTM call above spot */
+function smileIv(row: OptionChainRowDto, spot: number): number | null {
+  const ce = row.ce?.iv != null && Number.isFinite(row.ce.iv) ? Number(row.ce.iv) : null;
+  const pe = row.pe?.iv != null && Number.isFinite(row.pe.iv) ? Number(row.pe.iv) : null;
+  if (spot > 0 && Number(row.strike) < spot) return pe ?? ce;
+  if (spot > 0 && Number(row.strike) > spot) return ce ?? pe;
+  if (ce != null && pe != null) return Math.round(((ce + pe) / 2) * 10) / 10;
+  return ce ?? pe;
+}
+
 function formatOiChgPct(contract: OptionContractDto): {
   text: string;
   pct: number | null;
@@ -133,34 +145,35 @@ function formatOiChgPct(contract: OptionContractDto): {
   // Prefer exchange-provided OI change % when present
   const exch = Number(contract.oiChangePct);
   if (Number.isFinite(exch) && exch !== 0) {
-    const pct = Math.round(exch * 10) / 10;
+    const pct = Math.round(exch);
     return {
       text: `${pct >= 0 ? '+' : ''}${pct}%`,
-      pct,
-      tone: pct >= 0 ? 'pos' : 'neg',
+      pct: exch,
+      tone: exch >= 0 ? 'pos' : 'neg',
     };
   }
   const oi = Number(contract.oi) || 0;
   const chg = Number(contract.oiChange) || 0;
-  if (chg === 0) return { text: '—', pct: null, tone: 'flat' };
+  if (chg === 0) return { text: '-', pct: null, tone: 'flat' };
   const prev = oi - chg;
   if (prev <= 0 || Math.abs(prev) < 1) {
     return {
-      text: chg > 0 ? '+New' : '—',
+      text: chg > 0 ? '+New' : '-',
       pct: chg > 0 ? 100 : null,
       tone: chg > 0 ? 'pos' : 'neg',
     };
   }
-  const pct = Math.round((chg / prev) * 1000) / 10;
-  if (!Number.isFinite(pct)) return { text: '—', pct: null, tone: 'flat' };
+  const raw = (chg / prev) * 100;
+  if (!Number.isFinite(raw)) return { text: '-', pct: null, tone: 'flat' };
+  const pct = Math.round(raw);
   return {
     text: `${pct >= 0 ? '+' : ''}${pct}%`,
-    pct,
-    tone: pct >= 0 ? 'pos' : 'neg',
+    pct: raw,
+    tone: raw >= 0 ? 'pos' : 'neg',
   };
 }
 
-/** Heat intensity 0–4 from relative magnitude (live NSE values only). */
+/** Heat intensity 0-4 from relative magnitude (live NSE values only). */
 function heatLevel(value: number, max: number): 0 | 1 | 2 | 3 | 4 {
   if (!max || value <= 0) return 0;
   const r = value / max;
@@ -186,14 +199,14 @@ function buildupCode(b: OiBuildupType | string | undefined): {
     case 'Long Unwinding':
       return { code: 'LU', tone: 'unwind', title: 'Long Unwinding' };
     default:
-      return { code: '—', tone: 'flat', title: 'Neutral' };
+      return { code: '-', tone: 'flat', title: 'Neutral' };
   }
 }
 
 function BuildupBadge({ buildup }: { buildup: OiBuildupType | string | undefined }) {
   const { code, tone, title } = buildupCode(buildup);
   if (tone === 'flat') {
-    return <span className="oc-buildup oc-buildup--flat" title={title}>—</span>;
+    return <span className="oc-buildup oc-buildup--flat" title={title}>-</span>;
   }
   const up = tone === 'long' || tone === 'cover';
   return (
@@ -253,6 +266,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     Number(chainData?.atmStrike) ||
     (spot > 0 ? Math.round(spot / 50) * 50 : 0);
   const maxPain = Number(chainData?.maxPain) || 0;
+  const lotSize = Math.max(1, Number(chainData?.lotSize) || 1);
   const atmRowRef = useRef<HTMLTableRowElement | null>(null);
 
   // Keep popup LTP in sync with live chain row (same strike + side)
@@ -305,19 +319,36 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
   const maxOi = useMemo(() => {
     let m = 1;
     rows.forEach((r) => {
-      if (r.ce.oi > m) m = r.ce.oi;
-      if (r.pe.oi > m) m = r.pe.oi;
+      const ce = (Number(r.ce.oi) || 0) * lotSize;
+      const pe = (Number(r.pe.oi) || 0) * lotSize;
+      if (ce > m) m = ce;
+      if (pe > m) m = pe;
     });
     return m;
-  }, [rows]);
+  }, [rows, lotSize]);
+
+  const maxVol = useMemo(() => {
+    let m = 1;
+    rows.forEach((r) => {
+      const ce = (Number(r.ce.volume) || 0) * lotSize;
+      const pe = (Number(r.pe.volume) || 0) * lotSize;
+      if (ce > m) m = ce;
+      if (pe > m) m = pe;
+    });
+    return m;
+  }, [rows, lotSize]);
 
   const maxOiChgAbs = useMemo(() => {
     let m = 1;
     rows.forEach((r) => {
-      m = Math.max(m, Math.abs(r.ce.oiChange || 0), Math.abs(r.pe.oiChange || 0));
+      m = Math.max(
+        m,
+        Math.abs(Number(r.ce.oiChange) || 0) * lotSize,
+        Math.abs(Number(r.pe.oiChange) || 0) * lotSize,
+      );
     });
     return m;
-  }, [rows]);
+  }, [rows, lotSize]);
 
   const maxOiChgPct = useMemo(() => {
     let m = 1;
@@ -392,10 +423,14 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     const itmCls = isItm ? (side === 'ce' ? 'oc-itm-ce' : 'oc-itm-pe') : '';
     const pctInfo = formatOiChgPct(c);
     const oiAbs = Number(c.oiChange) || 0;
+    const oiUnits = (Number(c.oi) || 0) * lotSize;
+    const volUnits = (Number(c.volume) || 0) * lotSize;
+    const oiChgUnits = Math.abs(oiAbs) * lotSize;
     const quote = effectiveLtp(c);
-    const oiHeat = heatLevel(c.oi, maxOi);
+    const oiHeat = heatLevel(oiUnits, maxOi);
+    const volHeat = heatLevel(volUnits, maxVol);
     const pctHeat = pctInfo.pct != null ? heatLevel(Math.abs(pctInfo.pct), maxOiChgPct) : 0;
-    const chgBar = maxOiChgAbs > 0 ? Math.min(100, Math.round((Math.abs(oiAbs) / maxOiChgAbs) * 100)) : 0;
+    const chgBar = maxOiChgAbs > 0 ? Math.min(100, Math.round((oiChgUnits / maxOiChgAbs) * 100)) : 0;
     const priceChg = Number(c.changePct) || 0;
 
     const pushBuildup = (cells: React.ReactNode[]) => {
@@ -405,7 +440,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
           <button
             type="button"
             className="oc-buildup-hit"
-            title={`${buildupCode(c.buildup).title} — click to trade`}
+            title={`${buildupCode(c.buildup).title} - click to trade`}
             onClick={() =>
               onAddOrToggleLeg({
                 side: buildupCode(c.buildup).tone === 'short' || buildupCode(c.buildup).tone === 'unwind' ? 'SELL' : 'BUY',
@@ -429,9 +464,9 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
         <td
           key="oi"
           className={`oc-td oc-td-num oc-heat oc-heat-${heat}-${oiHeat} ${itmCls}`}
-          title={`Open Interest (NSE): ${c.oi}`}
+          title={`OI ${formatUnits(c.oi, lotSize)} (${Number(c.oi).toLocaleString('en-IN')} lots × ${lotSize})`}
         >
-          {formatQty(c.oi)}
+          {formatUnits(c.oi, lotSize)}
         </td>,
       );
     };
@@ -457,11 +492,13 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
         <td
           key="oica"
           className={`oc-td oc-td-oi-chg ${itmCls} ${oiAbs > 0 ? 'oc-pos' : oiAbs < 0 ? 'oc-neg' : ''}`}
-          title={`OI change (NSE): ${oiAbs}`}
+          title={`OI change ${formatUnits(Math.abs(oiAbs), lotSize)}`}
         >
           <div className="oc-oi-chg-cell">
             <span>
-              {oiAbs === 0 ? '—' : `${oiAbs > 0 ? '' : '-'}${formatQty(Math.abs(oiAbs))}`}
+              {oiAbs === 0
+                ? '-'
+                : `${oiAbs > 0 ? '' : '-'}${formatUnits(Math.abs(oiAbs), lotSize)}`}
             </span>
             <span
               className={`oc-oi-chg-bar oc-oi-chg-bar--${heat}`}
@@ -503,20 +540,15 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
       );
     };
 
-    const pushIv = (cells: React.ReactNode[]) => {
-      if (!columns.iv) return;
-      cells.push(
-        <td key="iv" className={`oc-td oc-td-num oc-muted ${itmCls}`}>
-          {c.iv != null ? c.iv.toFixed(1) : '—'}
-        </td>,
-      );
-    };
-
     const pushVolume = (cells: React.ReactNode[]) => {
       if (!columns.volume) return;
       cells.push(
-        <td key="vol" className={`oc-td oc-td-num ${itmCls}`}>
-          {formatQty(c.volume)}
+        <td
+          key="vol"
+          className={`oc-td oc-td-num oc-heat oc-heat-${heat}-${volHeat} ${itmCls}`}
+          title={`Volume ${formatUnits(c.volume, lotSize)}`}
+        >
+          {formatUnits(c.volume, lotSize)}
         </td>,
       );
     };
@@ -525,14 +557,14 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
       if (columns.delta) {
         cells.push(
           <td key="d" className={`oc-td oc-td-num oc-muted ${itmCls}`}>
-            {c.delta != null ? c.delta.toFixed(2) : '—'}
+            {c.delta != null ? c.delta.toFixed(2) : '-'}
           </td>,
         );
       }
       if (columns.theta) {
         cells.push(
           <td key="t" className={`oc-td oc-td-num oc-muted ${itmCls}`}>
-            {c.theta != null ? c.theta.toFixed(2) : '—'}
+            {c.theta != null ? c.theta.toFixed(2) : '-'}
           </td>,
         );
       }
@@ -583,24 +615,22 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     };
 
     const cells: React.ReactNode[] = [];
-    // StockMojo order: CE Buildup→OI→OI%→OI Chg→LTP→IV | Strike | PE IV→LTP→OI Chg→OI%→OI→Buildup
+    // StockMojo: CE Buildup→Volume→OI%→OI→LTP | Strike·IV | PE LTP→OI→OI%→Volume→Buildup
     if (side === 'ce') {
       pushAction(cells);
       pushBuildup(cells);
       pushVolume(cells);
-      pushOi(cells);
       pushOiChgPct(cells);
+      pushOi(cells);
       pushOiChgAbs(cells);
       pushLtp(cells);
-      pushIv(cells);
       pushGreeks(cells);
     } else {
-      pushIv(cells);
-      pushGreeks(cells);
       pushLtp(cells);
-      pushOiChgAbs(cells);
-      pushOiChgPct(cells);
+      pushGreeks(cells);
       pushOi(cells);
+      pushOiChgPct(cells);
+      pushOiChgAbs(cells);
       pushVolume(cells);
       pushBuildup(cells);
       pushAction(cells);
@@ -623,21 +653,19 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
       push('action', 'Action', 'center');
       push('buildup', 'Buildup', 'center');
       push('volume', 'Volume');
+      push('oiChgPct', 'OI Chg%');
       push('oi', 'OI');
-      push('oiChgPct', 'OI%');
       push('oiChgAbs', 'OI Chg');
       push('ltp', 'LTP');
-      push('iv', 'IV');
       push('delta', 'Delta');
       push('theta', 'Theta');
     } else {
-      push('iv', 'IV', 'left');
+      push('ltp', 'LTP', 'left');
       push('delta', 'Delta', 'left');
       push('theta', 'Theta', 'left');
-      push('ltp', 'LTP', 'left');
-      push('oiChgAbs', 'OI Chg');
-      push('oiChgPct', 'OI%');
       push('oi', 'OI');
+      push('oiChgPct', 'OI Chg%');
+      push('oiChgAbs', 'OI Chg');
       push('volume', 'Volume');
       push('buildup', 'Buildup', 'center');
       push('action', 'Action', 'center');
@@ -658,35 +686,57 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
       const ltp = side === 'ce' ? data.ceLtp : data.peLtp;
       if (side === 'ce' && columns.action) bucket.push(<td key="a" className="oc-td" />);
       if (side === 'ce' && columns.buildup) bucket.push(<td key="b" className="oc-td" />);
-      if (side === 'ce' && columns.volume) bucket.push(<td key="v" className="oc-td oc-td-num">{formatQty(vol)}</td>);
-      if (side === 'ce' && columns.oi) bucket.push(<td key="o" className="oc-td oc-td-num">{formatQty(oi)}</td>);
+      if (side === 'ce' && columns.volume) {
+        bucket.push(
+          <td key="v" className="oc-td oc-td-num">
+            {formatUnits(vol, lotSize)}
+          </td>,
+        );
+      }
       if (side === 'ce' && columns.oiChgPct) bucket.push(<td key="cp" className="oc-td" />);
+      if (side === 'ce' && columns.oi) {
+        bucket.push(
+          <td key="o" className="oc-td oc-td-num">
+            {formatUnits(oi, lotSize)}
+          </td>,
+        );
+      }
       if (side === 'ce' && columns.oiChgAbs) bucket.push(<td key="ca" className="oc-td" />);
       if (side === 'ce' && columns.ltp) {
         bucket.push(
           <td key="l" className="oc-td oc-td-num">
-            {ltp != null && ltp > 0 ? ltp.toFixed(2) : '—'}
+            {ltp != null && ltp > 0 ? ltp.toFixed(2) : '-'}
           </td>,
         );
       }
-      if (side === 'ce' && columns.iv) bucket.push(<td key="i" className="oc-td" />);
       if (side === 'ce' && columns.delta) bucket.push(<td key="d" className="oc-td" />);
       if (side === 'ce' && columns.theta) bucket.push(<td key="t" className="oc-td" />);
 
-      if (side === 'pe' && columns.iv) bucket.push(<td key="i" className="oc-td" />);
-      if (side === 'pe' && columns.delta) bucket.push(<td key="d" className="oc-td" />);
-      if (side === 'pe' && columns.theta) bucket.push(<td key="t" className="oc-td" />);
       if (side === 'pe' && columns.ltp) {
         bucket.push(
           <td key="l" className="oc-td oc-td-num">
-            {ltp != null && ltp > 0 ? ltp.toFixed(2) : '—'}
+            {ltp != null && ltp > 0 ? ltp.toFixed(2) : '-'}
           </td>,
         );
       }
-      if (side === 'pe' && columns.oiChgAbs) bucket.push(<td key="ca" className="oc-td" />);
+      if (side === 'pe' && columns.delta) bucket.push(<td key="d" className="oc-td" />);
+      if (side === 'pe' && columns.theta) bucket.push(<td key="t" className="oc-td" />);
+      if (side === 'pe' && columns.oi) {
+        bucket.push(
+          <td key="o" className="oc-td oc-td-num">
+            {formatUnits(oi, lotSize)}
+          </td>,
+        );
+      }
       if (side === 'pe' && columns.oiChgPct) bucket.push(<td key="cp" className="oc-td" />);
-      if (side === 'pe' && columns.oi) bucket.push(<td key="o" className="oc-td oc-td-num">{formatQty(oi)}</td>);
-      if (side === 'pe' && columns.volume) bucket.push(<td key="v" className="oc-td oc-td-num">{formatQty(vol)}</td>);
+      if (side === 'pe' && columns.oiChgAbs) bucket.push(<td key="ca" className="oc-td" />);
+      if (side === 'pe' && columns.volume) {
+        bucket.push(
+          <td key="v" className="oc-td oc-td-num">
+            {formatUnits(vol, lotSize)}
+          </td>,
+        );
+      }
       if (side === 'pe' && columns.buildup) bucket.push(<td key="b" className="oc-td" />);
       if (side === 'pe' && columns.action) bucket.push(<td key="a" className="oc-td" />);
     };
@@ -694,11 +744,12 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     fillSide('ce', ceCells);
     fillSide('pe', peCells);
 
-    // Put label in first CE numeric/empty cell area via overlay on strike
     return (
       <tr className="oc-summary-row" key={label}>
         {ceCells}
-        <td className="oc-td oc-td-strike oc-summary-strike">{label}</td>
+        <td className="oc-td oc-td-strike oc-summary-strike" colSpan={columns.iv ? 2 : 1}>
+          {label}
+        </td>
         {peCells}
       </tr>
     );
@@ -723,16 +774,19 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
 
         <div className="oc-toolbar-meta">
           <span className={`oc-feed-pill ${(chainData?.source || '').includes('LIVE') ? 'live' : 'cached'}`}>
-            {chainData?.source || '—'}
+            {chainData?.source || '-'}
           </span>
           <span>
-            Spot <strong>{spot > 0 ? spot.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—'}</strong>
+            Spot <strong>{spot > 0 ? spot.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '-'}</strong>
+          </span>
+          <span title="OI & Volume shown as contracts × lot size (StockMojo units)">
+            Lot <strong>{lotSize}</strong>
           </span>
           <span>
-            PCR <strong>{chainData?.pcr?.toFixed(2) ?? '—'}</strong>
+            PCR <strong>{chainData?.pcr?.toFixed(2) ?? '-'}</strong>
           </span>
           <span>
-            Max Pain <strong>{maxPain > 0 ? maxPain.toLocaleString('en-IN') : '—'}</strong>
+            Max Pain <strong>{maxPain > 0 ? maxPain.toLocaleString('en-IN') : '-'}</strong>
           </span>
           {chainData?.timestamp ? (
             <span className="oc-asof" title="NSE / feed as-of (IST)">
@@ -783,7 +837,9 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
               >
                 CALLS
               </th>
-              <th className="oc-group-strike">STRIKE</th>
+              <th className="oc-group-strike" colSpan={columns.iv ? 2 : 1}>
+                STRIKE
+              </th>
               <th
                 className="oc-group-pe"
                 colSpan={sideHeader('pe').length || 1}
@@ -794,6 +850,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
             <tr>
               {sideHeader('ce')}
               <th className="oc-th oc-th-center oc-th-strike">Strike</th>
+              {columns.iv ? <th className="oc-th oc-th-center oc-th-iv">IV</th> : null}
               {sideHeader('pe')}
             </tr>
           </thead>
@@ -809,7 +866,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
                   {isLoading ? (
                     <>
                       <RefreshCw className="oc-spin" />
-                      Loading option chain…
+                      Loading option chain...
                     </>
                   ) : (
                     'No option-chain rows for this expiry. Try another expiry or reconnect the feed.'
@@ -822,6 +879,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
                 const isMaxPain = Number(row.strike) === maxPain;
                 const isItmCe = spot > 0 ? Number(row.strike) < spot : Number(row.strike) < atmStrike;
                 const isItmPe = spot > 0 ? Number(row.strike) > spot : Number(row.strike) > atmStrike;
+                const ivSmile = smileIv(row, spot);
 
                 return (
                   <tr
@@ -835,6 +893,11 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
                       {isAtm && <span className="oc-badge oc-badge-atm">ATM</span>}
                       {isMaxPain && <span className="oc-badge oc-badge-maxpain">Max Pain</span>}
                     </td>
+                    {columns.iv ? (
+                      <td className="oc-td oc-td-num oc-td-iv-center" title="OTM smile IV (Put below spot, Call above)">
+                        {ivSmile != null ? ivSmile.toFixed(1) : '-'}
+                      </td>
+                    ) : null}
                     {renderSideCells(row, 'pe', isItmPe)}
                   </tr>
                 );

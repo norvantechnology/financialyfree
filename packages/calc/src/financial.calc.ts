@@ -335,7 +335,7 @@ export function calculateGrahamValuation(
   return {
     grahamNumber,
     ncavPerShare,
-    formula: 'Graham Number = √(22.5 × EPS × BVPS). NCAV = (Current Assets − Total Liabilities) / Shares.',
+    formula: 'Graham Number = √(22.5 × EPS × BVPS). NCAV = (Current Assets - Total Liabilities) / Shares.',
   };
 }
 
@@ -395,7 +395,7 @@ export function calculateDividendDiscountModel(
   return {
     intrinsicValue: Math.round(intrinsicValue * 100) / 100,
     dividendYield: Math.round(dividendYield * 100) / 100,
-    formula: 'Gordon Growth Model: P₀ = D₁ / (r − g) = D₀ × (1 + g) / (r − g)',
+    formula: 'Gordon Growth Model: P₀ = D₁ / (r - g) = D₀ × (1 + g) / (r - g)',
   };
 }
 
@@ -427,7 +427,7 @@ export function calculateAssetBasedValuation(
   return {
     bookValuePerShare: Math.round(bookValuePerShare * 100) / 100,
     liquidationValuePerShare: Math.round(liquidationValuePerShare * 100) / 100,
-    formula: 'Book Value = (Total Assets − Total Liabilities) / Shares. Liquidation Value applies haircut to assets.',
+    formula: 'Book Value = (Total Assets - Total Liabilities) / Shares. Liquidation Value applies haircut to assets.',
   };
 }
 
@@ -457,7 +457,7 @@ export function calculateResidualIncome(
   return {
     intrinsicValue: Math.round(intrinsicValue * 100) / 100,
     residualIncomeYear1: Math.round(riYear1 * 100) / 100,
-    formula: 'Residual Income Model: V₀ = BVPS₀ + (ROE − r) × BVPS₀ / (r − g)',
+    formula: 'Residual Income Model: V₀ = BVPS₀ + (ROE - r) × BVPS₀ / (r - g)',
   };
 }
 

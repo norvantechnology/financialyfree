@@ -34,7 +34,7 @@ export function isRedisConfigured(): boolean {
   return true;
 }
 
-/** ioredis options for BullMQ — fail fast when Redis is down */
+/** ioredis options for BullMQ - fail fast when Redis is down */
 export function getRedisConnectionOptions():
   | { url: string; maxRetriesPerRequest: null; enableOfflineQueue: false; connectTimeout: number }
   | {

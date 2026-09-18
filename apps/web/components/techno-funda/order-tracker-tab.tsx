@@ -382,7 +382,7 @@ export function OrderTrackerTab({
   if (isLoading && orders.length === 0) {
     return (
       <TfLoadingState
-        title="Loading Order Tracker…"
+        title="Loading Order Tracker..."
         subtitle="Fetching SEBI LODR order-win disclosures from exchange filings."
         variant="table"
         rows={5}

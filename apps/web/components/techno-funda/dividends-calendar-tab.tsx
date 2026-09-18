@@ -85,7 +85,7 @@ export function DividendsCalendarTab({ data, isLoading, onRefresh }: DividendsCa
   if (isLoading && !data) {
     return (
       <TfLoadingState
-        title="Loading dividend calendar…"
+        title="Loading dividend calendar..."
         subtitle="Pulling live exchange and market data for this workspace."
         variant="table"
       />

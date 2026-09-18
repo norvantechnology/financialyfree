@@ -56,10 +56,10 @@ import {
   getStoredUser,
   clearAuthStorage,
   getApiBaseUrl,
-  dispatchAuthChange,
   isTokenExpired,
   isAllAccessFreeMode,
   fetchAppAccessMode,
+  persistAuthTokens,
 } from '../lib/auth-client';
 
 export type AccessTier = 'guest' | 'authenticated' | 'entitled' | 'admin';
@@ -366,7 +366,7 @@ export function SidebarLayout({
 
   // --- Client-side auth guard (defense-in-depth alongside Edge Middleware) ---
   // After layout initializes, redirect guests away from protected routes.
-  const PROTECTED_PREFIXES = ['/dashboard', '/techno-funda', '/kyc', '/courses', '/checkout', '/admin'];
+  const PROTECTED_PREFIXES = ['/dashboard', '/techno-funda', '/options-lab', '/kyc', '/courses', '/checkout', '/admin'];
   useEffect(() => {
     if (!isInitialized) return;
     const isProtected = PROTECTED_PREFIXES.some(
@@ -489,20 +489,15 @@ export function SidebarLayout({
               const refreshData = await refreshRes.json();
               const newAccess = refreshData.tokens?.accessToken || refreshData.accessToken;
               const newRefresh = refreshData.tokens?.refreshToken || refreshData.refreshToken;
+              const expiresIn = refreshData.tokens?.expiresIn || refreshData.expiresIn || 900;
 
               if (newAccess) {
                 currentToken = newAccess;
-                try {
-                  localStorage.setItem('accessToken', newAccess);
-                  document.cookie = `accessToken=${newAccess}; path=/; max-age=604800; SameSite=Lax`;
-
-                  if (newRefresh) {
-                    localStorage.setItem('refreshToken', newRefresh);
-                    document.cookie = `refreshToken=${newRefresh}; path=/; max-age=2592000; SameSite=Lax`;
-                  }
-                } catch {}
-
-                dispatchAuthChange();
+                persistAuthTokens({
+                  accessToken: newAccess,
+                  refreshToken: newRefresh,
+                  expiresIn,
+                });
 
                 res = await fetch(`${apiBase}/api/v1/users/me`, {
                   headers: { Authorization: `Bearer ${currentToken}` },
@@ -514,6 +509,9 @@ export function SidebarLayout({
               clearAuthStorage();
               setUser(null);
               setAccessTier('guest');
+              if (PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+                router.replace(`/auth/login?callbackUrl=${encodeURIComponent(pathname)}`);
+              }
               return;
             }
           } catch (refreshErr) {
@@ -555,6 +553,9 @@ export function SidebarLayout({
           clearAuthStorage();
           setUser(null);
           setAccessTier('guest');
+          if (PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+            router.replace(`/auth/login?callbackUrl=${encodeURIComponent(pathname)}`);
+          }
         }
       } catch (err) {
         console.warn('Session check network error', err);
@@ -633,7 +634,7 @@ export function SidebarLayout({
   // --- Pre-render auth guard ---
   // While auth state hasn't been determined yet, show a neutral loading screen
   // on protected routes to prevent any flash of dashboard content.
-  const PROTECTED_PREFIXES_CHECK = ['/dashboard', '/techno-funda', '/kyc', '/courses', '/checkout', '/admin'];
+  const PROTECTED_PREFIXES_CHECK = ['/dashboard', '/techno-funda', '/options-lab', '/kyc', '/courses', '/checkout', '/admin'];
   const isOnProtectedRoute = PROTECTED_PREFIXES_CHECK.some(
     (p) => pathname === p || pathname.startsWith(p + '/')
   );
@@ -662,7 +663,7 @@ export function SidebarLayout({
           }}
         />
         <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', fontWeight: 500 }}>
-          Loading GoalCompass…
+          Loading GoalCompass...
         </span>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>

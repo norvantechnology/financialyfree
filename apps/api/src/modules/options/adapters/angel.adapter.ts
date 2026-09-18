@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { BrokerType, LiveTickDto, OptionChainDto } from '@ff/types';
 import { IBrokerAdapter, BrokerTokenResult } from './broker.interface';
 
-/** Stub until Angel SmartAPI option-chain is wired — fails closed without credentials. */
+/** Stub until Angel SmartAPI option-chain is wired - fails closed without credentials. */
 @Injectable()
 export class AngelOneAdapter implements IBrokerAdapter {
   readonly broker: BrokerType = 'angelone';

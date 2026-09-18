@@ -52,7 +52,7 @@
   --text-muted:            #475569;   /* Slate-600 (WCAG AAA compliant) */
   --text-inverse:          #FFFFFF;
 
-  /* Semantic on-surface text (WCAG AA — use with matching bg context) */
+  /* Semantic on-surface text (WCAG AA - use with matching bg context) */
   --text-on-dark:          #FFFFFF;   /* ≥4.5:1 on --bg-dark / navy */
   --text-on-dark-muted:    #CBD5E1;   /* slate-300 ≥4.5:1 on navy */
   --text-on-dark-subtle:   #94A3B8;   /* decorative only; prefer muted for body */
@@ -3306,7 +3306,7 @@ input:checked + .toggle-slider:before {
   box-shadow: 0 1px 2px rgba(15, 118, 110, 0.12) !important;
 }
 
-/* Compact watchlist star — light UI, high contrast, no heavy box */
+/* Compact watchlist star - light UI, high contrast, no heavy box */
 .ff-watchlist-icon-btn:hover:not(:disabled) {
   background: #F1F5F9 !important;
   border-color: #E2E8F0 !important;
@@ -6960,7 +6960,7 @@ tr:hover .tf-sticky-symbol-cell {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Watchlist & Price Alerts — Responsive Modern Aureus Editorial Styles
+   Watchlist & Price Alerts - Responsive Modern Aureus Editorial Styles
    ══════════════════════════════════════════════════════════════════════ */
 .wl-container {
   width: 100%;
@@ -8167,7 +8167,7 @@ tr:hover .tf-sticky-symbol-cell {
   color: var(--text-on-light) !important;  /* #0F172A on white card */
 }
 
-/* Compliance banner has its own readable colour — don't override */
+/* Compliance banner has its own readable colour - don't override */
 .mkt .mkt-compliance-bar,
 .mkt .mkt-compliance-bar p {
   color: #9a3412 !important; /* 4.8:1 on #fff7ed background */

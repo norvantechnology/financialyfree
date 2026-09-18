@@ -357,7 +357,7 @@ export function VahanCompanyView({ liveMakers, isLoading }: VahanCompanyViewProp
   if (isLoading && (!liveMakers || liveMakers.length === 0)) {
     return (
       <TfLoadingState
-        title="Loading Vahan OEM matrix…"
+        title="Loading Vahan OEM matrix..."
         subtitle="Fetching manufacturer registration series from the live Vahan feed."
         variant="table"
         rows={6}

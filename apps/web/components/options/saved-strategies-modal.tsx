@@ -37,7 +37,7 @@ export const SavedStrategiesModal: React.FC<SavedStrategiesModalProps> = ({
         cache: 'no-store',
       });
       if (res.status === 401) {
-        setError('Session expired — sign in again.');
+        setError('Session expired - sign in again.');
         return;
       }
       const json = await res.json().catch(() => null);
@@ -127,7 +127,7 @@ export const SavedStrategiesModal: React.FC<SavedStrategiesModalProps> = ({
         {isLoading ? (
           <div className="opt-save-modal-success">
             <Loader2 className="w-6 h-6 animate-spin" style={{ margin: '0 auto', color: '#0F766E' }} />
-            <p>Loading…</p>
+            <p>Loading...</p>
           </div>
         ) : items.length === 0 ? (
           <div className="opt-save-modal-success">
@@ -142,7 +142,7 @@ export const SavedStrategiesModal: React.FC<SavedStrategiesModalProps> = ({
                   <div className="opt-saved-item-name">{s.name}</div>
                   <div className="opt-saved-item-meta">
                     {s.underlying} · {s.legs?.length || 0} legs
-                    {s.notes ? ` · ${s.notes.slice(0, 48)}${s.notes.length > 48 ? '…' : ''}` : ''}
+                    {s.notes ? ` · ${s.notes.slice(0, 48)}${s.notes.length > 48 ? '...' : ''}` : ''}
                   </div>
                 </div>
                 <div className="opt-saved-item-actions">

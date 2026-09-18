@@ -392,7 +392,7 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         <div className="opt-kpi-card">
           <span className="opt-kpi-label">ATM Strike</span>
           <div className="opt-kpi-value" style={{ color: '#0284C7' }}>
-            {chainData?.atmStrike ? `₹${chainData.atmStrike.toLocaleString('en-IN')}` : '—'}
+            {chainData?.atmStrike ? `₹${chainData.atmStrike.toLocaleString('en-IN')}` : '-'}
           </div>
           <span className="opt-kpi-sub">
             Spot: ₹{chainData?.spotPrice?.toLocaleString('en-IN')}

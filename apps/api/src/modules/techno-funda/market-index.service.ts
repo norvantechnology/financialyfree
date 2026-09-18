@@ -58,7 +58,7 @@ export class MarketIndexService {
   private cache: CacheEntry | null = null;
   private overviewInFlight: Promise<MarketOverviewData> | null = null;
   private tataMotorsPriceCache: { data: TataMotorsPriceResult; expiresAt: number } | null = null;
-  private readonly CACHE_TTL_MS = 60 * 1000; // 1 minute — fresher Nifty/Sensex/Bank day-change on the top bar
+  private readonly CACHE_TTL_MS = 60 * 1000; // 1 minute - fresher Nifty/Sensex/Bank day-change on the top bar
 
   private readonly INDICES = [
     { ticker: '^NSEI', symbol: 'NIFTY 50', name: 'Nifty 50 Index' },
@@ -299,7 +299,7 @@ export class MarketIndexService {
       });
       let cookies = this.extractNseCookies(homeResp.headers);
 
-      // Warm market-data page — NSE often requires this before JSON APIs succeed
+      // Warm market-data page - NSE often requires this before JSON APIs succeed
       try {
         const warm = await fetch('https://www.nseindia.com/market-data/live-equity-market', {
           headers: {

@@ -172,7 +172,7 @@ export function SwpPlannerWidget() {
             onChange={(e) => setExpectedGrowthRatePct(Number(e.target.value))}
             style={{ width: '100%' }}
           />
-          <span style={{ fontSize: '11px', color: '#64748B' }}>Equity Savings / Hybrid ~9–11%</span>
+          <span style={{ fontSize: '11px', color: '#64748B' }}>Equity Savings / Hybrid ~9-11%</span>
         </div>
 
         <div>

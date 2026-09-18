@@ -50,7 +50,7 @@ export function VahanCategoryGroupView({ categories = [], totalRegistrations = 0
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('All');
   const [expandedStockGroup, setExpandedStockGroup] = useState<string | null>(null);
 
-  // Live aggregates only — never fabricate SIAM/Vahan volume fallbacks
+  // Live aggregates only - never fabricate SIAM/Vahan volume fallbacks
   const twoWheeler = categories.find((c) => c.category === '2W')?.registrations || 0;
   const pv = categories.find((c) => c.category === 'PV')?.registrations || 0;
   const cv = categories.find((c) => c.category === 'CV')?.registrations || 0;
@@ -78,7 +78,7 @@ export function VahanCategoryGroupView({ categories = [], totalRegistrations = 0
         shortCode: '2W + PV',
         tagline: 'Individual commuter and family passenger transportation across urban and semi-urban India',
         volumeUnits: personalVol,
-        formattedVolume: totalVol > 0 ? `${(personalVol / 100000).toFixed(2)} Lakh units` : '—',
+        formattedVolume: totalVol > 0 ? `${(personalVol / 100000).toFixed(2)} Lakh units` : '-',
         sharePct: pct(personalVol),
         momChange: 0,
         yoyChange: 0,
@@ -88,8 +88,8 @@ export function VahanCategoryGroupView({ categories = [], totalRegistrations = 0
         badgeBorder: '#CCFBF1',
         subSegments: ['Two-Wheelers (Commuter & Premium)', 'Passenger Cars', 'SUVs & Compact UVs'],
         primaryDrivers: [],
-        marginProfile: '—',
-        cycleStage: '—',
+        marginProfile: '-',
+        cycleStage: '-',
         keyStocks: [],
       },
       {
@@ -98,7 +98,7 @@ export function VahanCategoryGroupView({ categories = [], totalRegistrations = 0
         shortCode: 'CV + 3W',
         tagline: 'Industrial freight haulage, infrastructure tippers, and last-mile urban cargo solutions',
         volumeUnits: commercialVol,
-        formattedVolume: totalVol > 0 ? `${(commercialVol / 100000).toFixed(2)} Lakh units` : '—',
+        formattedVolume: totalVol > 0 ? `${(commercialVol / 100000).toFixed(2)} Lakh units` : '-',
         sharePct: pct(commercialVol),
         momChange: 0,
         yoyChange: 0,
@@ -108,8 +108,8 @@ export function VahanCategoryGroupView({ categories = [], totalRegistrations = 0
         badgeBorder: '#FDE68A',
         subSegments: ['Medium & Heavy CVs (M&HCV)', 'Light Commercial Vehicles (LCV)', 'Three-Wheeler Goods & Pax'],
         primaryDrivers: [],
-        marginProfile: '—',
-        cycleStage: '—',
+        marginProfile: '-',
+        cycleStage: '-',
         keyStocks: [],
       },
       {
@@ -118,7 +118,7 @@ export function VahanCategoryGroupView({ categories = [], totalRegistrations = 0
         shortCode: 'Tractors',
         tagline: 'Farm tractors, crop harvesters, and mechanization implements driving rural productivity',
         volumeUnits: agriVol,
-        formattedVolume: totalVol > 0 ? `${(agriVol / 1000).toFixed(1)}K units` : '—',
+        formattedVolume: totalVol > 0 ? `${(agriVol / 1000).toFixed(1)}K units` : '-',
         sharePct: pct(agriVol),
         momChange: 0,
         yoyChange: 0,
@@ -128,8 +128,8 @@ export function VahanCategoryGroupView({ categories = [], totalRegistrations = 0
         badgeBorder: '#A7F3D0',
         subSegments: ['Utility Tractors (35-50 HP)', 'Heavy Duty Tractors (>50 HP)', 'Rotavators & Implements'],
         primaryDrivers: [],
-        marginProfile: '—',
-        cycleStage: '—',
+        marginProfile: '-',
+        cycleStage: '-',
         keyStocks: [],
       },
       {
@@ -138,7 +138,7 @@ export function VahanCategoryGroupView({ categories = [], totalRegistrations = 0
         shortCode: 'EV Across Segments',
         tagline: 'Zero-emission electric two-wheelers, three-wheelers, electric cars, and electric buses',
         volumeUnits: evVol,
-        formattedVolume: '—',
+        formattedVolume: '-',
         sharePct: 0,
         momChange: 0,
         yoyChange: 0,
@@ -148,8 +148,8 @@ export function VahanCategoryGroupView({ categories = [], totalRegistrations = 0
         badgeBorder: '#E9D5FF',
         subSegments: ['Electric 2-Wheelers', 'Electric 3-Wheelers (E-Rickshaw/Auto)', 'Electric Passenger Vehicles', 'E-Buses'],
         primaryDrivers: [],
-        marginProfile: '—',
-        cycleStage: '—',
+        marginProfile: '-',
+        cycleStage: '-',
         keyStocks: [],
       },
     ];

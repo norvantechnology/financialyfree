@@ -105,7 +105,7 @@ const HOW_IT_WORKS = [
     step: '03',
     icon: <BarChart3 size={28} />,
     title: 'Research smarter',
-    desc: 'Explore 20 Techno-Funda tools — valuation models, market sentiment, order flows, F&O data — all in one place.',
+    desc: 'Explore 20 Techno-Funda tools - valuation models, market sentiment, order flows, F&O data - all in one place.',
     color: '#6366f1',
   },
   {
@@ -169,7 +169,7 @@ export default function HomePage() {
       {/* ─── HERO ──────────────────────────────────────────────── */}
       <section className="mkt-hero hp-hero">
         <div className="mkt-container">
-          {/* Floating orbs — pure CSS, no JS */}
+          {/* Floating orbs - pure CSS, no JS */}
           <div className="hp-orb hp-orb-1" aria-hidden />
           <div className="hp-orb hp-orb-2" aria-hidden />
           <div className="hp-orb hp-orb-3" aria-hidden />
@@ -191,7 +191,7 @@ export default function HomePage() {
 
               <p className="mkt-hero-sub">
                 GoalCompass gives you a <strong>goal-based SIP planner</strong> for wealth,
-                FIRE &amp; education — plus <strong>20 institutional research tools</strong> to
+                FIRE &amp; education - plus <strong>20 institutional research tools</strong> to
                 make smarter investment decisions. Free to start.
               </p>
 
@@ -207,7 +207,7 @@ export default function HomePage() {
 
               <div className="mkt-hero-ctas hp-ctas">
                 <Link href="/auth/register" className="mkt-btn mkt-btn-primary hp-cta-main">
-                  Start Free — No Credit Card
+                  Start Free - No Credit Card
                   <ArrowRight size={16} aria-hidden />
                 </Link>
                 <Link href="/techno-funda" className="mkt-btn mkt-btn-ghost">
@@ -350,7 +350,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ─── TRACK A — WEALTH PLANNING ─────────────────────────── */}
+      {/* ─── TRACK A - WEALTH PLANNING ─────────────────────────── */}
       <section className="mkt-section mkt-section-dark" aria-labelledby="track-a-heading">
         <div className="mkt-container">
           <div className="hp-two-col">
@@ -358,7 +358,7 @@ export default function HomePage() {
               <Reveal>
                 <span className="mkt-kicker">Track A · Wealth Planning</span>
                 <h2 id="track-a-heading" className="mkt-serif">
-                  From dream to SIP in minutes — not months
+                  From dream to SIP in minutes - not months
                 </h2>
                 <p className="mkt-lead">
                   Tell GoalCompass your goal. We calculate exactly how much to invest monthly,
@@ -368,7 +368,7 @@ export default function HomePage() {
                 <ul className="hp-check-list">
                   <li><CheckCircle2 size={18} /><span>Set goals: Emergency Fund, FIRE, Education, Wealth</span></li>
                   <li><CheckCircle2 size={18} /><span>Inflation-aware SIP calculations with corpus projections</span></li>
-                  <li><CheckCircle2 size={18} /><span>Paperless Aadhaar e-KYC — live in under 3 minutes</span></li>
+                  <li><CheckCircle2 size={18} /><span>Paperless Aadhaar e-KYC - live in under 3 minutes</span></li>
                   <li><CheckCircle2 size={18} /><span>SIP &amp; lumpsum orders via BSE StAR MF</span></li>
                   <li><CheckCircle2 size={18} /><span>e-NACH / UPI Autopay mandate support</span></li>
                   <li><CheckCircle2 size={18} /><span>Academy courses alongside live tools</span></li>
@@ -415,13 +415,13 @@ export default function HomePage() {
       <section className="mkt-section mkt-section-alt" aria-labelledby="calc-heading">
         <div className="mkt-container">
           <Reveal>
-            <span className="mkt-kicker">Try it free — no sign-up needed</span>
+            <span className="mkt-kicker">Try it free - no sign-up needed</span>
             <h2 id="calc-heading" className="mkt-serif">
               How much should you invest monthly?
             </h2>
             <p className="mkt-lead">
               Enter your goal, timeline, and expected return. The calculator shows your exact
-              monthly SIP and the final corpus — instantly. Save your plan after signing up free.
+              monthly SIP and the final corpus - instantly. Save your plan after signing up free.
             </p>
           </Reveal>
           <Reveal>
@@ -430,7 +430,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ─── TRACK B — RESEARCH ────────────────────────────────── */}
+      {/* ─── TRACK B - RESEARCH ────────────────────────────────── */}
       <section className="mkt-section mkt-section-alt" aria-labelledby="track-b-heading">
         <div className="mkt-container">
           <div className="hp-two-col hp-two-col-reverse">
@@ -441,8 +441,8 @@ export default function HomePage() {
                   20 institutional tools. One workspace.
                 </h2>
                 <p className="mkt-lead">
-                  Stop juggling 10 different websites. Everything a serious DIY investor needs —
-                  valuation models, market sentiment, corporate filings, F&amp;O data, sector analysis —
+                  Stop juggling 10 different websites. Everything a serious DIY investor needs -
+                  valuation models, market sentiment, corporate filings, F&amp;O data, sector analysis -
                   is in one clean dashboard.
                 </p>
                 <div className="hp-research-grid">
@@ -484,7 +484,7 @@ export default function HomePage() {
           <Reveal>
             <span className="mkt-kicker">How it works</span>
             <h2 id="how-heading" className="mkt-serif">
-              From zero to investing — in 4 simple steps
+              From zero to investing - in 4 simple steps
             </h2>
             <p className="mkt-lead">
               No jargon. No overwhelming choices. A clear path from setting your goal to your first

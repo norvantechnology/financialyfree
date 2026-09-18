@@ -79,7 +79,7 @@ export function normalizeMasterStock(raw: any): MasterStockItem {
   return {
     id: String(raw?.id || raw?.symbol || '').toLowerCase() || 'unknown',
     symbol: String(raw?.symbol || '').toUpperCase(),
-    name: String(raw?.name || raw?.companyName || raw?.symbol || '—'),
+    name: String(raw?.name || raw?.companyName || raw?.symbol || '-'),
     price: Number.isFinite(price) ? price : 0,
     changePct: Number.isFinite(changePct) ? changePct : 0,
     sector: String(raw?.sector || 'Equities'),
@@ -143,7 +143,7 @@ export function MasterTrackerTab({
     }
   }, [liveStocks]);
 
-  // Prefer cards on small screens — table stays available when user switches
+  // Prefer cards on small screens - table stays available when user switches
   React.useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)');
     const apply = () => {
@@ -358,7 +358,7 @@ export function MasterTrackerTab({
   if (isLoading && stocks.length === 0) {
     return (
       <TfLoadingState
-        title="Loading Master Tracker…"
+        title="Loading Master Tracker..."
         subtitle="Fetching live NSE quotes and technicals for the tracked universe."
         variant="cards"
         rows={6}
@@ -441,7 +441,7 @@ export function MasterTrackerTab({
           </div>
         </div>
 
-        {/* Card 2: Day Gainers (live quote field — always available) */}
+        {/* Card 2: Day Gainers (live quote field - always available) */}
         <div
           onClick={() => setSignalFilter(signalFilter === 'gainers' ? 'All' : 'gainers')}
           className="tf-kpi-card"
@@ -509,7 +509,7 @@ export function MasterTrackerTab({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search stock, company, or sector…"
+              placeholder="Search stock, company, or sector..."
               aria-label="Search Master Tracker"
             />
             {search && (
@@ -588,7 +588,7 @@ export function MasterTrackerTab({
               </button>
             </div>
 
-            {/* View Mode Switcher — available on mobile too */}
+            {/* View Mode Switcher - available on mobile too */}
             <div style={{ display: 'inline-flex', alignItems: 'center', background: '#F1F5F9', height: '36px', padding: '3px', borderRadius: '8px', border: '1px solid #CBD5E1' }}>
               <button
                 type="button"
@@ -834,7 +834,7 @@ export function MasterTrackerTab({
                         <strong>
                           {stock.technicals?.expectedEpsFy27
                             ? `₹${stock.technicals.expectedEpsFy27}`
-                            : '—'}
+                            : '-'}
                         </strong>
                       </div>
                       <div className="mt-metric-cell">

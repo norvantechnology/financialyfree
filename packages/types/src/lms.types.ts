@@ -41,7 +41,7 @@ export interface EnrollmentDto {
   courseId: UUID;
   enrolledAt: ISO8601;
   completedAt?: ISO8601;
-  progressPct: number; // 0–100
+  progressPct: number; // 0-100
   certificateId?: UUID;
 }
 

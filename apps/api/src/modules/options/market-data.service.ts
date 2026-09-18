@@ -8,7 +8,7 @@ import {
   classifyOiBuildup,
 } from '@ff/calc';
 import { BrokerAuthService } from './broker-auth.service';
-import { InstrumentsService, POPULAR_FO_SYMBOLS } from './instruments.service';
+import { InstrumentsService } from './instruments.service';
 
 type SpotQuoteResult = {
   spotPrice: number;
@@ -32,7 +32,7 @@ export class MarketDataService {
   private nseSessionCache: { cookies: string; expiresAt: number } | null = null;
   private nseSessionInFlight: Promise<string> | null = null;
   private liveVixCache: { vix: number; changePct: number; expiresAt: number } | null = null;
-  /** Shared public NSE/broker-fail chain — one scrape serves all users. */
+  /** Shared public NSE/broker-fail chain - one scrape serves all users. */
   private readonly chainCache = new Map<
     string,
     { chain: OptionChainDto; fetchedAt: number }
@@ -93,12 +93,28 @@ export class MarketDataService {
   ): OptionChainDto {
     const ageSec = Math.max(0, Math.round((Date.now() - hit.fetchedAt) / 1000));
     const isStale = Boolean(opts?.stale) || ageSec > Math.floor(MarketDataService.HOT_TTL_MS / 1000);
+    const sym = (hit.chain.underlying || '').toUpperCase();
+    const spotHit = this.spotQuoteCache.get(sym);
+    const liveSpot =
+      spotHit && Date.now() - spotHit.fetchedAt < MarketDataService.SPOT_TTL_MS * 3
+        ? spotHit.quote
+        : null;
+    // Refresh spot in background so next poll overlays a fresher Yahoo quote
+    void this.fetchLiveSpotQuote(sym).catch(() => undefined);
+    const liveLot = this.getLotSize(sym);
     return {
       ...hit.chain,
+      spotPrice: liveSpot?.spotPrice || hit.chain.spotPrice,
+      spotChange: liveSpot?.spotChange ?? hit.chain.spotChange,
+      spotChangePct: liveSpot?.spotChangePct ?? hit.chain.spotChangePct,
+      vix: liveSpot?.vix ?? hit.chain.vix,
+      vixChangePct: liveSpot?.vixChangePct ?? hit.chain.vixChangePct,
+      lotSize: liveLot > 1 ? liveLot : hit.chain.lotSize,
+      futures: liveSpot?.futures?.length ? liveSpot.futures : hit.chain.futures,
       timestamp: new Date().toISOString(),
       source: isStale && hit.chain.source === 'NSE_LIVE' ? 'NSE_CACHED' : hit.chain.source,
       dataNote: isStale
-        ? `Shared cache (${ageSec}s ago). Background refresh keeps NSE load constant for all users.`
+        ? `Shared cache (${ageSec}s ago). Spot refreshed live; OI/LTP refresh in background.`
         : hit.chain.dataNote ||
           'Official NSE option-chain (v3). Served from shared hot cache.',
     };
@@ -137,16 +153,32 @@ export class MarketDataService {
   }
 
   /**
-   * Standard Indian F&O contract lot sizes (NSE/BSE).
+   * Live market lot from Upstox FO instrument master (cached).
+   * Falls back to 1 only if master has not loaded yet - never a static NSE schedule table.
    */
   getLotSize(symbol: string): number {
-    const clean = (symbol || 'NIFTY').toUpperCase();
-    if (clean === 'BANKNIFTY') return 15;
-    if (clean === 'FINNIFTY') return 40;
-    if (clean === 'SENSEX') return 10;
-    if (clean === 'MIDCPNIFTY') return 75;
-    if (clean === 'RELIANCE') return 250;
-    return 50;
+    const live =
+      this.instrumentsService.getCachedLotSizeSync(symbol) ||
+      this.instrumentsService.getCachedLotSizeSync((symbol || '').toUpperCase());
+    return live && live > 0 ? live : 1;
+  }
+
+  private deriveStrikeStep(strikes: number[], symbol?: string): number {
+    if (strikes.length >= 2) {
+      const uniq = Array.from(new Set(strikes.map((s) => Math.round(s)))).sort((a, b) => a - b);
+      const diffs: number[] = [];
+      for (let i = 1; i < uniq.length; i++) {
+        const d = uniq[i] - uniq[i - 1];
+        if (d > 0) diffs.push(d);
+      }
+      if (diffs.length) {
+        diffs.sort((a, b) => a - b);
+        return diffs[Math.floor(diffs.length / 2)] || 50;
+      }
+    }
+    return (
+      (symbol ? this.instrumentsService.getCachedStepSync(symbol) : null) || 50
+    );
   }
 
   /**
@@ -323,11 +355,13 @@ export class MarketDataService {
     opts?: { preferFresh?: boolean; forceRefresh?: boolean },
   ): Promise<OptionChainDto> {
     const cleanSymbol = (symbol || 'NIFTY').toUpperCase();
-    // Normalize early — TypeORM `date` columns may arrive as Date objects; raw strings
-    // break cache keys and NSE expiry matching if left as "Tue Sep 29 …".
+    // Normalize early - TypeORM `date` columns may arrive as Date objects; raw strings
+    // break cache keys and NSE expiry matching if left as "Tue Sep 29 ...".
     const expiryIso = expiry ? this.toExpiryIso(expiry) : undefined;
+    // Warm FO meta in background; hot path uses sync cache (never block polls on CSV download)
+    void this.instrumentsService.getLotSize(cleanSymbol).catch(() => 1);
 
-    // Explicit broker request — user-scoped, never shared
+    // Explicit broker request - user-scoped, never shared
     if (userId && brokerOverride && brokerOverride !== 'sandbox') {
       const liveSpot = await this.fetchLiveSpotQuote(cleanSymbol);
       try {
@@ -359,7 +393,7 @@ export class MarketDataService {
       return this.coalescedSharedChainFetch(cleanSymbol, expiryIso);
     }
 
-    // Shared hot / SWR path (public NSE) — one scrape serves everyone
+    // Shared hot / SWR path (public NSE) - one scrape serves everyone
     const hit = this.getSharedCacheEntry(cleanSymbol, expiryIso);
     const age = hit ? Date.now() - hit.fetchedAt : Number.POSITIVE_INFINITY;
 
@@ -390,7 +424,7 @@ export class MarketDataService {
     return this.coalescedSharedChainFetch(cleanSymbol, expiryIso);
   }
 
-  /** Public expiry normalizer — handles Date, ISO datetime, DD-MMM-YYYY */
+  /** Public expiry normalizer - handles Date, ISO datetime, DD-MMM-YYYY */
   toExpiryIso(d: string | Date | null | undefined): string {
     return this.normalizeToIsoDate(d as string | Date);
   }
@@ -433,11 +467,12 @@ export class MarketDataService {
       try {
         const proxied = await this.fetchNseOptionChainViaProxy(cleanSymbol, expiry, liveSpot);
         if (proxied?.contracts?.length) {
+          const liveLot = this.getLotSize(cleanSymbol);
           const enriched = {
             ...proxied,
             vix: liveSpot.vix ?? proxied.vix,
             vixChangePct: liveSpot.vixChangePct ?? proxied.vixChangePct,
-            lotSize: liveSpot.lotSize || proxied.lotSize,
+            lotSize: liveLot > 1 ? liveLot : proxied.lotSize || liveSpot.lotSize || 1,
             futures: liveSpot.futures?.length ? liveSpot.futures : proxied.futures,
           };
           this.rememberChain(enriched);
@@ -454,11 +489,12 @@ export class MarketDataService {
       try {
         const nseLive = await this.fetchNseOptionChain(cleanSymbol, expiry, liveSpot);
         if (nseLive?.contracts?.length) {
+          const liveLot = this.getLotSize(cleanSymbol);
           const enriched = {
             ...nseLive,
             vix: liveSpot.vix,
             vixChangePct: liveSpot.vixChangePct,
-            lotSize: liveSpot.lotSize,
+            lotSize: liveLot > 1 ? liveLot : nseLive.lotSize || liveSpot.lotSize || 1,
             futures: liveSpot.futures,
             dataNote:
               nseLive.dataNote ||
@@ -537,7 +573,7 @@ export class MarketDataService {
     };
   }
 
-  /** Persist live strikes/expiries into instruments — never static seed rows. */
+  /** Persist live strikes/expiries into instruments - never static seed rows. */
   private async persistLiveInstruments(chain: OptionChainDto): Promise<void> {
     if (!chain.selectedExpiry || !chain.contracts?.length) return;
     if (chain.source === 'DELAYED_SPOT_ONLY') return;
@@ -573,7 +609,7 @@ export class MarketDataService {
     return ms / (365.25 * 24 * 60 * 60 * 1000);
   }
 
-  /** Spot-only payload when live option chain is unavailable — never invents OI. */
+  /** Spot-only payload when live option chain is unavailable - never invents OI. */
   private buildDelayedSpotOnlyChain(
     symbol: string,
     liveSpot: {
@@ -588,9 +624,9 @@ export class MarketDataService {
     },
     selectedExpiry?: string,
   ): OptionChainDto {
-    const underlyingInfo = POPULAR_FO_SYMBOLS.find((s) => s.symbol === symbol);
-    const step = underlyingInfo?.step || 50;
-    const atmStrike = Math.round(liveSpot.spotPrice / step) * step;
+    const step = this.deriveStrikeStep([], symbol);
+    const atmStrike =
+      liveSpot.spotPrice > 0 ? Math.round(liveSpot.spotPrice / step) * step : 0;
     const expiryDates = selectedExpiry ? [this.normalizeToIsoDate(selectedExpiry)] : [];
 
     return {
@@ -609,8 +645,8 @@ export class MarketDataService {
       contracts: [],
       source: 'DELAYED_SPOT_ONLY',
       dataNote: liveSpot.spotPrice
-        ? 'Index spot from delayed public feed only. Connect Upstox/Dhan (or wait for NSE option-chain) for live OI/LTP/IV — we do not invent option data.'
-        : 'No live spot or option chain available. Connect a broker or retry during NSE market hours — we do not invent prices.',
+        ? 'Index spot from delayed public feed only. Connect Upstox/Dhan (or wait for NSE option-chain) for live OI/LTP/IV - we do not invent option data.'
+        : 'No live spot or option chain available. Connect a broker or retry during NSE market hours - we do not invent prices.',
       vix: liveSpot.vix,
       vixChangePct: liveSpot.vixChangePct,
       lotSize: liveSpot.lotSize ?? this.getLotSize(symbol),
@@ -646,7 +682,7 @@ export class MarketDataService {
         signal: AbortSignal.timeout(20000),
       });
       if (res.status === 401 || res.status === 403) {
-        this.logger.warn(`NSE ${url} returned ${res.status} — refreshing session`);
+        this.logger.warn(`NSE ${url} returned ${res.status} - refreshing session`);
         this.nseSessionCache = null;
         const fresh = await this.ensureNseSession();
         const retry = await fetch(url, {
@@ -719,14 +755,14 @@ export class MarketDataService {
       return null;
     }
 
-    const spotPrice = records.underlyingValue || liveSpot?.spotPrice || 0;
+    // Prefer Yahoo live spot when present - NSE underlyingValue can lag behind proxy cache
+    const spotPrice =
+      (liveSpot?.spotPrice && liveSpot.spotPrice > 0 ? liveSpot.spotPrice : 0) ||
+      records.underlyingValue ||
+      0;
     const rawExpiryDates: string[] = records.expiryDates || [];
     const expiryDates: string[] = rawExpiryDates.map((d: string) => this.normalizeToIsoDate(d));
     const targetExpiry = selectedExpiry ? this.normalizeToIsoDate(selectedExpiry) : expiryDates[0] || '';
-
-    const underlyingInfo = POPULAR_FO_SYMBOLS.find((s) => s.symbol === symbol);
-    const step = underlyingInfo?.step || 50;
-    const atmStrike = Math.round(spotPrice / step) * step;
 
     // Filter and aggregate contracts for the chosen expiry
     const strikeMap = new Map<number, { ce?: any; pe?: any }>();
@@ -738,7 +774,7 @@ export class MarketDataService {
       const rowExpiryRaw =
         item.expiryDate || item.expiryDates || item.CE?.expiryDate || item.PE?.expiryDate || '';
       const rowExpiry = this.normalizeToIsoDate(String(rowExpiryRaw));
-      // When NSE already filtered by expiry (v3), rowExpiry may be empty — keep the row
+      // When NSE already filtered by expiry (v3), rowExpiry may be empty - keep the row
       if (targetExpiry && rowExpiry && rowExpiry !== targetExpiry) continue;
 
       const strike = Number(item.strikePrice);
@@ -762,9 +798,12 @@ export class MarketDataService {
     const { oiPcr, volumePcr } = calculatePcr(pcrData);
     const maxPain = calculateMaxPain(strikesOiData);
 
-    // Full NSE strike ladder — UI filters (±10/15/20/All); do not invent a truncated “demo” chain
+    // Full NSE strike ladder - UI filters (±10/15/20/All); do not invent a truncated “demo” chain
     const allStrikes = Array.from(strikeMap.keys()).sort((a, b) => a - b);
-    // BS IV solve only near ATM (far strikes use exchange IV or stay blank — no fake greeks)
+    // Strike step from live ladder (or Upstox master) - never a static table
+    const step = this.deriveStrikeStep(allStrikes, symbol);
+    const atmStrike = spotPrice > 0 ? Math.round(spotPrice / step) * step : allStrikes[Math.floor(allStrikes.length / 2)] || 0;
+    // BS IV solve only near ATM (far strikes use exchange IV or stay blank - no fake greeks)
     const greekRadius = 40 * step;
 
     /** Pick first finite number (optionally allow zero). */
@@ -785,7 +824,7 @@ export class MarketDataService {
       const peRaw = data.pe || {};
       const nearAtm = Math.abs(strike - atmStrike) <= greekRadius;
 
-      // After hours / illiquid lastPrice is often 0 — use bid/ask mid when available
+      // After hours / illiquid lastPrice is often 0 - use bid/ask mid when available
       const mid = (bid: number, ask: number) =>
         bid > 0 && ask > 0 ? Math.round(((bid + ask) / 2) * 100) / 100 : 0;
       const ceBid = pickNum(false, ceRaw.buyPrice1, ceRaw.bidprice, ceRaw.bidPrice, ceRaw.bid);
@@ -966,6 +1005,7 @@ export class MarketDataService {
       atmStrike,
       atmIv,
       contracts,
+      lotSize: this.getLotSize(symbol),
       source: 'NSE_LIVE',
       dataNote:
         contracts.some((c) => c.ce.oi > 0 || c.pe.oi > 0)
@@ -975,7 +1015,7 @@ export class MarketDataService {
   }
 
   /**
-   * Intraday candles from Yahoo — empty candles when feed unavailable (no synthetic bars).
+   * Intraday candles from Yahoo - empty candles when feed unavailable (no synthetic bars).
    */
   async getIntradayCandles(
     symbol: string,
@@ -1071,7 +1111,7 @@ export class MarketDataService {
       this.logger.warn(`Failed to fetch candles for ${symbol}: ${err.message}`);
     }
 
-    // No synthetic candles — return empty when live chart feed is unavailable
+    // No synthetic candles - return empty when live chart feed is unavailable
     const spot = await this.fetchLiveSpotQuote(clean);
     return {
       symbol: clean,

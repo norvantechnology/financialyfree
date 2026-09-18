@@ -36,7 +36,7 @@ export class WatchlistService implements OnModuleInit {
 
   async onModuleInit() {
     // Schedule periodic BullMQ repeatable job or fallback interval for alert checking.
-    // Never await Redis forever — that blocks Nest listen() and fails Render port scans.
+    // Never await Redis forever - that blocks Nest listen() and fails Render port scans.
     try {
       if (this.alertsQueue) {
         await Promise.race([

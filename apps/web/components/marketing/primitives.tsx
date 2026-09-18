@@ -192,7 +192,7 @@ export function CtaSection({
   );
 }
 
-/** ComplianceBanner intentionally renders nothing — compliance text removed for cleaner UI. */
+/** ComplianceBanner intentionally renders nothing - compliance text removed for cleaner UI. */
 export function ComplianceBanner() {
   return null;
 }

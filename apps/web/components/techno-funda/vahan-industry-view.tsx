@@ -68,11 +68,11 @@ export function VahanIndustryView({ categories = [], states = [], totalRegistrat
   const [activeAncillarySector, setActiveAncillarySector] = useState<string | null>(null);
 
   const totalMonthlyVol = totalRegistrations > 0 ? totalRegistrations : 0;
-  const annualizedRunRateCr = totalMonthlyVol > 0 ? ((totalMonthlyVol * 12) / 10000000).toFixed(2) : '—';
-  const topStateName = states[0]?.stateName || '—';
-  const topStateCount = states[0]?.formattedCount || '—';
+  const annualizedRunRateCr = totalMonthlyVol > 0 ? ((totalMonthlyVol * 12) / 10000000).toFixed(2) : '-';
+  const topStateName = states[0]?.stateName || '-';
+  const topStateCount = states[0]?.formattedCount || '-';
 
-  // Segment Mix Breakdown — live categories only; never fabricate default volumes
+  // Segment Mix Breakdown - live categories only; never fabricate default volumes
   const segmentMix = useMemo(() => {
     if (!categories || categories.length === 0) return [];
 
@@ -228,7 +228,7 @@ export function VahanIndustryView({ categories = [], states = [], totalRegistrat
         <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px' }}>
           <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginBottom: '2px' }}>Monthly National Volume</div>
           <div style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A' }}>
-            {totalMonthlyVol > 0 ? `${(totalMonthlyVol / 100000).toFixed(2)} Lakh` : '—'}
+            {totalMonthlyVol > 0 ? `${(totalMonthlyVol / 100000).toFixed(2)} Lakh` : '-'}
           </div>
           <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
             MoM change unavailable from live feed
@@ -238,7 +238,7 @@ export function VahanIndustryView({ categories = [], states = [], totalRegistrat
         <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px' }}>
           <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginBottom: '2px' }}>Annualized Trajectory</div>
           <div style={{ fontSize: '20px', fontWeight: 800, color: '#0F766E' }}>
-            {totalMonthlyVol > 0 ? `${annualizedRunRateCr} Cr / yr` : '—'}
+            {totalMonthlyVol > 0 ? `${annualizedRunRateCr} Cr / yr` : '-'}
           </div>
           <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
             YoY run-rate unavailable from live feed
@@ -248,7 +248,7 @@ export function VahanIndustryView({ categories = [], states = [], totalRegistrat
         <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px' }}>
           <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginBottom: '2px' }}>Volume Anchor</div>
           <div style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A' }}>
-            {segmentMix[0]?.label || '—'}
+            {segmentMix[0]?.label || '-'}
           </div>
           <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, marginTop: '2px' }}>
             {segmentMix[0] ? `${segmentMix[0].share}% of live category mix` : 'No live category mix'}
@@ -258,7 +258,7 @@ export function VahanIndustryView({ categories = [], states = [], totalRegistrat
         <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px' }}>
           <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginBottom: '2px' }}>National EV Adoption</div>
           <div style={{ fontSize: '20px', fontWeight: 800, color: '#7C3AED' }}>
-            —
+            -
           </div>
           <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
             EV share not provided by live Vahan scrape

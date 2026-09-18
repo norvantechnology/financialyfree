@@ -21,7 +21,7 @@ const BLOG_POSTS: BlogPost[] = [
     slug: 'goal-based-sip-vs-lump-sum',
     title: 'Goal-Based SIPs: Why Horizon Matters More Than Timing',
     description:
-      'How Emergency Fund, Retirement/FIRE, Child Education, and Wealth Creation goals change SIP sizing — using the same engine behind GoalCompass.',
+      'How Emergency Fund, Retirement/FIRE, Child Education, and Wealth Creation goals change SIP sizing - using the same engine behind GoalCompass.',
     date: '2026-09-10',
     author: 'GoalCompass Research',
     tags: ['Goals', 'SIP', 'Education'],
@@ -52,7 +52,7 @@ This article is **educational**. Mutual fund investments are subject to market r
     slug: 'what-is-techno-funda',
     title: 'What Is Techno-Funda? A Tour of 20 Research Desks',
     description:
-      'From Market Mood and Valuation Lab to Order Tracker and F&O PCR — how the research suite is organised for DIY investors.',
+      'From Market Mood and Valuation Lab to Order Tracker and F&O PCR - how the research suite is organised for DIY investors.',
     date: '2026-09-12',
     author: 'GoalCompass Research',
     tags: ['Techno-Funda', 'Research'],
@@ -60,15 +60,15 @@ This article is **educational**. Mutual fund investments are subject to market r
     content: `
 ## Two tracks, one platform
 
-**Track A** helps you plan and execute goal-based mutual fund investing. **Track B** — Techno-Funda — is a decision-support research suite with **20** institutional tabs.
+**Track A** helps you plan and execute goal-based mutual fund investing. **Track B** - Techno-Funda - is a decision-support research suite with **20** institutional tabs.
 
 ## Desks that matter on day one
 
-1. **Market Mood Index** — composite sentiment telemetry  
-2. **Valuation Lab** — nine models including DCF and Graham  
-3. **PEAD Screener** — post-earnings drift candidates  
-4. **Order Tracker** — LODR order wins with PDF annexure values  
-5. **Sector Heatmap & F&O** — rotation and derivatives context  
+1. **Market Mood Index** - composite sentiment telemetry  
+2. **Valuation Lab** - nine models including DCF and Graham  
+3. **PEAD Screener** - post-earnings drift candidates  
+4. **Order Tracker** - LODR order wins with PDF annexure values  
+5. **Sector Heatmap & F&O** - rotation and derivatives context  
 
 ## How to use it responsibly
 

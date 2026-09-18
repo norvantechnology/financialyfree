@@ -62,7 +62,7 @@ export function SipVsLumpsumWidget() {
           <div className="tf-methodology-body">
             <p><strong>Lumpsum Premium:</strong> Over 70% of historical rolling 5-year periods in Nifty 50, lumpsum investing beats SIP because markets trend upward ~72% of trading days, maximizing compounding time.</p>
             <p><strong>SIP Downside Protection:</strong> If a major drawdown (&gt;15%) occurs in year 1, SIP vastly outperforms by accumulating units at beaten-down NAVs.</p>
-            <p><strong>STP Compromise:</strong> Parking lumpsum capital in an overnight/liquid fund earning ~6.5% and executing an STP (Systematic Transfer Plan) over 6–12 months blends both benefits.</p>
+            <p><strong>STP Compromise:</strong> Parking lumpsum capital in an overnight/liquid fund earning ~6.5% and executing an STP (Systematic Transfer Plan) over 6-12 months blends both benefits.</p>
           </div>
         )}
       </div>

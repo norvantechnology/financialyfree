@@ -1,6 +1,6 @@
 import { calculateMarketMoodIndex, MarketMoodInput } from '../market-mood.calc';
 
-describe('Market Mood Index — Mathematical Audit & Weights Verification', () => {
+describe('Market Mood Index - Mathematical Audit & Weights Verification', () => {
   // 1. Exact current demo inputs & sub-scores verification
   test('Exact Demo Sub-scores: Breadth 36, VIX 67, Trend 38, Liquidity 45 -> Composite 47 (Neutral)', () => {
     // Current live environment inputs:

@@ -1,13 +1,13 @@
-/** Canonical marketing site constants — verified against PRD / codebase only. */
+/** Canonical marketing site constants - verified against PRD / codebase only. */
 
 export const SITE = {
   name: 'GoalCompass',
   legalEntity: 'FutureZenith Insights LLP',
-  /** Numeric ARN only — display as ARN-350272 via AMFI_DISCLOSURE */
+  /** Numeric ARN only - display as ARN-350272 via AMFI_DISCLOSURE */
   amfiArn: '350272',
   supportEmail: 'support@goalcompass.in',
   businessEmail: 'hello@goalcompass.in',
-  /** Placeholder until ops confirms registered office line — keep non-misleading */
+  /** Placeholder until ops confirms registered office line - keep non-misleading */
   addressLines: [
     'FutureZenith Insights LLP',
     'India',
@@ -27,7 +27,7 @@ export const NAV_LINKS = [
   { href: '/contact', label: 'Contact' },
 ] as const;
 
-/** Verified product stats only — no fabricated user/testimonial counts. */
+/** Verified product stats only - no fabricated user/testimonial counts. */
 export const VERIFIED_STATS = [
   {
     value: 20,
@@ -79,7 +79,7 @@ export const PLANS = [
     name: 'Tools Annual',
     priceLabel: '₹9,999',
     period: '/ year',
-    description: 'Full Techno-Funda research suite — all institutional desks and screeners.',
+    description: 'Full Techno-Funda research suite - all institutional desks and screeners.',
     features: [
       'All 20 research tools',
       '9 valuation models',
@@ -125,7 +125,7 @@ export const PLANS = [
   },
 ] as const;
 
-/** Canonical FAQ set — single source of truth for home + /faq. */
+/** Canonical FAQ set - single source of truth for home + /faq. */
 export const HOME_FAQS = [
   {
     question: 'How does GoalCompass help me invest?',
@@ -135,7 +135,7 @@ export const HOME_FAQS = [
   {
     question: 'What is included in the free Starter plan?',
     answer:
-      'Starter includes goal-based SIP calculators (Emergency Fund, Retirement/FIRE, Child Education, Wealth Creation), your personal dashboard, introductory Academy lessons, paperless KYC, and automated mutual fund execution — free forever. Paid plans unlock the 20-tool research suite and advanced masterclasses.',
+      'Starter includes goal-based SIP calculators (Emergency Fund, Retirement/FIRE, Child Education, Wealth Creation), your personal dashboard, introductory Academy lessons, paperless KYC, and automated mutual fund execution - free forever. Paid plans unlock the 20-tool research suite and advanced masterclasses.',
   },
   {
     question: 'How do mutual fund investments get executed?',
@@ -159,7 +159,7 @@ export const HOME_FAQS = [
   },
 ] as const;
 
-/** Pricing-page scoped FAQs (subset) — full set lives in HOME_FAQS /faq. */
+/** Pricing-page scoped FAQs (subset) - full set lives in HOME_FAQS /faq. */
 export const PRICING_FAQS = [
   HOME_FAQS[1],
   HOME_FAQS[5],
@@ -167,7 +167,7 @@ export const PRICING_FAQS = [
   HOME_FAQS[0],
 ] as const;
 
-/** Unified platform journey — reused on Track A flow + How it works. */
+/** Unified platform journey - reused on Track A flow + How it works. */
 export const PLATFORM_STEPS = [
   { title: 'Plan', detail: 'Set a goal and size your SIP with the shared calc engine' },
   { title: 'Learn', detail: 'Academy lessons and compliance context' },

@@ -16,7 +16,7 @@ export interface WatchlistButtonProps {
 
 /**
  * Compact, high-contrast watchlist control for light Market Tracker tables.
- * Icon-only by default — no heavy fills or colorful accents.
+ * Icon-only by default - no heavy fills or colorful accents.
  */
 export function WatchlistButton({
   symbol,

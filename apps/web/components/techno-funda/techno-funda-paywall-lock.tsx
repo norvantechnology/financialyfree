@@ -159,7 +159,7 @@ const TAB_DESCRIPTIONS: Record<string, { summary: string; bullets: string[] }> =
     ],
   },
   'delivery-momentum': {
-    summary: 'High-conviction buying signal filtering stocks near 52-Week High with delivery volume exceeding 50–70%.',
+    summary: 'High-conviction buying signal filtering stocks near 52-Week High with delivery volume exceeding 50-70%.',
     bullets: [
       'Separates genuine institutional accumulation from speculative day trading',
       'Delivery percentage threshold filters: ≥50%, ≥60%, ≥65%, ≥70%',

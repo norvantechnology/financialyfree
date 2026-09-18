@@ -1,5 +1,5 @@
 /**
- * Shared ECharts dataZoom — thin, single-border range slider used across Options Lab charts.
+ * Shared ECharts dataZoom - thin, single-border range slider used across Options Lab charts.
  */
 import type { DataZoomComponentOption } from 'echarts';
 
@@ -29,7 +29,7 @@ const ACCENTS: Record<
   },
 };
 
-/** Compact vertical handle — no bulky square thumbs */
+/** Compact vertical handle - no bulky square thumbs */
 const THIN_HANDLE =
   'path://M -1.2 -5.5 L 1.2 -5.5 L 1.2 5.5 L -1.2 5.5 Z';
 

@@ -103,7 +103,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
     return max;
   }, [contracts]);
 
-  /** Synthetic future from ATM CE − PE (live). Prefer exchange fut LTP when present. */
+  /** Synthetic future from ATM CE - PE (live). Prefer exchange fut LTP when present. */
   const synFuture = useMemo(() => {
     const fut = futures[0];
     if (fut?.ltp > 0) {
@@ -227,7 +227,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  /** Historical mode only uses real prev-day OI change from NSE — no invented history */
+  /** Historical mode only uses real prev-day OI change from NSE - no invented history */
   const displayContracts = useMemo(() => {
     if (feedMode === 'live') return contracts;
     // Prev-day cycle: still live chain; OI change column is vs previous day (NSE field)
@@ -292,7 +292,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
               <span className="sm-live-metric-val">
                 {spotPrice > 0
                   ? spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                  : '—'}
+                  : '-'}
               </span>
               {spotPrice > 0 ? (
                 <span className={`sm-live-metric-chg ${spotChangePct >= 0 ? 'pos' : 'neg'}`}>
@@ -310,7 +310,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                       minimumFractionDigits: 1,
                       maximumFractionDigits: 1,
                     })
-                  : '—'}
+                  : '-'}
               </span>
               {synFuture ? (
                 <span className={`sm-live-metric-chg ${synFuture.changePct >= 0 ? 'pos' : 'neg'}`}>
@@ -323,7 +323,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
             <div className="sm-live-metric">
               <span className="sm-live-metric-label">VIX</span>
               <span className="sm-live-metric-val">
-                {vix != null && vix > 0 ? vix.toFixed(2) : '—'}
+                {vix != null && vix > 0 ? vix.toFixed(2) : '-'}
               </span>
               {vix != null && vixChangePct != null ? (
                 <span className={`sm-live-metric-chg ${vixChangePct >= 0 ? 'pos' : 'neg'}`}>
@@ -374,13 +374,13 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
               type="button"
               className={feedMode === 'historical' ? 'active' : ''}
               onClick={() => setFeedMode('historical')}
-              title="Uses NSE previous-day OI change — no invented history"
+              title="Uses NSE previous-day OI change - no invented history"
             >
               Historical
             </button>
           </div>
 
-          {/* Cycle only for Historical — unwanted in Live */}
+          {/* Cycle only for Historical - unwanted in Live */}
           {feedMode === 'historical' ? (
             <label className="sm-cycle-label">
               Cycle:
@@ -429,7 +429,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
 
         {feedMode === 'historical' && cycle !== 'prev_day' ? (
           <p className="sm-hist-note">
-            Multi-week OI history needs saved snapshots. Showing live chain with NSE prev-day OI change only — no
+            Multi-week OI history needs saved snapshots. Showing live chain with NSE prev-day OI change only - no
             fake history.
           </p>
         ) : null}
@@ -465,7 +465,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
               <tr>
                 <td colSpan={6} className="sm-chain-empty-cell">
                   {spotPrice > 0
-                    ? 'No option rows for this expiry yet. Spot is live — wait for NSE chain or pick another expiry.'
+                    ? 'No option rows for this expiry yet. Spot is live - wait for NSE chain or pick another expiry.'
                     : 'Option chain unavailable. Spot and strikes will appear when the market feed responds.'}
                 </td>
               </tr>
@@ -483,25 +483,35 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
               );
 
               const formatCallDelta = (d?: number | null) => {
-                if (d == null) return '—';
+                if (d == null) return '-';
                 if (d >= 0.995) return '1';
                 return d.toFixed(2);
               };
               const formatPutDelta = (d?: number | null) => {
-                if (d == null) return '—';
+                if (d == null) return '-';
                 if (Math.abs(d) <= 0.005) return '0';
                 return d.toFixed(2);
               };
+              const lot = Math.max(1, Number(lotSize) || 1);
               const formatOi = (n: number) => {
-                if (!n) return '—';
-                if (n >= 100000) return `${(n / 100000).toFixed(1)}L`;
-                if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-                return String(n);
+                const units = (Number(n) || 0) * lot;
+                if (!units) return '-';
+                if (units >= 10000000) return `${(units / 10000000).toFixed(2)} Cr`;
+                if (units >= 100000) return `${(units / 100000).toFixed(2)} L`;
+                if (units >= 1000) return `${(units / 1000).toFixed(1)} K`;
+                return String(Math.round(units));
               };
               const formatChg = (n: number) => {
-                if (!n) return '—';
-                const abs = Math.abs(n);
-                const s = abs >= 1000 ? `${(abs / 1000).toFixed(1)}k` : String(Math.round(abs));
+                if (!n) return '-';
+                const units = Math.abs(n) * lot;
+                const s =
+                  units >= 10000000
+                    ? `${(units / 10000000).toFixed(2)} Cr`
+                    : units >= 100000
+                      ? `${(units / 100000).toFixed(1)} L`
+                      : units >= 1000
+                        ? `${(units / 1000).toFixed(1)} K`
+                        : String(Math.round(units));
                 return `${n > 0 ? '+' : '-'}${s}`;
               };
               const ceOiPct = maxOi > 0 ? Math.min(100, Math.round((row.ce.oi / maxOi) * 100)) : 0;
@@ -533,7 +543,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                     title={activeCeLeg ? `${activeCeLeg.side} Call on this strike` : 'Add Call leg'}
                   >
                     <span className="sm-ltp-value">
-                      {row.ce.ltp > 0 ? row.ce.ltp.toFixed(2) : '—'}
+                      {row.ce.ltp > 0 ? row.ce.ltp.toFixed(2) : '-'}
                     </span>
                   </td>
                   <td className={`td-strike ${isAtm ? 'atm-cell' : ''} ${isCeItm ? 'itm-call' : ''}`}>
@@ -588,7 +598,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                     title={activePeLeg ? `${activePeLeg.side} Put on this strike` : 'Add Put leg'}
                   >
                     <span className="sm-ltp-value">
-                      {row.pe.ltp > 0 ? row.pe.ltp.toFixed(2) : '—'}
+                      {row.pe.ltp > 0 ? row.pe.ltp.toFixed(2) : '-'}
                     </span>
                   </td>
                   <td className={`td-delta ${isPeItm ? 'itm-put' : ''}`}>

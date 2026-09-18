@@ -129,17 +129,17 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
       'RRG Quadrant',
     ];
     const rows = filteredSectors.map((sec) => [
-      sec.rank || '—',
+      sec.rank || '-',
       sec.symbol,
       sec.name,
       sec.current,
       `${sec.return1D >= 0 ? '+' : ''}${sec.return1D.toFixed(2)}%`,
       `${sec.return1W >= 0 ? '+' : ''}${sec.return1W.toFixed(2)}%`,
       `${sec.return1M >= 0 ? '+' : ''}${sec.return1M.toFixed(2)}%`,
-      sec.rs1D !== undefined ? `${sec.rs1D >= 0 ? '+' : ''}${sec.rs1D.toFixed(2)}%` : '—',
-      sec.rs1W !== undefined ? `${sec.rs1W >= 0 ? '+' : ''}${sec.rs1W.toFixed(2)}%` : '—',
-      sec.rs1M !== undefined ? `${sec.rs1M >= 0 ? '+' : ''}${sec.rs1M.toFixed(2)}%` : '—',
-      sec.compositeScore !== undefined ? sec.compositeScore : '—',
+      sec.rs1D !== undefined ? `${sec.rs1D >= 0 ? '+' : ''}${sec.rs1D.toFixed(2)}%` : '-',
+      sec.rs1W !== undefined ? `${sec.rs1W >= 0 ? '+' : ''}${sec.rs1W.toFixed(2)}%` : '-',
+      sec.rs1M !== undefined ? `${sec.rs1M >= 0 ? '+' : ''}${sec.rs1M.toFixed(2)}%` : '-',
+      sec.compositeScore !== undefined ? sec.compositeScore : '-',
       sec.quadrant,
     ]);
     exportTableToCsv(`NSE_Sector_Rotation_${timeframe}`, headers, rows);
@@ -175,7 +175,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
   if (isLoading && !data) {
     return (
       <TfLoadingState
-        title="Loading sector heatmap…"
+        title="Loading sector heatmap..."
         subtitle="Pulling live exchange and market data for this workspace."
         variant="cards"
       />
@@ -464,19 +464,19 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
                   <div style={{ background: 'rgba(255, 255, 255, 0.7)', padding: '4px 6px', borderRadius: '6px', textAlign: 'center' }}>
                     <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>RS 1D</div>
                     <div style={{ fontSize: '11px', fontWeight: 800, color: (sector.rs1D || 0) >= 0 ? '#059669' : '#DC2626' }}>
-                      {sector.rs1D !== undefined ? `${sector.rs1D >= 0 ? '+' : ''}${sector.rs1D.toFixed(1)}%` : '—'}
+                      {sector.rs1D !== undefined ? `${sector.rs1D >= 0 ? '+' : ''}${sector.rs1D.toFixed(1)}%` : '-'}
                     </div>
                   </div>
                   <div style={{ background: 'rgba(255, 255, 255, 0.7)', padding: '4px 6px', borderRadius: '6px', textAlign: 'center' }}>
                     <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>RS 1W</div>
                     <div style={{ fontSize: '11px', fontWeight: 800, color: (sector.rs1W || 0) >= 0 ? '#059669' : '#DC2626' }}>
-                      {sector.rs1W !== undefined ? `${sector.rs1W >= 0 ? '+' : ''}${sector.rs1W.toFixed(1)}%` : '—'}
+                      {sector.rs1W !== undefined ? `${sector.rs1W >= 0 ? '+' : ''}${sector.rs1W.toFixed(1)}%` : '-'}
                     </div>
                   </div>
                   <div style={{ background: 'rgba(255, 255, 255, 0.7)', padding: '4px 6px', borderRadius: '6px', textAlign: 'center' }}>
                     <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>RS 1M</div>
                     <div style={{ fontSize: '11px', fontWeight: 800, color: (sector.rs1M || 0) >= 0 ? '#059669' : '#DC2626' }}>
-                      {sector.rs1M !== undefined ? `${sector.rs1M >= 0 ? '+' : ''}${sector.rs1M.toFixed(1)}%` : '—'}
+                      {sector.rs1M !== undefined ? `${sector.rs1M >= 0 ? '+' : ''}${sector.rs1M.toFixed(1)}%` : '-'}
                     </div>
                   </div>
                 </div>
@@ -544,7 +544,7 @@ export function SectorHeatmapTab({ data, isLoading, onRefresh }: SectorHeatmapTa
                       {sec.return1M >= 0 ? '+' : ''}{sec.return1M.toFixed(2)}%
                     </td>
                     <td style={{ padding: '10px 14px', fontWeight: 800, color: (sec.rs1M || 0) >= 0 ? '#059669' : '#DC2626' }}>
-                      {sec.rs1M !== undefined ? `${sec.rs1M >= 0 ? '+' : ''}${sec.rs1M.toFixed(2)}%` : '—'}
+                      {sec.rs1M !== undefined ? `${sec.rs1M >= 0 ? '+' : ''}${sec.rs1M.toFixed(2)}%` : '-'}
                     </td>
                     <td style={{ padding: '10px 14px', fontWeight: 800, color: (sec.compositeScore || 0) >= 0 ? '#059669' : '#DC2626' }}>
                       {(sec.compositeScore || 0) >= 0 ? '+' : ''}{sec.compositeScore}

@@ -6,28 +6,34 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2, ShieldAlert } from 'lucide-react';
 import { loginSchema, type LoginInput } from '@ff/validators';
-import { getApiBaseUrl, dispatchAuthChange } from '../../../lib/auth-client';
+import { getApiBaseUrl, dispatchAuthChange, persistAuthTokens } from '../../../lib/auth-client';
 
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
+  } = useForm<LoginInput>({ resolver: zodResolver(loginSchema), defaultValues: { rememberMe: true } });
 
   const onSubmit = async (data: LoginInput) => {
     setIsLoading(true);
     setApiError(null);
     try {
       const apiBase = getApiBaseUrl();
+      const keepSignedIn = data.rememberMe !== false && rememberMe;
       const res = await fetch(`${apiBase}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          rememberMe: keepSignedIn,
+        }),
       });
       const json = (await res.json()) as {
         user?: { role: string; email: string; firstName?: string; lastName?: string; id?: string };
@@ -41,19 +47,17 @@ export function LoginForm() {
         setApiError(errorMsg);
         return;
       }
-      // Store tokens in both localStorage and cookies for seamless session persistence across reloads & SSR
       if (json.tokens?.accessToken) {
-        localStorage.setItem('accessToken', json.tokens.accessToken);
-        document.cookie = `accessToken=${json.tokens.accessToken}; path=/; max-age=604800; SameSite=Lax`;
-      }
-      if (json.tokens?.refreshToken) {
-        localStorage.setItem('refreshToken', json.tokens.refreshToken);
-        document.cookie = `refreshToken=${json.tokens.refreshToken}; path=/; max-age=2592000; SameSite=Lax`;
+        persistAuthTokens({
+          accessToken: json.tokens.accessToken,
+          refreshToken: json.tokens.refreshToken,
+          expiresIn: json.tokens.expiresIn,
+          rememberMe: keepSignedIn,
+        });
       }
       if (json.user) {
         localStorage.setItem('user', JSON.stringify(json.user));
       }
-      // Dispatch immediate notification to all headers and components
       dispatchAuthChange();
 
       // Check for callbackUrl query parameter (set by auth middleware on protected route access)
@@ -227,7 +231,8 @@ export function LoginForm() {
         <input
           id="remember-me"
           type="checkbox"
-          defaultChecked
+          checked={rememberMe}
+          onChange={(e) => setRememberMe(e.target.checked)}
           style={{
             width: '16px',
             height: '16px',
@@ -237,7 +242,7 @@ export function LoginForm() {
           }}
         />
         <label htmlFor="remember-me" style={{ fontSize: '12.5px', color: '#475569', cursor: 'pointer', userSelect: 'none' }}>
-          Keep me signed in on this device
+          Keep me signed in on this device (60 days)
         </label>
       </div>
 

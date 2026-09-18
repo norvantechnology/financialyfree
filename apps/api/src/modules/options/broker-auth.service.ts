@@ -53,7 +53,7 @@ export class BrokerAuthService {
     const connMap = new Map(userConns.map((c) => [c.broker, c]));
 
     const brokersList: Array<{ broker: BrokerType; name: string }> = [
-      { broker: 'sandbox', name: 'Paper Trading (portfolio only — market data from NSE/broker)' },
+      { broker: 'sandbox', name: 'Paper Trading (portfolio only - market data from NSE/broker)' },
       { broker: 'zerodha', name: 'Zerodha (Kite Connect v3)' },
       { broker: 'upstox', name: 'Upstox (v2)' },
       { broker: 'dhan', name: 'Dhan HQ (v2)' },

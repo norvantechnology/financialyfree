@@ -44,7 +44,7 @@ interface RbiMacroWidgetProps {
 }
 
 function fmtPct(value: number | null | undefined): string {
-  return value == null || Number.isNaN(value) ? '—' : `${value.toFixed(2)}%`;
+  return value == null || Number.isNaN(value) ? '-' : `${value.toFixed(2)}%`;
 }
 
 export function RbiMacroWidget({ data, isLoading }: RbiMacroWidgetProps) {
@@ -52,7 +52,7 @@ export function RbiMacroWidget({ data, isLoading }: RbiMacroWidgetProps) {
   if (isLoading && !data) {
     return (
       <TfLoadingState
-        title="Loading RBI macro radar…"
+        title="Loading RBI macro radar..."
         subtitle="Fetching policy rates and MPC calendar from live RBI sources."
         variant="cards"
         rows={4}
@@ -77,7 +77,7 @@ export function RbiMacroWidget({ data, isLoading }: RbiMacroWidgetProps) {
       ['Standing Deposit Facility (SDF)', fmtPct(rates?.standingDepositFacility), 'Liquidity Absorption Floor'],
       ['Marginal Standing Facility (MSF)', fmtPct(rates?.marginalStandingFacility), 'Overnight Liquidity Ceiling'],
       ['Cash Reserve Ratio (CRR)', fmtPct(rates?.cashReserveRatio), 'Bank Reserve Requirement'],
-      ['Retail CPI Inflation', fmtPct(macro?.cpiInflation), `Target: ${macro?.cpiTarget ?? '—'}`],
+      ['Retail CPI Inflation', fmtPct(macro?.cpiInflation), `Target: ${macro?.cpiTarget ?? '-'}`],
       ['10-Yr Benchmark G-Sec Yield', fmtPct(macro?.gsec10Y), 'Sovereign Yield Anchor'],
       ['Next MPC Decision Date', decisionDate, `Expected: ${expectedAction}`],
       ['Policy Stance', policyStance, 'Official RBI Stance'],

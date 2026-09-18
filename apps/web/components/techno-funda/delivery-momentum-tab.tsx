@@ -73,11 +73,11 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
       s.sector,
       s.cmp,
       `${s.dayChangePct >= 0 ? '+' : ''}${s.dayChangePct.toFixed(2)}%`,
-      s.distFromHighPct != null ? `${s.distFromHighPct.toFixed(2)}%` : '—',
-      s.deliveryPct != null ? `${s.deliveryPct.toFixed(1)}%` : '—',
-      s.deliveryVolume != null ? (s.deliveryVolume / 100000).toFixed(2) : '—',
-      s.deliveryTo30dAvgRatio != null ? `${s.deliveryTo30dAvgRatio.toFixed(2)}x` : '—',
-      s.verdict || '—',
+      s.distFromHighPct != null ? `${s.distFromHighPct.toFixed(2)}%` : '-',
+      s.deliveryPct != null ? `${s.deliveryPct.toFixed(1)}%` : '-',
+      s.deliveryVolume != null ? (s.deliveryVolume / 100000).toFixed(2) : '-',
+      s.deliveryTo30dAvgRatio != null ? `${s.deliveryTo30dAvgRatio.toFixed(2)}x` : '-',
+      s.verdict || '-',
     ]);
     exportTableToCsv('NSE_Delivery_Momentum_Screener', headers, rows);
   };
@@ -85,7 +85,7 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
   if (isLoading && !data) {
     return (
       <TfLoadingState
-        title="Loading delivery momentum screener…"
+        title="Loading delivery momentum screener..."
         subtitle="Pulling live exchange and market data for this workspace."
         variant="table"
       />
@@ -273,7 +273,7 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
                           </div>
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: '#059669', whiteSpace: 'nowrap' }}>
-                          {stock.distFromHighPct != null ? `${stock.distFromHighPct.toFixed(2)}%` : '—'}
+                          {stock.distFromHighPct != null ? `${stock.distFromHighPct.toFixed(2)}%` : '-'}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', whiteSpace: 'nowrap' }}>
@@ -286,10 +286,10 @@ export function DeliveryMomentumTab({ data, isLoading, onRefresh }: DeliveryMome
                           </div>
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 600, color: '#334155', whiteSpace: 'nowrap' }}>
-                          {stock.deliveryVolume != null ? `${(stock.deliveryVolume / 100000).toFixed(2)} L` : '—'}
+                          {stock.deliveryVolume != null ? `${(stock.deliveryVolume / 100000).toFixed(2)} L` : '-'}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 750, color: (stock.deliveryTo30dAvgRatio ?? 0) >= 2.0 ? '#4338CA' : '#334155', whiteSpace: 'nowrap' }}>
-                          {stock.deliveryTo30dAvgRatio != null ? `${stock.deliveryTo30dAvgRatio.toFixed(2)}x` : '—'}
+                          {stock.deliveryTo30dAvgRatio != null ? `${stock.deliveryTo30dAvgRatio.toFixed(2)}x` : '-'}
                         </td>
                         <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                           <span style={{
