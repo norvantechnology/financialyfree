@@ -2,8 +2,6 @@ node_modules/
 dist/
 .next/
 build/
-.env
-.env.*
 !.env.example
 *.log
 coverage/
@@ -21,3 +19,4 @@ packages/types/src/**/*.d.ts
 packages/types/src/**/*.d.ts.map
 apps/**/coverage/
 **/.nyc_output/
+config.bat
