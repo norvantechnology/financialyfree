@@ -25,14 +25,15 @@ const AUTH_ROUTES = ['/auth/login', '/auth/register', '/auth/forgot-password'];
  * Lightweight JWT expiry check - no crypto needed, just decode the payload.
  * Returns true if the token is present and not expired.
  */
-function isTokenValid(token: string): boolean {
+function isTokenValid(rawToken: string): boolean {
   try {
+    // Cookies may be URI-encoded when set from document.cookie
+    const token = decodeURIComponent(rawToken);
     const parts = token.split('.');
     if (parts.length < 2) return false;
     const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(
-      atob(base64 + '=='.slice((base64.length + 3) % 4 === 0 ? 0 : (base64.length + 3) % 4)),
-    );
+    const pad = (4 - (base64.length % 4)) % 4;
+    const payload = JSON.parse(atob(base64 + '='.repeat(pad)));
     if (payload.exp && Date.now() / 1000 > payload.exp) return false;
     return true;
   } catch {

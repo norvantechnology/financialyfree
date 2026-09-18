@@ -47,34 +47,37 @@ export function LoginForm() {
         setApiError(errorMsg);
         return;
       }
-      if (json.tokens?.accessToken) {
-        persistAuthTokens({
-          accessToken: json.tokens.accessToken,
-          refreshToken: json.tokens.refreshToken,
-          expiresIn: json.tokens.expiresIn,
-          rememberMe: keepSignedIn,
-        });
+      if (!json.tokens?.accessToken) {
+        setApiError('Login succeeded but no session token was returned. Please try again.');
+        return;
       }
+      persistAuthTokens({
+        accessToken: json.tokens.accessToken,
+        refreshToken: json.tokens.refreshToken,
+        expiresIn: json.tokens.expiresIn,
+        rememberMe: keepSignedIn,
+      });
       if (json.user) {
         localStorage.setItem('user', JSON.stringify(json.user));
       }
       dispatchAuthChange();
 
-      // Check for callbackUrl query parameter (set by auth middleware on protected route access)
-      const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-      const callbackUrl = searchParams?.get('callbackUrl');
-      const redirectParam = searchParams?.get('redirect'); // legacy fallback
-      const destination = (callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.startsWith('/auth'))
-        ? callbackUrl
-        : (redirectParam && redirectParam.startsWith('/') ? redirectParam : null);
+      // Prefer callbackUrl from the middleware bounce (e.g. /options-lab)
+      const searchParams = new URLSearchParams(window.location.search);
+      const callbackUrl = searchParams.get('callbackUrl');
+      const redirectParam = searchParams.get('redirect');
+      const destination =
+        callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.startsWith('/auth')
+          ? callbackUrl
+          : redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('/auth')
+            ? redirectParam
+            : json.user?.role === 'admin'
+              ? '/admin'
+              : '/dashboard/goals';
 
-      if (destination) {
-        window.location.href = destination;
-      } else if (json.user?.role === 'admin') {
-        window.location.href = '/admin';
-      } else {
-        window.location.href = '/dashboard/goals';
-      }
+      // Full navigation so middleware re-reads cookies on the destination page
+      window.location.assign(destination);
+      return;
     } catch {
       setApiError('Unable to connect to service. Please check your internet connection and try again.');
     } finally {
