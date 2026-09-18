@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import '../../styles/options-lab.css';
 import { X, ShieldCheck, CheckCircle2, ExternalLink, Zap, Lock } from 'lucide-react';
 import { BrokerType } from '@ff/types';
+import { ensureFreshAccessToken } from '../../lib/auth-client';
 
 interface BrokerInfo {
   broker: BrokerType;
@@ -74,6 +75,13 @@ export const BrokerConnectModal: React.FC<BrokerConnectModalProps> = ({
   const [loadingBroker, setLoadingBroker] = useState<BrokerType | null>(null);
   const [activeMessage, setActiveMessage] = useState<string | null>(null);
 
+  const authHeaders = async (): Promise<HeadersInit> => {
+    const token = await ensureFreshAccessToken();
+    return token
+      ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+      : { 'Content-Type': 'application/json' };
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     fetchBrokersStatus();
@@ -81,7 +89,8 @@ export const BrokerConnectModal: React.FC<BrokerConnectModalProps> = ({
 
   const fetchBrokersStatus = async () => {
     try {
-      const res = await fetch('/api/v1/options/brokers');
+      const headers = await authHeaders();
+      const res = await fetch('/api/v1/options/brokers', { headers });
       if (res.ok) {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
@@ -111,15 +120,18 @@ export const BrokerConnectModal: React.FC<BrokerConnectModalProps> = ({
 
     if (broker === 'sandbox') {
       try {
+        const headers = await authHeaders();
         const res = await fetch('/api/v1/options/brokers/sandbox/callback', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ code: `SANDBOX_AUTH_${Date.now()}` }),
         });
         if (res.ok) {
           setActiveMessage('Sandbox environment connected successfully! Real ticks enabled.');
           await fetchBrokersStatus();
           if (onConnectSuccess) onConnectSuccess(broker);
+        } else if (res.status === 401) {
+          setActiveMessage('Please sign in to connect a broker.');
         }
       } catch {
         setActiveMessage('Failed connecting to sandbox broker.');
@@ -130,12 +142,15 @@ export const BrokerConnectModal: React.FC<BrokerConnectModalProps> = ({
     }
 
     try {
-      const res = await fetch(`/api/v1/options/brokers/${broker}/auth-url`);
+      const headers = await authHeaders();
+      const res = await fetch(`/api/v1/options/brokers/${broker}/auth-url`, { headers });
       if (res.ok) {
         const json = await res.json();
         if (json.data?.authUrl) {
           window.location.href = json.data.authUrl;
         }
+      } else if (res.status === 401) {
+        setActiveMessage('Please sign in to connect a broker.');
       }
     } catch (err: any) {
       setActiveMessage(`Could not initiate ${broker} OAuth: ${err.message}`);
@@ -147,7 +162,8 @@ export const BrokerConnectModal: React.FC<BrokerConnectModalProps> = ({
   const handleDisconnect = async (broker: BrokerType) => {
     setLoadingBroker(broker);
     try {
-      await fetch(`/api/v1/options/brokers/${broker}`, { method: 'DELETE' });
+      const headers = await authHeaders();
+      await fetch(`/api/v1/options/brokers/${broker}`, { method: 'DELETE', headers });
       await fetchBrokersStatus();
     } catch {
     } finally {

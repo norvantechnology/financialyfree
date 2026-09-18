@@ -12,6 +12,7 @@ import { UserSessionEntity, RefreshTokenEntity } from '../../database/entities/s
 import { EntitlementEntity } from '../../database/entities/subscription.entity';
 import { EntitlementGuard } from './guards/entitlement.guard';
 import { UsersModule } from '../users/users.module';
+import { SystemConfigModule } from '../system-config/system-config.module';
 
 @Global()
 @Module({
@@ -27,6 +28,7 @@ import { UsersModule } from '../users/users.module';
     }),
     TypeOrmModule.forFeature([UserSessionEntity, RefreshTokenEntity, EntitlementEntity]),
     UsersModule,
+    SystemConfigModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, EntitlementGuard],

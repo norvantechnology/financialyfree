@@ -16,7 +16,25 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true;
+    if (isPublic) {
+      // Still attempt JWT so public handlers can read req.user when a token is present
+      const result = super.canActivate(context);
+      if (result instanceof Promise) {
+        return result.catch(() => true);
+      }
+      return true;
+    }
     return super.canActivate(context);
+  }
+
+  handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return user || null;
+    }
+    return super.handleRequest(err, user, info, context);
   }
 }

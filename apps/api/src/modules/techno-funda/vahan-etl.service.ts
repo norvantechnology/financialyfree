@@ -283,8 +283,23 @@ export class VahanEtlService {
       throw new Error(`Initial GET HTTP ${getResp.status}`);
     }
 
-    const setCookieHeader = getResp.headers.get('set-cookie') || '';
-    const cookie = setCookieHeader.split(';')[0] || '';
+    // Node/undici exposes multiple Set-Cookie values via getSetCookie();
+    // headers.get('set-cookie') only returns the first cookie and breaks JSF session.
+    const cookie =
+      typeof (getResp.headers as any).getSetCookie === 'function'
+        ? (getResp.headers as Headers & { getSetCookie: () => string[] })
+            .getSetCookie()
+            .map((c) => c.split(';')[0].trim())
+            .filter(Boolean)
+            .join('; ')
+        : (() => {
+            const raw = getResp.headers.get('set-cookie') || '';
+            return raw
+              .split(/,(?=\s*[^;=]+=)/)
+              .map((c) => c.split(';')[0].trim())
+              .filter(Boolean)
+              .join('; ');
+          })();
     const html = await getResp.text();
 
     const viewStateMatch = html.match(/name="javax\.faces\.ViewState"[^>]*value="([^"]+)"/);

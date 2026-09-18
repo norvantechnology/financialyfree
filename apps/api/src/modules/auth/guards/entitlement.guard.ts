@@ -4,12 +4,14 @@ import {
   ExecutionContext,
   ForbiddenException,
   SetMetadata,
+  Optional,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SkuType, hasEntitlement } from '@ff/types';
 import { EntitlementEntity } from '../../../database/entities/subscription.entity';
+import { SystemConfigService } from '../../system-config/system-config.service';
 
 export const REQUIRE_SKU_KEY = 'require_sku';
 export const RequireSku = (...skus: SkuType[]) => SetMetadata(REQUIRE_SKU_KEY, skus);
@@ -20,6 +22,7 @@ export class EntitlementGuard implements CanActivate {
     private readonly reflector: Reflector,
     @InjectRepository(EntitlementEntity)
     private readonly entitlementRepo: Repository<EntitlementEntity>,
+    @Optional() private readonly systemConfigService?: SystemConfigService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -30,6 +33,11 @@ export class EntitlementGuard implements CanActivate {
 
     // If no SKU required, allow access
     if (!requiredSkus || requiredSkus.length === 0) {
+      return true;
+    }
+
+    // Global FREE mode unlocks all tools for authenticated users
+    if (this.systemConfigService?.isAllAccessFreeNow()) {
       return true;
     }
 

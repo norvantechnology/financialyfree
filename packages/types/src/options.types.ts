@@ -97,6 +97,8 @@ export interface OptionContractDto {
   buildup: OiBuildupType;
   bidPrice?: number;
   askPrice?: number;
+  /** How LTP was derived: last trade, bid/ask mid, or intrinsic-corrected stale print */
+  quoteQuality?: 'trade' | 'mid' | 'stale';
 }
 
 export interface OptionChainRowDto {

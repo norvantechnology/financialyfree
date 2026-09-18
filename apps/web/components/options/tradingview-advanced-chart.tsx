@@ -5,11 +5,13 @@ import React, { useEffect, useRef, useState } from 'react';
 const TV_EMBED =
   'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
 
-/** Map app underlyings to TradingView exchange symbols (live NSE/BSE feed). */
+/** Map app underlyings to TradingView exchange symbols (for external TV links only). */
 export function toTradingViewSymbol(symbol: string): string {
   const s = (symbol || 'NIFTY').toUpperCase().trim();
   const indexMap: Record<string, string> = {
     NIFTY: 'NSE:NIFTY',
+    NIFTY50: 'NSE:NIFTY',
+    'NIFTY 50': 'NSE:NIFTY',
     BANKNIFTY: 'NSE:BANKNIFTY',
     FINNIFTY: 'NSE:FINNIFTY',
     MIDCPNIFTY: 'NSE:MIDCPNIFTY',
@@ -17,7 +19,6 @@ export function toTradingViewSymbol(symbol: string): string {
     BANKEX: 'BSE:BANKEX',
   };
   if (indexMap[s]) return indexMap[s];
-  // Equities on NSE cash
   if (/^[A-Z0-9&-]+$/.test(s)) return `NSE:${s}`;
   return 'NSE:NIFTY';
 }

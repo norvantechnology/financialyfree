@@ -115,16 +115,46 @@ function formatLtp(n: number): string {
   return n.toFixed(2);
 }
 
-/** Prefer last trade; fall back to bid/ask mid so illiquid rows still show a quote */
-function effectiveLtp(contract: OptionContractDto): number {
-  const ltp = Number(contract.ltp) || 0;
-  if (ltp > 0) return ltp;
+/** Prefer last trade; fall back to bid/ask mid; never show ITM quotes below intrinsic */
+function effectiveLtp(
+  contract: OptionContractDto,
+  spot: number,
+  optionType: 'CE' | 'PE',
+): { ltp: number; quality: 'trade' | 'mid' | 'stale' } {
+  const last = Number(contract.ltp) || 0;
   const bid = Number(contract.bidPrice) || 0;
   const ask = Number(contract.askPrice) || 0;
-  if (bid > 0 && ask > 0) return Math.round(((bid + ask) / 2) * 100) / 100;
-  if (bid > 0) return bid;
-  if (ask > 0) return ask;
-  return 0;
+  const mid = bid > 0 && ask > 0 ? Math.round(((bid + ask) / 2) * 100) / 100 : 0;
+  const intrinsic =
+    optionType === 'CE' ? Math.max(0, spot - contract.strike) : Math.max(0, spot > 0 ? contract.strike - spot : 0);
+  // Prefer API-resolved quality when present
+  let quality = (contract.quoteQuality as 'trade' | 'mid' | 'stale' | undefined) || 'trade';
+  let ltp = last > 0 ? last : mid > 0 ? mid : bid > 0 ? bid : ask > 0 ? ask : 0;
+  if (last <= 0 && mid > 0) quality = 'mid';
+  if (last > 0 && bid > 0 && ask > 0 && ask >= bid && (last < bid * 0.995 || last > ask * 1.005)) {
+    ltp = mid;
+    quality = 'mid';
+  }
+  if (spot > 0 && intrinsic > 1 && ltp > 0 && ltp < intrinsic * 0.985) {
+    if (mid >= intrinsic * 0.985) {
+      ltp = mid;
+      quality = 'mid';
+    } else if (ask >= intrinsic * 0.985) {
+      ltp = Math.round(ask * 100) / 100;
+      quality = 'mid';
+    } else {
+      ltp = Math.round(intrinsic * 100) / 100;
+      quality = 'stale';
+    }
+  }
+  return { ltp, quality };
+}
+
+function formatPriceChgPct(pct: number): string {
+  if (!Number.isFinite(pct) || pct === 0) return '0%';
+  const abs = Math.abs(pct);
+  const body = abs >= 10 ? abs.toFixed(0) : abs.toFixed(1);
+  return `${pct >= 0 ? '+' : '-'}${body}%`;
 }
 
 /** StockMojo-style smile IV: OTM put below spot, OTM call above spot */
@@ -277,7 +307,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     );
     if (!row) return;
     const side = chartContract.type === 'CE' ? row.ce : row.pe;
-    const ltp = effectiveLtp(side);
+    const { ltp } = effectiveLtp(side, spot, chartContract.type);
     const changePct = Number(side?.changePct) || 0;
     if (ltp <= 0) return;
     if (
@@ -384,8 +414,8 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
         atmPeOi = r.pe.oi;
         atmCeVol = r.ce.volume;
         atmPeVol = r.pe.volume;
-        atmCeLtp = effectiveLtp(r.ce);
-        atmPeLtp = effectiveLtp(r.pe);
+        atmCeLtp = effectiveLtp(r.ce, spot, 'CE').ltp;
+        atmPeLtp = effectiveLtp(r.pe, spot, 'PE').ltp;
       } else if (Number(r.strike) < atmStrike) {
         itmCeOi += r.ce.oi;
         itmCeVol += r.ce.volume;
@@ -426,7 +456,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     const oiUnits = (Number(c.oi) || 0) * lotSize;
     const volUnits = (Number(c.volume) || 0) * lotSize;
     const oiChgUnits = Math.abs(oiAbs) * lotSize;
-    const quote = effectiveLtp(c);
+    const { ltp: quote, quality: quoteQuality } = effectiveLtp(c, spot, type);
     const oiHeat = heatLevel(oiUnits, maxOi);
     const volHeat = heatLevel(volUnits, maxVol);
     const pctHeat = pctInfo.pct != null ? heatLevel(Math.abs(pctInfo.pct), maxOiChgPct) : 0;
@@ -511,6 +541,12 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
 
     const pushLtp = (cells: React.ReactNode[]) => {
       if (!columns.ltp) return;
+      const warn =
+        quoteQuality === 'stale' || quoteQuality === 'mid'
+          ? quoteQuality === 'stale'
+            ? 'Stale/illiquid print - showing intrinsic floor'
+            : 'Wide or empty last trade - showing bid/ask mid'
+          : '';
       cells.push(
         <td key="ltp" className={`oc-td oc-td-ltp oc-td-ltp--${heat} ${itmCls}`}>
           <button
@@ -524,14 +560,18 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
                 changePct: priceChg,
               })
             }
-            title="Open live LTP chart (TradingView NSE)"
+            title={warn || 'Open live LTP chart (TradingView NSE)'}
           >
             {side === 'pe' ? <LtpChartIcon className="oc-ltp-chart-icon" /> : null}
+            {warn ? (
+              <span className="oc-ltp-warn" aria-label={warn} title={warn}>
+                ▴
+              </span>
+            ) : null}
             <span className="oc-ltp-main">{formatLtp(quote)}</span>
             {quote > 0 ? (
               <span className={priceChg >= 0 ? 'oc-pos' : 'oc-neg'}>
-                {priceChg >= 0 ? '+' : ''}
-                {priceChg.toFixed(0)}%
+                {formatPriceChgPct(priceChg)}
               </span>
             ) : null}
             {side === 'ce' ? <LtpChartIcon className="oc-ltp-chart-icon" /> : null}

@@ -48,8 +48,10 @@ export class BrokerAuthService {
     return adapter;
   }
 
-  async getAvailableBrokers(userId: string): Promise<Array<{ broker: BrokerType; name: string; isConnected: boolean; status?: string; tokenExpiresAt?: string | null }>> {
-    const userConns = await this.brokerConnRepo.find({ where: { userId, isActive: true } });
+  async getAvailableBrokers(userId?: string): Promise<Array<{ broker: BrokerType; name: string; isConnected: boolean; status?: string; tokenExpiresAt?: string | null }>> {
+    const userConns = userId
+      ? await this.brokerConnRepo.find({ where: { userId, isActive: true } })
+      : [];
     const connMap = new Map(userConns.map((c) => [c.broker, c]));
 
     const brokersList: Array<{ broker: BrokerType; name: string }> = [

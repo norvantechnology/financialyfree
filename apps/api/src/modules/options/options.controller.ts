@@ -39,6 +39,7 @@ export class OptionsController {
 
   // ── Broker Integration Endpoints ────────────────────────────────────
 
+  @Public()
   @Get('brokers')
   async getBrokers(@Req() req: any) {
     const userId = req.user?.id || req.user?.userId;

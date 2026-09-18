@@ -5505,6 +5505,14 @@ button.sm-stepper-btn:active,
   transition: opacity 0.12s, color 0.12s;
 }
 
+.oc-ltp-warn {
+  color: #c2410c;
+  font-size: 10px;
+  line-height: 1;
+  margin-right: 1px;
+  flex-shrink: 0;
+}
+
 .oc-ltp-btn:hover .oc-ltp-chart-icon {
   opacity: 1;
   color: #0284C7;
@@ -5991,10 +5999,70 @@ button.sm-stepper-btn:active,
 
 .nifty-chart-toolbar-left,
 .nifty-chart-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nifty-chart-sym-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  font-size: 12px;
+  color: #334155;
+}
+
+.nifty-chart-sym-badge strong {
+  color: #0f172a;
+  letter-spacing: 0.02em;
+}
+
+.nifty-chart-sym-badge .pos {
+  color: #059669;
+  font-weight: 600;
+}
+
+.nifty-chart-sym-badge .neg {
+  color: #e11d48;
+  font-weight: 600;
+}
+
+.nifty-chart-canvas {
+  width: 100%;
+  position: relative;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.nifty-chart-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #64748b;
+  font-size: 13px;
+  padding: 24px;
+  text-align: center;
+}
+
+.nifty-chart-retry {
+  border: 1px solid #0f766e;
+  background: #ecfdf5;
+  color: #0f766e;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .nifty-chart-tf {

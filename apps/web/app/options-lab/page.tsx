@@ -557,8 +557,30 @@ export default function OptionsLabPage() {
           chainDataRef.current = incoming;
           const nextExpiry = incoming.selectedExpiry as string | undefined;
           const expiryList: string[] = incoming.expiryDates || [];
-          if (nextExpiry && (!selectedExpiry || !expiryList.includes(selectedExpiry))) {
-            setSelectedExpiry(nextExpiry);
+          if (!selectedExpiry || !expiryList.includes(selectedExpiry)) {
+            // Prefer ~7-21 DTE (typical monthly) so LTP/OI match liquid StockMojo-style views
+            const pickDefaultExpiry = (list: string[], fallback?: string) => {
+              const today = new Date();
+              const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+              let best: string | null = null;
+              let bestScore = Number.POSITIVE_INFINITY;
+              for (const exp of list) {
+                const [y, m, d] = exp.split('-').map(Number);
+                if (!y || !m || !d) continue;
+                const dte = Math.round((Date.UTC(y, m - 1, d) - todayUtc) / 86400000);
+                if (dte < 0) continue;
+                // Score: prefer 7-21d, then nearest above 3d
+                const score =
+                  dte >= 7 && dte <= 21 ? Math.abs(dte - 14) : dte > 21 ? 100 + (dte - 21) : 200 + dte;
+                if (score < bestScore) {
+                  bestScore = score;
+                  best = exp;
+                }
+              }
+              return best || fallback || list[0] || '';
+            };
+            const preferred = pickDefaultExpiry(expiryList, nextExpiry);
+            if (preferred) setSelectedExpiry(preferred);
           }
           const source = incoming.source as string | undefined;
           const hasContracts = (incoming.contracts?.length || 0) > 0;

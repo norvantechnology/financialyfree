@@ -818,15 +818,69 @@ export class MarketDataService {
       return allowZero ? 0 : 0;
     };
 
+    /**
+     * Resolve display LTP so deep ITM / illiquid rows don't show stale prints
+     * below intrinsic (common after-hours / low-volume NSE lastPrice).
+     */
+    const resolveLtp = (
+      optionType: 'CE' | 'PE',
+      strike: number,
+      last: number,
+      bid: number,
+      ask: number,
+    ): { ltp: number; quality: 'trade' | 'mid' | 'stale' } => {
+      const mid =
+        bid > 0 && ask > 0 ? Math.round(((bid + ask) / 2) * 100) / 100 : 0;
+      const intrinsic =
+        optionType === 'CE'
+          ? Math.max(0, spotPrice - strike)
+          : Math.max(0, strike - spotPrice);
+
+      let ltp = last > 0 ? last : mid > 0 ? mid : bid > 0 ? bid : ask > 0 ? ask : 0;
+      let quality: 'trade' | 'mid' | 'stale' = last > 0 ? 'trade' : mid > 0 ? 'mid' : 'stale';
+
+      // Last print outside the live bid/ask band → prefer mid
+      if (last > 0 && bid > 0 && ask > 0 && ask >= bid) {
+        if (last < bid * 0.995 || last > ask * 1.005) {
+          ltp = mid;
+          quality = 'mid';
+        }
+      }
+
+      // Stale ITM: last trade below ~intrinsic (can't trade through parity by that much)
+      if (intrinsic > 1 && ltp > 0 && ltp < intrinsic * 0.985) {
+        if (mid >= intrinsic * 0.985) {
+          ltp = mid;
+          quality = 'mid';
+        } else if (ask >= intrinsic * 0.985) {
+          ltp = Math.round(ask * 100) / 100;
+          quality = 'mid';
+        } else {
+          ltp = Math.round(intrinsic * 100) / 100;
+          quality = 'stale';
+        }
+      }
+
+      return { ltp, quality };
+    };
+
+    const resolveChangePct = (changePct: number, change: number, prevClose: number, ltp: number) => {
+      if (Number.isFinite(changePct) && changePct !== 0) return changePct;
+      if (prevClose > 0 && Number.isFinite(change) && change !== 0) {
+        return (change / prevClose) * 100;
+      }
+      if (prevClose > 0 && ltp > 0) {
+        return ((ltp - prevClose) / prevClose) * 100;
+      }
+      return changePct || 0;
+    };
+
     const contracts = allStrikes.map((strike) => {
       const data = strikeMap.get(strike) || {};
       const ceRaw = data.ce || {};
       const peRaw = data.pe || {};
       const nearAtm = Math.abs(strike - atmStrike) <= greekRadius;
 
-      // After hours / illiquid lastPrice is often 0 - use bid/ask mid when available
-      const mid = (bid: number, ask: number) =>
-        bid > 0 && ask > 0 ? Math.round(((bid + ask) / 2) * 100) / 100 : 0;
       const ceBid = pickNum(false, ceRaw.buyPrice1, ceRaw.bidprice, ceRaw.bidPrice, ceRaw.bid);
       const ceAsk = pickNum(false, ceRaw.sellPrice1, ceRaw.askPrice, ceRaw.askprice, ceRaw.ask);
       const peBid = pickNum(false, peRaw.buyPrice1, peRaw.bidprice, peRaw.bidPrice, peRaw.bid);
@@ -847,8 +901,10 @@ export class MarketDataService {
         peRaw.ltp,
         peRaw.last,
       );
-      const ceLtp = ceLast > 0 ? ceLast : mid(ceBid, ceAsk);
-      const peLtp = peLast > 0 ? peLast : mid(peBid, peAsk);
+      const ceQuote = resolveLtp('CE', strike, ceLast, ceBid, ceAsk);
+      const peQuote = resolveLtp('PE', strike, peLast, peBid, peAsk);
+      const ceLtp = ceQuote.ltp;
+      const peLtp = peQuote.ltp;
 
       const ceOiChg = pickNum(
         true,
@@ -876,8 +932,20 @@ export class MarketDataService {
       );
       const ceChange = pickNum(true, ceRaw.change);
       const peChange = pickNum(true, peRaw.change);
-      const ceChangePct = pickNum(true, ceRaw.pChange, ceRaw.PChange, ceRaw.pchange);
-      const peChangePct = pickNum(true, peRaw.pChange, peRaw.PChange, peRaw.pchange);
+      const cePrev = pickNum(false, ceRaw.previousClose, ceRaw.prevClose, ceRaw.previousClosePrice);
+      const pePrev = pickNum(false, peRaw.previousClose, peRaw.prevClose, peRaw.previousClosePrice);
+      const ceChangePct = resolveChangePct(
+        pickNum(true, ceRaw.pChange, ceRaw.PChange, ceRaw.pchange),
+        ceChange,
+        cePrev,
+        ceLtp,
+      );
+      const peChangePct = resolveChangePct(
+        pickNum(true, peRaw.pChange, peRaw.PChange, peRaw.pchange),
+        peChange,
+        pePrev,
+        peLtp,
+      );
 
       const r = 0.065; // RBI repo-rate class risk-free benchmark
       const tte = this.yearsToExpiry(targetExpiry);
@@ -963,6 +1031,7 @@ export class MarketDataService {
           buildup: classifyOiBuildup(ceChange, ceOiChg),
           bidPrice: ceBid || undefined,
           askPrice: ceAsk || undefined,
+          quoteQuality: ceQuote.quality,
         },
         pe: {
           instrumentToken: `NFO_${symbol}_${targetExpiry}_${strike}_PE`,
@@ -984,6 +1053,7 @@ export class MarketDataService {
           buildup: classifyOiBuildup(peChange, peOiChg),
           bidPrice: peBid || undefined,
           askPrice: peAsk || undefined,
+          quoteQuality: peQuote.quality,
         },
       };
     });

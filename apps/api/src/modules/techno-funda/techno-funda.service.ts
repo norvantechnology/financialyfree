@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -18,6 +18,7 @@ import {
 import { DataSourceHealthEntity } from '../../database/entities/data-source-health.entity';
 import { MarketIndexService } from './market-index.service';
 import { VahanEtlService } from './vahan-etl.service';
+import { MarketDataService } from '../options/market-data.service';
 import {
   alignClosesWithSession,
   extractYahooCloses,
@@ -140,6 +141,9 @@ export class TechnoFundaService {
     private readonly vahanEtlService: VahanEtlService,
     @InjectRepository(DataSourceHealthEntity)
     private readonly healthRepo: Repository<DataSourceHealthEntity>,
+    @Optional()
+    @Inject(forwardRef(() => MarketDataService))
+    private readonly marketDataService?: MarketDataService,
   ) {}
 
   private screenerPlCache = new Map<string, { data: any; timestamp: number }>();
@@ -3468,17 +3472,23 @@ export class TechnoFundaService {
           })),
         );
 
+      const topStates = Array.isArray(vahan?.topStates) ? vahan.topStates : [];
+      const hasLiveStates = vahan?.mode === 'LIVE_FETCH' && topStates.length > 0;
       const result = {
-        source: makers.length ? 'LIVE_FETCH' : 'UNAVAILABLE',
-        dataSource: 'MoRTH Vahan ETL (live scrape) - OEM unit matrices not fabricated',
+        source: makers.length ? 'LIVE_FETCH' : hasLiveStates ? 'LIVE_STATE_REGISTRATIONS' : 'UNAVAILABLE',
+        dataSource:
+          'MoRTH Vahan ETL (live scrape) - OEM unit matrices not fabricated; state registration totals included when available',
         totalMakers: makers.length,
         makers,
+        topStates,
         lastUpdated: new Date().toISOString(),
         message: makers.length
           ? undefined
-          : 'OEM manufacturer matrix is not published in the public Vahan state dashboard; category/OEM rows stay empty until MoRTH exposes them.',
+          : hasLiveStates
+            ? 'OEM manufacturer matrix is not published on the public Vahan dashboard; live state registration totals are included instead.'
+            : 'OEM manufacturer matrix is not published in the public Vahan state dashboard; category/OEM rows stay empty until MoRTH exposes them.',
       };
-      if (makers.length > 0) {
+      if (makers.length > 0 || hasLiveStates) {
         this.vahanMakersCache = { timestamp: Date.now(), data: result };
       }
       return result;
@@ -3489,6 +3499,7 @@ export class TechnoFundaService {
         dataSource: 'UNAVAILABLE',
         totalMakers: 0,
         makers: [],
+        topStates: [],
         lastUpdated: new Date().toISOString(),
       };
       return result;
@@ -3832,10 +3843,74 @@ export class TechnoFundaService {
       this.loadNseEquityUniverse(12),
     ]);
 
-    const indices = [
+    let indices: any[] = [
       parseDerivativesOptions(niftyRaw, 'NIFTY', 'Nifty 50 Index Options'),
       parseDerivativesOptions(bankRaw, 'BANKNIFTY', 'Nifty Bank Index Options'),
     ].filter(Boolean);
+
+    // Fallback: reuse live Options Lab chain (NSE v3 / proxy) when derivatives watch is blocked
+    if (!indices.length && this.marketDataService) {
+      const fromChain = async (symbol: string, name: string) => {
+        try {
+          const chain = await this.marketDataService!.getOptionChain(symbol);
+          const contracts = Array.isArray(chain?.contracts) ? chain.contracts : [];
+          if (!contracts.length) return null;
+          const strikes = contracts
+            .map((c: any) => ({
+              strikePrice: Number(c.strike || 0),
+              callOi: Number(c.ce?.oi || 0),
+              putOi: Number(c.pe?.oi || 0),
+              callOiChange: Number(c.ce?.oiChange || 0),
+              putOiChange: Number(c.pe?.oiChange || 0),
+            }))
+            .filter((s) => s.strikePrice > 0 && (s.callOi > 0 || s.putOi > 0))
+            .sort((a, b) => a.strikePrice - b.strikePrice);
+          if (!strikes.length) return null;
+          const totalCallOi = strikes.reduce((a, s) => a + s.callOi, 0);
+          const totalPutOi = strikes.reduce((a, s) => a + s.putOi, 0);
+          const pcr =
+            totalCallOi > 0 ? Math.round((totalPutOi / totalCallOi) * 100) / 100 : chain.pcr ?? null;
+          const highestCall = strikes.reduce(
+            (best: any, s) => (!best || s.callOi > best.callOi ? s : best),
+            null,
+          );
+          const highestPut = strikes.reduce(
+            (best: any, s) => (!best || s.putOi > best.putOi ? s : best),
+            null,
+          );
+          const spotPrice = Number(chain.spotPrice || 0);
+          const nearSpot = spotPrice
+            ? strikes
+                .filter((s) => Math.abs(s.strikePrice - spotPrice) / spotPrice <= 0.08)
+                .slice(0, 25)
+            : strikes.slice(0, 25);
+          return {
+            symbol,
+            name,
+            spotPrice,
+            pcr,
+            pcrSentiment: pcr == null ? null : pcr >= 1.0 ? 'Bullish' : 'Bearish',
+            maxPainStrike: chain.maxPain ?? null,
+            totalCallOi: Math.round(totalCallOi),
+            totalPutOi: Math.round(totalPutOi),
+            highestCallOiStrike: highestCall?.strikePrice ?? null,
+            highestPutOiStrike: highestPut?.strikePrice ?? null,
+            rolloverPct: null,
+            expiryDate: chain.selectedExpiry || null,
+            strikes: nearSpot,
+          };
+        } catch (err: any) {
+          this.logger.warn(`F&O OI chain fallback failed for ${symbol}: ${err?.message || err}`);
+          return null;
+        }
+      };
+      indices = (
+        await Promise.all([
+          fromChain('NIFTY', 'Nifty 50 Index Options'),
+          fromChain('BANKNIFTY', 'Nifty Bank Index Options'),
+        ])
+      ).filter(Boolean);
+    }
 
     const topOiGainers = (
       await this.mapPool(universe, 6, async (item) => {
@@ -3853,10 +3928,16 @@ export class TechnoFundaService {
 
     const result = {
       lastUpdated: new Date().toISOString(),
-      source: indices.length ? 'NSE_LIVE_EQUITY_DERIVATIVES' : 'UNAVAILABLE',
+      source: indices.length
+        ? indices.some((i: any) => i?.expiryDate)
+          ? 'NSE_OPTION_CHAIN_LIVE'
+          : 'NSE_LIVE_EQUITY_DERIVATIVES'
+        : 'UNAVAILABLE',
       indices,
       topOiGainers,
-      message: indices.length ? undefined : 'NSE derivatives options feed unavailable; no synthetic OI emitted.',
+      message: indices.length
+        ? undefined
+        : 'NSE derivatives options feed unavailable; no synthetic OI emitted.',
     };
 
     this.fnoOiCache = { timestamp: Date.now(), data: result };
@@ -3901,43 +3982,42 @@ export class TechnoFundaService {
         const to = new Date(anchor);
         const from30 = new Date(anchor);
         from30.setDate(from30.getDate() - 30);
-        const from90 = new Date(anchor);
-        from90.setDate(from90.getDate() - 90);
         return [
           `/api/corporates-pit?index=equities&from_date=${this.formatNseApiDate(from30)}&to_date=${this.formatNseApiDate(to)}`,
-          `/api/corporates-pit?index=equities&from_date=${this.formatNseApiDate(from90)}&to_date=${this.formatNseApiDate(to)}`,
         ];
       };
 
-      // NSE PIT often lags / has no rows for future-skewed host clocks - walk back calendar years
-      const endpoints: string[] = [];
-      const now = new Date();
-      for (const yearsBack of [0, 1, 2]) {
-        const anchor = new Date(now);
-        anchor.setFullYear(anchor.getFullYear() - yearsBack);
-        endpoints.push(...buildEndpointsForAnchor(anchor));
-      }
-      endpoints.push('/api/corporates-pit?index=equities');
+      // Prefer recent windows first; avoid serial multi-year walks that time out the HTTP client
+      const endpoints: string[] = [
+        ...buildEndpointsForAnchor(new Date()),
+        '/api/corporates-pit?index=equities',
+      ];
+      const priorYear = new Date();
+      priorYear.setFullYear(priorYear.getFullYear() - 1);
+      endpoints.push(...buildEndpointsForAnchor(priorYear));
 
       let rows: any[] = [];
-      for (const endpoint of endpoints) {
-        try {
-          const rawPit = await this.fetchNseApi(
+      const settled = await Promise.allSettled(
+        endpoints.map((endpoint) =>
+          this.fetchNseApi(
             endpoint,
             'https://www.nseindia.com/companies-listing/corporate-filings-insider-trading',
-          );
-          const candidate = Array.isArray(rawPit?.data)
-            ? rawPit.data
-            : Array.isArray(rawPit)
-              ? rawPit
-              : [];
-          if (candidate.length > 0) {
-            rows = candidate;
-            this.logger.log(`Insider PIT hit ${candidate.length} rows via ${endpoint}`);
-            break;
-          }
-        } catch (err: any) {
-          this.logger.warn(`Insider endpoint ${endpoint} failed: ${err?.message || err}`);
+          ).then((rawPit) => {
+            const candidate = Array.isArray(rawPit?.data)
+              ? rawPit.data
+              : Array.isArray(rawPit)
+                ? rawPit
+                : [];
+            return { endpoint, candidate };
+          }),
+        ),
+      );
+      for (const item of settled) {
+        if (item.status !== 'fulfilled') continue;
+        if (item.value.candidate.length > 0) {
+          rows = item.value.candidate;
+          this.logger.log(`Insider PIT hit ${rows.length} rows via ${item.value.endpoint}`);
+          break;
         }
       }
 
@@ -4180,6 +4260,59 @@ export class TechnoFundaService {
       this.logger.warn(`Live NSE IPO fetch failed: ${err.message}`);
     }
 
+    // NSE IPO JSON is often 403 from cloud hosts - fall back to public Chittorgarh IPO list HTML
+    if (bySymbol.size === 0) {
+      try {
+        const res = await fetch('https://www.chittorgarh.com/report/ipo-in-india-list-main-board-sme/82/', {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            Accept: 'text/html',
+          },
+          signal: AbortSignal.timeout(15000),
+        });
+        if (res.ok) {
+          const html = await res.text();
+          // Rows typically: IPO name link + open/close/listing cells nearby
+          const rowRe =
+            /href="[^"]*\/ipo\/[^"]+"[^>]*>([^<]{2,80})<\/a>[\s\S]{0,400}?(\d{1,2}[-/]\w{3}[-/]\d{2,4}|\d{1,2}-\w{3}-\d{4}|-)/gi;
+          let match: RegExpExecArray | null;
+          let idx = 0;
+          while ((match = rowRe.exec(html)) && idx < 40) {
+            const companyName = match[1].replace(/\s+/g, ' ').trim();
+            if (!companyName || /ipo name|company/i.test(companyName)) continue;
+            const symbol = companyName
+              .toUpperCase()
+              .replace(/[^A-Z0-9]/g, '')
+              .slice(0, 12);
+            upsert(
+              {
+                id: `chittor-${idx}`,
+                symbol: symbol || `IPO${idx}`,
+                companyName,
+                status: 'Upcoming',
+                series: 'Mainboard',
+                openDate: match[2] && match[2] !== '-' ? match[2] : null,
+                closeDate: null,
+                listingDate: null,
+                issueSizeCr: 0,
+                priceBand: null,
+                subscriptionTimes: 0,
+                gmp: null,
+              },
+              1,
+            );
+            idx += 1;
+          }
+          if (bySymbol.size > 0) {
+            this.logger.log(`IPO tracker filled ${bySymbol.size} rows from Chittorgarh fallback`);
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Chittorgarh IPO fallback failed: ${err?.message || err}`);
+      }
+    }
+
     const ipos = Array.from(bySymbol.values())
       .map(({ _priority, ...rest }) => rest)
       .sort((a, b) => {
@@ -4197,11 +4330,17 @@ export class TechnoFundaService {
       closed: ipos.filter((i) => i.status === 'Closed').length,
     };
 
+    const usedChittor = ipos.some((i) => String(i.id || '').startsWith('chittor-'));
     const result = {
       lastUpdated: new Date().toISOString(),
-      source: ipos.length ? 'NSE_IPO_CURRENT_UPCOMING_PAST' : 'UNAVAILABLE',
-      dataSource:
-        'NSE /api/ipo-current-issue + /api/all-upcoming-issues?category=ipo + /api/public-past-issues (90d)',
+      source: ipos.length
+        ? usedChittor
+          ? 'CHITTORGARH_IPO_LIST_LIVE'
+          : 'NSE_IPO_CURRENT_UPCOMING_PAST'
+        : 'UNAVAILABLE',
+      dataSource: usedChittor
+        ? 'Chittorgarh public IPO list (NSE JSON unavailable from this host)'
+        : 'NSE /api/ipo-current-issue + /api/all-upcoming-issues?category=ipo + /api/public-past-issues (90d)',
       totalIpos: ipos.length,
       counts,
       ipos,
@@ -4671,37 +4810,51 @@ export class TechnoFundaService {
       return cached;
     }
 
-    // Attempt lightweight public RBI policy page scrape; never emit fabricated policy rates
+    // Attempt lightweight public RBI home-page scrape; never emit fabricated policy rates
     try {
-      const res = await fetch('https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx', {
+      const res = await fetch('https://www.rbi.org.in/home.aspx', {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
           Accept: 'text/html',
         },
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(12000),
       });
       if (res.ok) {
         const html = await res.text();
-        const repoMatch = html.match(/Repo\s*Rate[^0-9%]*([0-9]+\.[0-9]+)\s*%/i)
-          || html.match(/policy\s*repo\s*rate[^0-9%]*([0-9]+\.[0-9]+)\s*%/i);
-        const repoRate = repoMatch ? parseFloat(repoMatch[1]) : null;
+        const rateAfter = (label: string): number | null => {
+          const re = new RegExp(
+            `${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]{0,120}?:\\s*([0-9]+(?:\\.[0-9]+)?)\\s*%`,
+            'i',
+          );
+          const m = html.match(re);
+          return m ? parseFloat(m[1]) : null;
+        };
+        const repoRate = rateAfter('Policy Repo Rate') ?? rateAfter('Repo Rate');
+        const standingDepositFacility = rateAfter('Standing Deposit Facility Rate');
+        const marginalStandingFacility = rateAfter('Marginal Standing Facility Rate');
+        const bankRate = rateAfter('Bank Rate');
+        const cashReserveRatio = rateAfter('CRR') ?? rateAfter('Cash Reserve Ratio');
+        const statutoryLiquidityRatio = rateAfter('SLR') ?? rateAfter('Statutory Liquidity Ratio');
         const result = {
           lastUpdated: new Date().toISOString(),
-          source: repoRate != null ? 'RBI_PRESS_RELEASES_LIVE' : 'UNAVAILABLE',
+          source: repoRate != null ? 'RBI_HOME_KEY_RATES_LIVE' : 'UNAVAILABLE',
           currentRates: {
             repoRate,
-            standingDepositFacility: null,
-            marginalStandingFacility: null,
-            bankRate: null,
-            cashReserveRatio: null,
-            statutoryLiquidityRatio: null,
+            standingDepositFacility,
+            marginalStandingFacility,
+            bankRate,
+            cashReserveRatio,
+            statutoryLiquidityRatio,
           },
           nextMpcMeeting: null,
           policyStance: null,
           rateHistory: [],
           macroIndicators: null,
-          message: repoRate != null ? undefined : 'Live RBI policy rates could not be parsed; no static calendar emitted.',
+          message:
+            repoRate != null
+              ? undefined
+              : 'Live RBI policy rates could not be parsed; no static calendar emitted.',
         };
         // Only long-cache successful parses; short-cache misses via NEGATIVE_TTL
         this.rbiMacroCache = { timestamp: Date.now(), data: result };
