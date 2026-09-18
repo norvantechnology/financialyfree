@@ -1076,24 +1076,23 @@ export default function OptionsLabPage() {
 
     if (baseLegs.length > 0) {
       // Enrich with live contract LTPs only — drop legs without a real quote (no fake premiums)
-      const legs = baseLegs
-        .map((leg) => {
-          const contract = chainData.contracts?.find((c) => c.strike === leg.strike);
-          if (!contract) return null;
-          const sideContract = leg.optionType === 'CE' ? contract.ce : contract.pe;
-          if (!sideContract || !(sideContract.ltp > 0)) return null;
-          return {
-            ...leg,
-            entryPrice: sideContract.ltp,
-            currentPrice: sideContract.ltp,
-            iv: sideContract.iv || leg.iv,
-            delta: sideContract.delta || leg.delta,
-            gamma: sideContract.gamma || leg.gamma,
-            theta: sideContract.theta || leg.theta,
-            vega: sideContract.vega || leg.vega,
-          };
-        })
-        .filter((l): l is StrategyLegDto => l != null);
+      const legs: StrategyLegDto[] = [];
+      for (const leg of baseLegs) {
+        const contract = chainData.contracts?.find((c) => c.strike === leg.strike);
+        if (!contract) continue;
+        const sideContract = leg.optionType === 'CE' ? contract.ce : contract.pe;
+        if (!sideContract || !(sideContract.ltp > 0)) continue;
+        legs.push({
+          ...leg,
+          entryPrice: sideContract.ltp,
+          currentPrice: sideContract.ltp,
+          iv: sideContract.iv || leg.iv,
+          delta: sideContract.delta || leg.delta,
+          gamma: sideContract.gamma || leg.gamma,
+          theta: sideContract.theta || leg.theta,
+          vega: sideContract.vega || leg.vega,
+        });
+      }
 
       if (legs.length === 0) {
         setNotification(`No live LTPs for "${tplName}" strikes on this expiry — try another expiry.`);

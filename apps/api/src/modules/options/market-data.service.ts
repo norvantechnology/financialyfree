@@ -169,37 +169,6 @@ export class MarketDataService {
     return undefined;
   }
 
-  /** Try Yahoo chart hosts until one returns a regularMarketPrice. */
-  private async fetchYahooRegularPrice(ticker: string): Promise<number | undefined> {
-    const hosts = [
-      'https://query1.finance.yahoo.com',
-      'https://query2.finance.yahoo.com',
-    ];
-    for (const host of hosts) {
-      try {
-        const url = `${host}/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
-        const res = await fetch(url, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-            Accept: 'application/json',
-            'Accept-Language': 'en-US,en;q=0.9',
-          },
-          signal: AbortSignal.timeout(6000),
-        });
-        if (!res.ok) continue;
-        const json = (await res.json()) as any;
-        const price = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
-        if (price != null && Number(price) > 0) {
-          return parseFloat(Number(price).toFixed(2));
-        }
-      } catch {
-        // try next host
-      }
-    }
-    return undefined;
-  }
-
   private async fetchYahooChartMeta(ticker: string): Promise<any | null> {
     const hosts = [
       'https://query1.finance.yahoo.com',
@@ -604,6 +573,7 @@ export class MarketDataService {
       spotChange: number;
       spotChangePct: number;
       vix?: number;
+      vixChangePct?: number;
       lotSize?: number;
       futures?: Array<{ expiry: string; ltp: number; lots: string }>;
       source?: string;
