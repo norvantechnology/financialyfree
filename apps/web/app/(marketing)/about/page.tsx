@@ -6,9 +6,9 @@ import { JsonLd } from '../../../components/marketing/JsonLd';
 import { Breadcrumbs, CtaSection, Reveal } from '../../../components/marketing/primitives';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'About GoalCompass: Goal-based Investing & Research Platform',
+  title: 'About GoalCompass: SIPs & Stock Research for Indian Investors',
   description:
-    'GoalCompass provides goal-based mutual fund investing and Techno-Funda educational research tools.',
+    'GoalCompass helps Indian investors plan monthly SIPs and research Nifty stocks with clear, honest tools - built by FutureZenith Insights LLP.',
   path: '/about',
 });
 
@@ -34,8 +34,8 @@ export default function AboutPage() {
               Built for purposeful wealth and honest research
             </h1>
             <p className="mkt-lead">
-              GoalCompass helps Indian investors plan clear financial goals, build wealth with discipline,
-              and access institutional-style market research - all in one platform.
+              GoalCompass helps everyday Indian investors plan clear goals, invest with monthly SIPs,
+              and research Nifty stocks with tools you can understand - all in one place.
             </p>
           </Reveal>
 
@@ -44,36 +44,36 @@ export default function AboutPage() {
               <h2 className="mkt-serif" style={{ fontSize: '1.3rem', marginTop: 0 }}>
                 Our mission
               </h2>
-              <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6 }}>
-                Empower Indian investors to set clear financial goals, invest with long-term discipline,
-                and access institutional-grade market data and valuation tools with complete clarity.
+              <p style={{ color: 'var(--mkt-text-muted)', lineHeight: 1.6 }}>
+                Help Indian investors set clear financial goals, invest with long-term discipline,
+                and access clear market data and valuation tools - without tip-group noise.
               </p>
             </article>
             <article className="mkt-card">
               <h2 className="mkt-serif" style={{ fontSize: '1.3rem', marginTop: 0 }}>
-                Our Approach
+                Our approach
               </h2>
-              <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6 }}>
-                We build transparent tools that help you understand your investments - not tell you what to buy.
-                All research tools are designed for self-directed learning and exploration.
+              <p style={{ color: 'var(--mkt-text-muted)', lineHeight: 1.6 }}>
+                We build transparent tools that help you understand investments - not tell you what
+                to buy. Research features are for self-directed learning and exploration.
               </p>
             </article>
             <article className="mkt-card">
               <h2 className="mkt-serif" style={{ fontSize: '1.3rem', marginTop: 0 }}>
-                Track A: Wealth Planning
+                Track A: Wealth planning
               </h2>
-              <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6 }}>
-                Goal planners, paperless KYC, Academy courses, and seamless mutual fund execution -
-                everything you need to invest with a clear plan.
+              <p style={{ color: 'var(--mkt-text-muted)', lineHeight: 1.6 }}>
+                Goal planners, paperless KYC, beginner courses, and mutual fund SIPs routed through
+                exchange infrastructure - so you invest with a plan.
               </p>
             </article>
             <article className="mkt-card">
               <h2 className="mkt-serif" style={{ fontSize: '1.3rem', marginTop: 0 }}>
-                Track B: Market Research
+                Track B: Stock research
               </h2>
-              <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6 }}>
-                Twenty Techno-Funda desks for valuation models, corporate filings, screeners, and market
-                structure tools for self-directed study.
+              <p style={{ color: 'var(--mkt-text-muted)', lineHeight: 1.6 }}>
+                Fair-value models, screeners, filings, and market mood tools for DIY investors who
+                want to research Nifty stocks themselves.
               </p>
             </article>
           </div>
@@ -82,9 +82,9 @@ export default function AboutPage() {
             <h2 className="mkt-serif" style={{ fontSize: '1.3rem', marginTop: 0 }}>
               Instructors &amp; product team
             </h2>
-            <p style={{ color: 'var(--mkt-muted)', lineHeight: 1.6, marginBottom: 0 }}>
-              Curriculum and research tooling are produced by the GoalCompass product team.
-              We do not publish celebrity endorsements or unverifiable
+            <p style={{ color: 'var(--mkt-text-muted)', lineHeight: 1.6, marginBottom: 0 }}>
+              Curriculum and research tooling are built by the GoalCompass product team at
+              FutureZenith Insights LLP. We do not publish celebrity endorsements or unverifiable
               performance claims. For partnership or media queries, visit{' '}
               <Link href="/contact">Contact</Link>.
             </p>

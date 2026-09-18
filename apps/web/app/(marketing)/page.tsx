@@ -12,7 +12,6 @@ import {
   TrendingUp,
   Zap,
   CheckCircle2,
-  Star,
   Globe,
   ChevronRight,
   PieChart,
@@ -40,9 +39,9 @@ import {
 } from '../../components/marketing/primitives';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'Goal-Based Mutual Funds & Techno-Funda Research',
+  title: 'Goal-Based SIPs & Stock Research for Indian Investors',
   description:
-    'Plan SIPs for FIRE, education, and wealth creation. 20 Techno-Funda research tools for self-directed investors.',
+    'Plan monthly SIPs for retirement, education, and wealth. Research Nifty stocks with clear tools - valuation, market mood, and more. Free to start.',
   path: '/',
 });
 
@@ -50,22 +49,22 @@ const TRACK_B_PREVIEWS = [
   {
     id: 'mmi',
     title: 'Market Mood Index',
-    body: 'Composite sentiment telemetry for market climate context.',
+    body: 'A simple fear-to-greed score so you know when markets feel hot or cold.',
   },
   {
     id: 'valuation',
     title: 'Valuation Lab',
-    body: 'Nine models: DCF, Reverse DCF, Graham, Lynch, DDM, multiples and more.',
+    body: 'Check if a stock looks cheap or expensive with clear fair-value models.',
   },
   {
     id: 'orders',
     title: 'Order Tracker',
-    body: 'SEBI LODR order wins with PDF annexure ₹ Cr extraction.',
+    body: 'See big company contract wins pulled from official exchange filings.',
   },
   {
     id: 'fno',
     title: 'F&O OI & PCR',
-    body: 'Open interest, put-call ratio and max-pain style views.',
+    body: 'Track Nifty options activity - open interest and put-call ratio - live.',
   },
 ];
 
@@ -78,11 +77,11 @@ const TRUST_LOGOS = [
 ];
 
 const FEATURES_LIST = [
-  { icon: <Target size={18} />, text: 'Goal-based SIP planner' },
-  { icon: <ShieldCheck size={18} />, text: 'Paperless digital KYC' },
-  { icon: <Landmark size={18} />, text: 'BSE StAR MF execution' },
-  { icon: <BarChart3 size={18} />, text: '20 research tools' },
-  { icon: <GraduationCap size={18} />, text: 'Investing academy' },
+  { icon: <Target size={18} />, text: 'Monthly SIP planner' },
+  { icon: <ShieldCheck size={18} />, text: 'Paperless KYC' },
+  { icon: <Landmark size={18} />, text: 'Exchange-routed SIPs' },
+  { icon: <BarChart3 size={18} />, text: 'Stock research tools' },
+  { icon: <GraduationCap size={18} />, text: 'Beginner academy' },
   { icon: <Activity size={18} />, text: 'Live market data' },
 ];
 
@@ -91,50 +90,47 @@ const HOW_IT_WORKS = [
     step: '01',
     icon: <Target size={28} />,
     title: 'Set your goal',
-    desc: 'Pick from Emergency Fund, Retirement/FIRE, Child Education, or Wealth Creation. Enter your target amount and timeline.',
+    desc: 'Choose what you are saving for - emergency fund, retirement, child education, or long-term wealth - and set a target amount and year.',
     color: '#f59e0b',
   },
   {
     step: '02',
     icon: <BookOpen size={28} />,
-    title: 'Learn & plan',
-    desc: 'Use our Academy courses and SIP calculator to understand exactly how much to invest every month to reach your goal.',
+    title: 'See your monthly SIP',
+    desc: 'We show exactly how much to invest each month, based on your timeline and expected returns. No spreadsheet needed.',
     color: '#10b981',
   },
   {
     step: '03',
     icon: <BarChart3 size={28} />,
-    title: 'Research smarter',
-    desc: 'Explore 20 Techno-Funda tools - valuation models, market sentiment, order flows, F&O data - all in one place.',
+    title: 'Research stocks clearly',
+    desc: 'Use simple tools to check if a stock looks fairly priced, how the market mood feels, and what big investors are doing.',
     color: '#6366f1',
   },
   {
     step: '04',
     icon: <Landmark size={28} />,
-    title: 'Invest with confidence',
-    desc: 'Complete paperless KYC and start your SIP. Orders route directly through BSE StAR MF exchange infrastructure.',
+    title: 'Start investing',
+    desc: 'Complete quick digital KYC and start your SIP. Orders go through exchange infrastructure - not a random tip group.',
     color: '#0f766e',
   },
 ];
 
-const TESTIMONIALS = [
+const WHO_ITS_FOR = [
   {
-    name: 'Arjun M.',
-    role: 'Software Engineer, Bengaluru',
-    text: 'Finally a platform that explains investing simply. The goal planner showed me exactly how much I need to save for my child\'s education. Love the Techno-Funda tools too.',
-    rating: 5,
+    icon: <Target size={22} />,
+    title: 'First-time SIP investors',
+    text: 'Know exactly how much to invest each month for retirement, education, or an emergency fund - without a spreadsheet.',
   },
   {
-    name: 'Priya S.',
-    role: 'Doctor, Mumbai',
-    text: 'The FIRE calculator was an eye-opener. I now have a clear monthly SIP target for early retirement. The academy courses helped me understand MFs from scratch.',
-    rating: 5,
+    icon: <BarChart3 size={22} />,
+    title: 'DIY stock pickers',
+    text: 'Check if a Nifty stock looks expensive, see market mood, and track big deals - before you buy on a tip.',
   },
   {
-    name: 'Rahul K.',
-    role: 'Business Owner, Delhi',
-    text: 'The Valuation Lab with 9 models is incredible for stock research. Using it alongside the goal dashboard gives a complete investing picture.',
-    rating: 5,
+    icon: <GraduationCap size={22} />,
+    title: 'Busy professionals',
+    text: 'Paperless KYC, exchange-routed SIPs, and beginner courses so you can invest with a plan - not guesswork.',
   },
 ];
 
@@ -178,7 +174,7 @@ export default function HomePage() {
             <div className="hp-hero-text">
               <div className="mkt-badge hp-badge-animate">
                 <ShieldCheck size={15} aria-hidden />
-                Goal-based Investing &middot; Techno-Funda Research
+                Mutual fund SIPs &amp; Nifty stock research
               </div>
 
               <h1 className="mkt-serif hp-h1">
@@ -186,13 +182,13 @@ export default function HomePage() {
                 <span className="hp-gradient-text">purpose.</span>
                 <br />
                 Research with{' '}
-                <span className="hp-gradient-text">discipline.</span>
+                <span className="hp-gradient-text">clarity.</span>
               </h1>
 
               <p className="mkt-hero-sub">
-                GoalCompass gives you a <strong>goal-based SIP planner</strong> for wealth,
-                FIRE &amp; education - plus <strong>20 institutional research tools</strong> to
-                make smarter investment decisions. Free to start.
+                GoalCompass helps everyday Indian investors plan <strong>monthly SIPs</strong> for
+                retirement, education, and wealth - and research Nifty stocks with tools you can
+                actually understand. Free to start. No credit card.
               </p>
 
               {/* Feature pills */}
@@ -240,31 +236,31 @@ export default function HomePage() {
                 </div>
                 <div className="hp-preview-body">
                   <div className="hp-preview-goal">
-                    <div className="hp-preview-goal-label">FIRE Goal · 2035</div>
-                    <div className="hp-preview-goal-value">₹2.4 Cr</div>
+                    <div className="hp-preview-goal-label">Sample goal · Retirement</div>
+                    <div className="hp-preview-goal-value">Your target</div>
                     <div className="hp-preview-progress-bar">
                       <div className="hp-preview-progress-fill" style={{ width: '42%' }} />
                     </div>
-                    <div className="hp-preview-goal-meta">₹12,500 / month SIP · 42% funded</div>
+                    <div className="hp-preview-goal-meta">Monthly SIP plan · track progress over time</div>
                   </div>
                   <div className="hp-preview-stats-row">
                     <div className="hp-preview-stat">
                       <div className="hp-preview-stat-label">Market Mood</div>
-                      <div className="hp-preview-stat-val" style={{ color: '#10b981' }}>Greed</div>
+                      <div className="hp-preview-stat-val" style={{ color: '#10b981' }}>Live</div>
                     </div>
                     <div className="hp-preview-stat">
-                      <div className="hp-preview-stat-label">Nifty PE</div>
-                      <div className="hp-preview-stat-val">21.4x</div>
+                      <div className="hp-preview-stat-label">Nifty tools</div>
+                      <div className="hp-preview-stat-val">Ready</div>
                     </div>
                     <div className="hp-preview-stat">
-                      <div className="hp-preview-stat-label">Portfolio</div>
-                      <div className="hp-preview-stat-val" style={{ color: '#10b981' }}>+14.2%</div>
+                      <div className="hp-preview-stat-label">SIP plan</div>
+                      <div className="hp-preview-stat-val" style={{ color: '#10b981' }}>On track</div>
                     </div>
                   </div>
                   <div className="hp-preview-tools">
                     <div className="hp-preview-tool-label">Research Tools</div>
                     <div className="hp-preview-tool-chips">
-                      {['Valuation Lab', 'F&O OI', 'Order Tracker', 'PEAD'].map((t) => (
+                      {['Fair value check', 'Nifty options', 'Big orders', 'Market mood'].map((t) => (
                         <span key={t} className="hp-preview-chip">{t}</span>
                       ))}
                     </div>
@@ -299,10 +295,11 @@ export default function HomePage() {
           <Reveal>
             <span className="mkt-kicker">Platform at a glance</span>
             <h2 id="stats-heading" className="mkt-serif" style={{ marginBottom: '0.5rem' }}>
-              Everything you need, nothing you don&apos;t
+              Everything you need to invest with confidence
             </h2>
             <p className="mkt-lead">
-              Built for Indian self-directed investors who want clarity, tools, and execution in one place.
+              Built for Indian investors who want a clear SIP plan and honest stock research - without
+              tip groups or jargon walls.
             </p>
           </Reveal>
           <div className="mkt-grid-4 hp-stats-grid">
@@ -313,7 +310,7 @@ export default function HomePage() {
                   <AnimatedCounter value={20} suffix="" />
                 </div>
                 <div className="label">Research Tools</div>
-                <div className="detail">Techno-Funda suite: MMI, Valuation Lab, F&amp;O, PEAD &amp; more</div>
+                <div className="detail">Market mood, fair-value checks, Nifty options, screeners &amp; more</div>
               </div>
             </Reveal>
             <Reveal>
@@ -323,7 +320,7 @@ export default function HomePage() {
                   <AnimatedCounter value={9} suffix="" />
                 </div>
                 <div className="label">Valuation Models</div>
-                <div className="detail">DCF, Reverse DCF, Graham, Lynch, DDM &amp; more</div>
+                <div className="detail">Simple fair-value views so you can ask: is this stock expensive?</div>
               </div>
             </Reveal>
             <Reveal>
@@ -332,8 +329,8 @@ export default function HomePage() {
                 <div className="num tabular">
                   <AnimatedCounter value={4} suffix="" />
                 </div>
-                <div className="label">Goal Horizons</div>
-                <div className="detail">Emergency, Retirement/FIRE, Education, Wealth Creation</div>
+                <div className="label">Goal Types</div>
+                <div className="detail">Emergency fund, retirement, education, and long-term wealth</div>
               </div>
             </Reveal>
             <Reveal>
@@ -343,7 +340,7 @@ export default function HomePage() {
                   <AnimatedCounter value={2200} suffix="+" />
                 </div>
                 <div className="label">Companies Tracked</div>
-                <div className="detail">NSE shareholding &amp; equities universe coverage</div>
+                <div className="detail">Live NSE-linked coverage for Indian listed companies</div>
               </div>
             </Reveal>
           </div>
@@ -361,17 +358,17 @@ export default function HomePage() {
                   From dream to SIP in minutes - not months
                 </h2>
                 <p className="mkt-lead">
-                  Tell GoalCompass your goal. We calculate exactly how much to invest monthly,
-                  handle paperless KYC, and execute your SIP directly on exchange. No confusion,
-                  no paperwork.
+                  Tell us what you are saving for. We show your monthly SIP amount, help you finish
+                  digital KYC, and start your SIP through exchange infrastructure. Clear steps - no
+                  paperwork pile.
                 </p>
                 <ul className="hp-check-list">
-                  <li><CheckCircle2 size={18} /><span>Set goals: Emergency Fund, FIRE, Education, Wealth</span></li>
-                  <li><CheckCircle2 size={18} /><span>Inflation-aware SIP calculations with corpus projections</span></li>
-                  <li><CheckCircle2 size={18} /><span>Paperless Aadhaar e-KYC - live in under 3 minutes</span></li>
-                  <li><CheckCircle2 size={18} /><span>SIP &amp; lumpsum orders via BSE StAR MF</span></li>
-                  <li><CheckCircle2 size={18} /><span>e-NACH / UPI Autopay mandate support</span></li>
-                  <li><CheckCircle2 size={18} /><span>Academy courses alongside live tools</span></li>
+                  <li><CheckCircle2 size={18} /><span>Goals: emergency fund, retirement, education, wealth</span></li>
+                  <li><CheckCircle2 size={18} /><span>Monthly SIP amount that factors in inflation</span></li>
+                  <li><CheckCircle2 size={18} /><span>Paperless Aadhaar KYC - usually under 3 minutes</span></li>
+                  <li><CheckCircle2 size={18} /><span>SIP and one-time orders via BSE StAR MF</span></li>
+                  <li><CheckCircle2 size={18} /><span>UPI Autopay or e-NACH for monthly investing</span></li>
+                  <li><CheckCircle2 size={18} /><span>Beginner courses next to the live tools</span></li>
                 </ul>
                 <Link href="/dashboard/goals" className="mkt-btn mkt-btn-primary" style={{ marginTop: '1rem' }}>
                   Start Your Goal Plan
@@ -384,26 +381,26 @@ export default function HomePage() {
                 <FeatureCard
                   icon={<Target size={22} />}
                   badge="Goals"
-                  title="Four wealth horizons"
-                  description="Emergency Fund, Retirement/FIRE, Child Education, and Wealth Creation with inflation-aware SIP math."
+                  title="Four clear goals"
+                  description="Emergency fund, retirement, child education, and long-term wealth - with a monthly SIP for each."
                 />
                 <FeatureCard
                   icon={<ShieldCheck size={22} />}
                   badge="KYC"
                   title="Paperless onboarding"
-                  description="Complete KYC digitally via Aadhaar e-KYC &amp; PAN in under 3 minutes. No physical documents."
+                  description="Finish KYC with Aadhaar and PAN on your phone. No branch visit, no paper forms."
                 />
                 <FeatureCard
                   icon={<Landmark size={22} />}
                   badge="Execution"
                   title="Exchange-routed SIPs"
-                  description="Lumpsum and SIP orders with e-NACH / UPI Autopay mandate. Funds settle directly with AMC."
+                  description="Start SIPs or one-time investments. Orders go through BSE StAR MF to the fund house."
                 />
                 <FeatureCard
                   icon={<GraduationCap size={22} />}
                   badge="Academy"
-                  title="Zero-to-Hero courses"
-                  description="Structured curriculum from mutual fund basics to advanced strategy, alongside live tools."
+                  title="Learn as you invest"
+                  description="Short courses from mutual fund basics to stock research - right beside the tools."
                 />
               </div>
             </div>
@@ -436,31 +433,30 @@ export default function HomePage() {
           <div className="hp-two-col hp-two-col-reverse">
             <div className="hp-two-col-text">
               <Reveal>
-                <span className="mkt-kicker">Track B · Techno-Funda Research</span>
+                <span className="mkt-kicker">Track B · Stock Research</span>
                 <h2 id="track-b-heading" className="mkt-serif">
-                  20 institutional tools. One workspace.
+                  One workspace for serious stock research
                 </h2>
                 <p className="mkt-lead">
-                  Stop juggling 10 different websites. Everything a serious DIY investor needs -
-                  valuation models, market sentiment, corporate filings, F&amp;O data, sector analysis -
-                  is in one clean dashboard.
+                  Stop jumping between 10 websites. Check fair value, market mood, big deals, and
+                  Nifty options data in one clean dashboard - built for DIY investors, not tip sellers.
                 </p>
                 <div className="hp-research-grid">
                   {[
-                    { icon: <Activity size={16} />, label: 'Market Mood Index', sub: 'Sentiment gauge' },
-                    { icon: <LineChart size={16} />, label: 'Valuation Lab', sub: '9 models' },
-                    { icon: <Search size={16} />, label: 'PEAD Screener', sub: 'Post-earnings drift' },
-                    { icon: <Layers size={16} />, label: 'Order Tracker', sub: 'SEBI filings' },
-                    { icon: <BarChart3 size={16} />, label: 'F&O Analytics', sub: 'OI &amp; PCR' },
-                    { icon: <TrendingUp size={16} />, label: 'Sector Heatmap', sub: 'Rotation view' },
-                    { icon: <Zap size={16} />, label: 'Bulk &amp; Block Deals', sub: 'Institutional flow' },
-                    { icon: <PieChart size={16} />, label: 'IPO Tracker', sub: 'GMP &amp; timeline' },
+                    { icon: <Activity size={16} />, label: 'Market Mood', sub: 'Fear vs greed' },
+                    { icon: <LineChart size={16} />, label: 'Valuation Lab', sub: 'Is it cheap?' },
+                    { icon: <Search size={16} />, label: 'Earnings Screener', sub: 'After results' },
+                    { icon: <Layers size={16} />, label: 'Order Tracker', sub: 'Big contracts' },
+                    { icon: <BarChart3 size={16} />, label: 'Nifty Options', sub: 'OI & PCR' },
+                    { icon: <TrendingUp size={16} />, label: 'Sector Heatmap', sub: 'Where money flows' },
+                    { icon: <Zap size={16} />, label: 'Bulk & Block Deals', sub: 'Institutional flow' },
+                    { icon: <PieChart size={16} />, label: 'IPO Tracker', sub: 'Upcoming listings' },
                   ].map((tool) => (
                     <div key={tool.label} className="hp-research-item">
                       <span className="hp-research-icon">{tool.icon}</span>
                       <div>
                         <div className="hp-research-name">{tool.label}</div>
-                        <div className="hp-research-sub" dangerouslySetInnerHTML={{ __html: tool.sub }} />
+                        <div className="hp-research-sub">{tool.sub}</div>
                       </div>
                     </div>
                   ))}
@@ -513,37 +509,28 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ─── TESTIMONIALS ──────────────────────────────────────── */}
-      <section className="mkt-section mkt-section-dark" aria-labelledby="testimonials-heading">
+      {/* ─── WHO IT'S FOR ──────────────────────────────────────── */}
+      <section className="mkt-section mkt-section-dark" aria-labelledby="audience-heading">
         <div className="mkt-container">
           <Reveal>
-            <span className="mkt-kicker">Investor stories</span>
-            <h2 id="testimonials-heading" className="mkt-serif">
-              What investors are saying
+            <span className="mkt-kicker">Built for you</span>
+            <h2 id="audience-heading" className="mkt-serif">
+              Who GoalCompass is for
             </h2>
             <p className="mkt-lead">
-              Real feedback from Indian investors using GoalCompass to build wealth and research smarter.
+              Whether you are starting your first SIP or researching Nifty stocks yourself - clear
+              tools, not tip groups.
             </p>
           </Reveal>
           <div className="mkt-grid-3 hp-testimonials">
-            {TESTIMONIALS.map((t) => (
-              <Reveal key={t.name}>
+            {WHO_ITS_FOR.map((item) => (
+              <Reveal key={item.title}>
                 <article className="hp-testimonial-card">
-                  <div className="hp-testimonial-stars">
-                    {Array.from({ length: t.rating }).map((_, i) => (
-                      <Star key={i} size={14} fill="currentColor" />
-                    ))}
+                  <div className="hp-audience-icon" aria-hidden>
+                    {item.icon}
                   </div>
-                  <blockquote className="hp-testimonial-text">&ldquo;{t.text}&rdquo;</blockquote>
-                  <footer className="hp-testimonial-author">
-                    <div className="hp-testimonial-avatar">
-                      {t.name.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="hp-testimonial-name">{t.name}</div>
-                      <div className="hp-testimonial-role">{t.role}</div>
-                    </div>
-                  </footer>
+                  <h3 className="hp-testimonial-name" style={{ marginBottom: '0.5rem' }}>{item.title}</h3>
+                  <p className="hp-testimonial-text" style={{ fontStyle: 'normal' }}>{item.text}</p>
                 </article>
               </Reveal>
             ))}

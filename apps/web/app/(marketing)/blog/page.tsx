@@ -7,9 +7,9 @@ import { JsonLd } from '../../../components/marketing/JsonLd';
 import { Breadcrumbs, Reveal } from '../../../components/marketing/primitives';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'Blog: Investing Insights & Research Notes',
+  title: 'Blog: Simple Investing Notes for Indian Investors',
   description:
-    'Educational articles on goal-based SIPs, Techno-Funda research, and smart investing from GoalCompass.',
+    'Clear articles on monthly SIPs, Nifty stock research, and long-term investing from GoalCompass.',
   path: '/blog',
 });
 
@@ -33,16 +33,16 @@ export default function BlogIndexPage() {
           <Reveal>
             <span className="mkt-kicker">Blog</span>
             <h1 className="mkt-serif mkt-page-title">
-              Notes for disciplined investors
+              Notes for everyday investors
             </h1>
             <p className="mkt-lead">
-              Practical insights on goal-based investing, market research, and building long-term wealth.
+              Plain-English guides on monthly SIPs, stock research, and building wealth over time.
             </p>
           </Reveal>
           <div className="mkt-grid-3">
             {posts.map((post) => (
               <article key={post.slug} className="mkt-card">
-                <time dateTime={post.date} style={{ fontSize: '0.82rem', color: 'var(--mkt-muted)' }}>
+                <time dateTime={post.date} style={{ fontSize: '0.82rem', color: 'var(--mkt-text-muted)', fontWeight: 600 }}>
                   {new Date(post.date).toLocaleDateString('en-IN', {
                     day: 'numeric',
                     month: 'short',
@@ -54,7 +54,7 @@ export default function BlogIndexPage() {
                     {post.title}
                   </Link>
                 </h2>
-                <p style={{ color: 'var(--mkt-muted)', fontSize: '0.95rem', lineHeight: 1.5 }}>
+                <p style={{ color: 'var(--mkt-text-muted)', fontSize: '0.95rem', lineHeight: 1.5 }}>
                   {post.description}
                 </p>
                 <Link href={`/blog/${post.slug}`} className="mkt-btn mkt-btn-outline-dark">

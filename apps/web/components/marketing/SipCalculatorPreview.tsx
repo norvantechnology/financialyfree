@@ -32,14 +32,13 @@ export function SipCalculatorPreview() {
         SIP required for your goal
       </h3>
       <p className="mkt-text-muted" style={{ marginTop: 0, lineHeight: 1.5 }}>
-        Powered by the same <code>@ff/calc</code> engine used in the Goal Planner (illustrative only,
-        not investment advice).
+        Same calculator used in the Goal Planner. Illustrative only - not investment advice.
       </p>
 
       <div className="mkt-grid-2">
         <div className="mkt-field">
           <label className="mkt-label" htmlFor="sip-target">
-            Target corpus (₹)
+            Goal amount (₹)
           </label>
           <input
             id="sip-target"
@@ -53,7 +52,7 @@ export function SipCalculatorPreview() {
         </div>
         <div className="mkt-field">
           <label className="mkt-label" htmlFor="sip-years">
-            Horizon (years)
+            Years to goal
           </label>
           <input
             id="sip-years"
@@ -67,7 +66,7 @@ export function SipCalculatorPreview() {
         </div>
         <div className="mkt-field">
           <label className="mkt-label" htmlFor="sip-return">
-            Expected return (% p.a.)
+            Expected yearly return (%)
           </label>
           <input
             id="sip-return"
@@ -82,7 +81,7 @@ export function SipCalculatorPreview() {
         </div>
         <div className="mkt-field">
           <label className="mkt-label" htmlFor="sip-savings">
-            Current savings (₹)
+            Money you already have (₹)
           </label>
           <input
             id="sip-savings"
@@ -102,7 +101,7 @@ export function SipCalculatorPreview() {
           <div className="tabular mkt-serif sip-val">{formatINR(result.monthlySip)}</div>
         </div>
         <div>
-          <div className="label">Projected corpus</div>
+          <div className="label">Estimated final amount</div>
           <div className="tabular corpus-val">{formatINR(result.projectedCorpus)}</div>
         </div>
         <Link href="/dashboard/goals" className="mkt-btn mkt-btn-primary">

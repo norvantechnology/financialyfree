@@ -13,7 +13,7 @@ export const SITE = {
     'India',
   ],
   url: process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || 'https://goalcompass.in',
-  tagline: 'Goal-based mutual fund investing & Techno-Funda research',
+  tagline: 'Monthly SIPs & clear Nifty stock research for Indian investors',
 } as const;
 
 
@@ -33,19 +33,19 @@ export const VERIFIED_STATS = [
     value: 20,
     suffix: '',
     label: 'Research Tools',
-    detail: 'Techno-Funda suite tabs in the live product',
+    detail: 'Market mood, fair value, screeners & more in the live product',
   },
   {
     value: 9,
     suffix: '',
     label: 'Valuation Models',
-    detail: 'DCF, Reverse DCF, Graham, Lynch, DDM & more',
+    detail: 'Clear fair-value views to ask: is this stock expensive?',
   },
   {
     value: 4,
     suffix: '',
-    label: 'Goal Horizons',
-    detail: 'Emergency, Retirement/FIRE, Education, Wealth',
+    label: 'Goal Types',
+    detail: 'Emergency, retirement, education, wealth',
   },
   {
     value: 2200,
@@ -130,32 +130,32 @@ export const HOME_FAQS = [
   {
     question: 'How does GoalCompass help me invest?',
     answer:
-      'GoalCompass is an all-in-one platform providing automated goal-based SIP planning, 100% paperless KYC, 20 institutional-grade research tools, and a structured investing academy to help you make confident, data-backed financial decisions.',
+      'GoalCompass helps you plan monthly SIPs for clear goals, finish paperless KYC, invest via exchange-routed mutual fund orders, and research Nifty stocks with simple tools - plus beginner courses when you need them.',
   },
   {
     question: 'What is included in the free Starter plan?',
     answer:
-      'Starter includes goal-based SIP calculators (Emergency Fund, Retirement/FIRE, Child Education, Wealth Creation), your personal dashboard, introductory Academy lessons, paperless KYC, and automated mutual fund execution - free forever. Paid plans unlock the 20-tool research suite and advanced masterclasses.',
+      'Starter includes SIP goal planners (emergency fund, retirement, education, wealth), your dashboard, intro Academy lessons, paperless KYC, and mutual fund order routing - free forever. Paid plans unlock the full research suite and advanced courses.',
   },
   {
     question: 'How do mutual fund investments get executed?',
     answer:
-      'After completing quick paperless KYC, your SIPs and lumpsum investments are routed securely through BSE StAR MF exchange infrastructure with instant UPI Autopay and e-NACH mandate setup. Your money goes straight to fund houses with zero intermediaries holding your funds.',
+      'After paperless KYC, your SIPs and one-time investments are routed through BSE StAR MF exchange infrastructure, with UPI Autopay or e-NACH for monthly investing. Your money goes to the fund house - GoalCompass does not hold it.',
   },
   {
-    question: 'What is the Techno-Funda Research Suite?',
+    question: 'What is the stock research suite?',
     answer:
-      'Techno-Funda is our suite of 20 research tools for self-directed equity analysis: Market Mood Index, 9 valuation models (DCF, Graham, Peter Lynch, etc.), Smart Screeners (PEAD earnings surprises, Order wins, Breakouts), Sector Heatmaps, F&O sentiment, and Insider trading radars.',
+      'Track B is our set of 20 research tools for DIY investors: Market Mood Index, fair-value models, earnings and order screeners, sector heatmaps, Nifty options views, and insider/promoter alerts. Educational decision-support only - not personal advice.',
   },
   {
     question: 'Are my funds and personal data secure?',
     answer:
-      'Yes. Your investments are settled directly via BSE StAR MF and partner AMCs. GoalCompass never holds your money. Your data is encrypted with bank-grade 256-bit SSL protocols.',
+      'Yes. Investments settle via BSE StAR MF and partner fund houses. GoalCompass never holds your money. Your data is protected with bank-grade 256-bit SSL.',
   },
   {
     question: 'Can I upgrade or change plans later?',
     answer:
-      'Yes. Start free, then upgrade to Tools Annual, DIY Wealth Bundle, or All-Access Mastermind from Pricing or Billing whenever you need advanced research or Academy access.',
+      'Yes. Start free, then upgrade from Pricing or Billing whenever you need the full research suite or Academy access.',
   },
 ] as const;
 
@@ -171,7 +171,7 @@ export const PRICING_FAQS = [
 export const PLATFORM_STEPS = [
   { title: 'Plan', detail: 'Set a goal and size your SIP with the shared calc engine' },
   { title: 'Learn', detail: 'Academy lessons and compliance context' },
-  { title: 'Research', detail: 'Unlock Techno-Funda desks when you need deeper analysis' },
+  { title: 'Research', detail: 'Unlock stock research tools when you need deeper analysis' },
   { title: 'Invest', detail: 'Complete paperless KYC and route via BSE StAR MF' },
 ] as const;
 

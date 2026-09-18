@@ -19,9 +19,9 @@ export type BlogPost = BlogPostMeta & { content: string };
 const BLOG_POSTS: BlogPost[] = [
   {
     slug: 'goal-based-sip-vs-lump-sum',
-    title: 'Goal-Based SIPs: Why Horizon Matters More Than Timing',
+    title: 'How Monthly SIPs Change With Your Goal Timeline',
     description:
-      'How Emergency Fund, Retirement/FIRE, Child Education, and Wealth Creation goals change SIP sizing - using the same engine behind GoalCompass.',
+      'Why emergency fund, retirement, education, and wealth goals need different SIP amounts - using the same engine behind GoalCompass.',
     date: '2026-09-10',
     author: 'GoalCompass Research',
     tags: ['Goals', 'SIP', 'Education'],
@@ -31,7 +31,7 @@ const BLOG_POSTS: BlogPost[] = [
 
 Most investors start with "How much should I invest?" A better question is "What must this money do by when?"
 
-GoalCompass's Track A maps capital to four horizons: **Emergency Fund**, **Retirement / FIRE**, **Child Education**, and **Wealth Creation**. Each has different return assumptions, liquidity needs, and glide paths.
+GoalCompass's Track A maps capital to four horizons: **Emergency Fund**, **Retirement**, **Child Education**, and **Wealth Creation**. Each has different return assumptions, liquidity needs, and glide paths.
 
 ## SIP maths in plain language
 
@@ -50,29 +50,29 @@ This article is **educational**. Mutual fund investments are subject to market r
   },
   {
     slug: 'what-is-techno-funda',
-    title: 'What Is Techno-Funda? A Tour of 20 Research Desks',
+    title: 'Stock Research Tools Explained: 20 Desks in Plain English',
     description:
-      'From Market Mood and Valuation Lab to Order Tracker and F&O PCR - how the research suite is organised for DIY investors.',
+      'From Market Mood and Valuation Lab to Order Tracker and Nifty options - how the research suite is organised for DIY investors.',
     date: '2026-09-12',
     author: 'GoalCompass Research',
-    tags: ['Techno-Funda', 'Research'],
+    tags: ['Research', 'Stocks'],
     readingMinutes: 7,
     content: `
 ## Two tracks, one platform
 
-**Track A** helps you plan and execute goal-based mutual fund investing. **Track B** - Techno-Funda - is a decision-support research suite with **20** institutional tabs.
+**Track A** helps you plan and execute goal-based mutual fund investing. **Track B** is a decision-support research suite with **20** tools for DIY stock study.
 
 ## Desks that matter on day one
 
-1. **Market Mood Index** - composite sentiment telemetry  
-2. **Valuation Lab** - nine models including DCF and Graham  
-3. **PEAD Screener** - post-earnings drift candidates  
-4. **Order Tracker** - LODR order wins with PDF annexure values  
-5. **Sector Heatmap & F&O** - rotation and derivatives context  
+1. **Market Mood Index** - a simple fear-to-greed score  
+2. **Valuation Lab** - fair-value models to ask if a stock looks expensive  
+3. **Earnings Surprise Screener** - post-results candidates to research  
+4. **Order Tracker** - big contract wins from exchange filings  
+5. **Sector Heatmap & Nifty options** - where money is flowing  
 
 ## How to use it responsibly
 
-Techno-Funda is **not investment advice**. Cross-check filings, manage risk, and treat every screener as a starting point for your own homework.
+These tools are **not investment advice**. Cross-check filings, manage risk, and treat every screener as a starting point for your own homework.
 `.trim(),
   },
   {
@@ -91,7 +91,7 @@ As an **AMFI-registered Mutual Fund Distributor** (ARN-350272, FutureZenith Insi
 
 ## What we do not do
 
-We are **not** a SEBI-registered Research Analyst or Investment Adviser. Techno-Funda tools and Academy content are educational / decision-support. We do not provide personalised securities recommendations.
+We are **not** a SEBI-registered Research Analyst or Investment Adviser. Stock research tools and Academy content are educational / decision-support. We do not provide personalised securities recommendations.
 
 ## Always remember
 
