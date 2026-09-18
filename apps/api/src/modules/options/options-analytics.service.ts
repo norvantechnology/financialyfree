@@ -380,12 +380,19 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
           expiry,
           undefined,
           undefined,
-          { preferFresh: true },
+          { forceRefresh: true },
         );
         chainCache.set(key, chain);
         if (chain?.source) marksSource = String(chain.source);
       }
       return chain;
+    };
+
+    const expiryOk = (chainExp: string | undefined, posExp: string) => {
+      if (!chainExp || !posExp) return false;
+      const a = String(chainExp).slice(0, 10);
+      const b = String(posExp).slice(0, 10);
+      return a === b;
     };
 
     const quoteOption = (
@@ -409,22 +416,21 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
     const resolveLivePrice = async (
       pos: (typeof openPositions)[number],
     ): Promise<{ price: number; live: boolean }> => {
+      const entry = Number(pos.entryPrice) || 0;
       const fallback =
-        Number(pos.currentPrice) > 0
-          ? Number(pos.currentPrice)
-          : Number(pos.entryPrice) > 0
-            ? Number(pos.entryPrice)
-            : 0;
+        Number(pos.currentPrice) > 0 ? Number(pos.currentPrice) : entry > 0 ? entry : 0;
       try {
         const chain = await loadChain(pos.symbol, pos.expiry);
+        // Never mark with a different expiry's LTP (was causing stuck/wrong CMP)
+        if (!expiryOk(chain.selectedExpiry, pos.expiry)) {
+          this.logger.warn(
+            `Sandbox mark skipped: wanted expiry ${pos.expiry}, got ${chain.selectedExpiry} (${chain.source})`,
+          );
+          return { price: fallback, live: false };
+        }
         if (pos.strike != null && pos.optionType !== 'FUT') {
           const quote = quoteOption(chain, Number(pos.strike), String(pos.optionType));
           if (quote > 0) return { price: quote, live: true };
-          if (chain.selectedExpiry && chain.selectedExpiry !== pos.expiry) {
-            const alt = await loadChain(pos.symbol, chain.selectedExpiry);
-            const altQuote = quoteOption(alt, Number(pos.strike), String(pos.optionType));
-            if (altQuote > 0) return { price: altQuote, live: true };
-          }
         } else if (chain.spotPrice > 0) {
           return { price: chain.spotPrice, live: true };
         }
@@ -529,7 +535,7 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
       pos.expiry,
       undefined,
       undefined,
-      { preferFresh: true },
+      { forceRefresh: true },
     );
     let livePrice =
       Number(pos.currentPrice) > 0
@@ -537,7 +543,11 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
         : Number(pos.entryPrice) > 0
           ? Number(pos.entryPrice)
           : 0;
-    if (pos.strike != null && pos.optionType !== 'FUT') {
+    const expiryOk =
+      chain.selectedExpiry &&
+      pos.expiry &&
+      String(chain.selectedExpiry).slice(0, 10) === String(pos.expiry).slice(0, 10);
+    if (pos.strike != null && pos.optionType !== 'FUT' && expiryOk) {
       const row = chain.contracts.find(
         (c) => Math.abs(Number(c.strike) - Number(pos.strike)) < 0.51,
       );
@@ -550,7 +560,7 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
         const quote = ltp > 0 ? ltp : mid > 0 ? mid : bid > 0 ? bid : ask;
         if (quote > 0) livePrice = quote;
       }
-    } else if (chain.spotPrice > 0) {
+    } else if (pos.optionType === 'FUT' && chain.spotPrice > 0) {
       livePrice = chain.spotPrice;
     }
 

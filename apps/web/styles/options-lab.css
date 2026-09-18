@@ -1026,7 +1026,8 @@
   width: 100%;
   box-sizing: border-box;
   min-height: calc(100vh - 7.5rem);
-  max-height: none;
+  max-height: calc(100vh - 7.5rem);
+  overflow: hidden;
 }
 
 .sm-layout-root.is-desktop {
@@ -1036,6 +1037,8 @@
 .sm-layout-root.is-mobile {
   flex-direction: column;
   min-height: 0;
+  max-height: none;
+  overflow: visible;
   gap: 0;
 }
 
@@ -1045,6 +1048,8 @@
     padding: 0;
     gap: 0;
     min-height: 0;
+    max-height: none;
+    overflow: visible;
   }
 }
 
@@ -1168,6 +1173,8 @@ body.sm-resizing-row * {
 
 .sm-chain-panel.collapsed .sm-chain-ticker-row,
 .sm-chain-panel.collapsed .sm-chain-expiries-row,
+.sm-chain-panel.collapsed .sm-chain-live-header .sm-live-metrics,
+.sm-chain-panel.collapsed .sm-chain-live-bottom,
 .sm-chain-panel.collapsed .sm-chain-table-container,
 .sm-chain-panel.collapsed .sm-symbol-name,
 .sm-chain-panel.collapsed .sm-symbol-arrows,
@@ -1267,6 +1274,289 @@ body.sm-resizing-row * {
   background: #F8FAFC;
   border-color: #CBD5E1;
   color: #0F766E;
+}
+
+/* ── Live StockMojo-style chain header ── */
+.sm-chain-live-header {
+  flex: 0 0 auto;
+  border-bottom: 1px solid #94A3B8;
+  background: #FFFFFF;
+}
+
+.sm-chain-live-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.65rem;
+  padding: 0.45rem 0.65rem 0.35rem;
+}
+
+.sm-expiry-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.sm-expiry-select {
+  appearance: none;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  background: #FFFFFF;
+  padding: 0.28rem 1.6rem 0.28rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #0F172A;
+  cursor: pointer;
+  min-height: 30px;
+}
+
+.sm-expiry-select-chevron {
+  position: absolute;
+  right: 0.4rem;
+  width: 14px;
+  height: 14px;
+  color: #64748B;
+  pointer-events: none;
+}
+
+.sm-live-metrics {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.85rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sm-live-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  white-space: nowrap;
+}
+
+.sm-live-metric-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.sm-live-metric-val {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0F172A;
+  font-variant-numeric: tabular-nums;
+}
+
+.sm-live-metric-chg {
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sm-live-metric-chg.pos { color: #059669; }
+.sm-live-metric-chg.neg { color: #DC2626; }
+
+.sm-live-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.sm-tool-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  background: #FFFFFF;
+  color: #475569;
+  cursor: pointer;
+  padding: 0;
+}
+
+.sm-tool-ico svg {
+  width: 14px;
+  height: 14px;
+}
+
+.sm-tool-ico:hover {
+  background: #F8FAFC;
+  color: #0F172A;
+}
+
+.sm-settings-wrap {
+  position: relative;
+}
+
+.sm-settings-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  min-width: 150px;
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
+  padding: 0.25rem;
+}
+
+.sm-settings-popover button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #334155;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.sm-settings-popover button:hover {
+  background: #F1F5F9;
+}
+
+.sm-chain-live-bottom {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.65rem;
+  padding: 0.3rem 0.65rem 0.45rem;
+  border-top: 1px solid #F1F5F9;
+  background: #FAFBFC;
+}
+
+.sm-feed-toggle {
+  display: inline-flex;
+  border: 1px solid #BFDBFE;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #FFFFFF;
+}
+
+.sm-feed-toggle button {
+  border: none;
+  background: transparent;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748B;
+  cursor: pointer;
+  min-height: 28px;
+}
+
+.sm-feed-toggle button + button {
+  border-left: 1px solid #E2E8F0;
+}
+
+.sm-feed-toggle button.active {
+  background: #EFF6FF;
+  color: #1D4ED8;
+}
+
+.sm-cycle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #64748B;
+}
+
+.sm-cycle-select {
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  background: #FFFFFF;
+  padding: 0.22rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #0F172A;
+  min-height: 28px;
+}
+
+.sm-live-status {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.sm-live-asof {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #64748B;
+}
+
+.sm-live-asof svg {
+  width: 12px;
+  height: 12px;
+}
+
+.sm-live-badge {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #047857;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+}
+
+.sm-login-latest-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: none;
+  border-radius: 6px;
+  background: #2563EB;
+  color: #FFFFFF;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  min-height: 28px;
+}
+
+.sm-login-latest-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.sm-login-latest-btn:hover {
+  background: #1D4ED8;
+}
+
+.sm-hide-chain-btn--inline {
+  margin-left: 0;
+}
+
+.sm-hist-note {
+  margin: 0;
+  padding: 0.35rem 0.65rem 0.5rem;
+  font-size: 0.65rem;
+  color: #64748B;
+  line-height: 1.4;
+  background: #FFFBEB;
+  border-top: 1px solid #FDE68A;
+}
+
+.sm-chain-panel.collapsed .sm-chain-live-header .sm-live-metrics,
+.sm-chain-panel.collapsed .sm-chain-live-bottom {
+  display: none;
 }
 
 .sm-chain-ticker-row {
@@ -1770,15 +2060,19 @@ body.sm-resizing-row * {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  height: auto;
-  min-height: calc(100vh - 72px);
-  max-height: none;
-  overflow: visible;
+  gap: 0.35rem;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 
-.sm-workspace-panel.is-chart-focus {
-  min-height: calc(100vh - 56px);
+.sm-workspace-split {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
 }
 
 .sm-workspace-panel.is-fs-parent {
@@ -1788,8 +2082,15 @@ body.sm-resizing-row * {
 
 .sm-layout-root.is-mobile .sm-workspace-panel {
   height: auto;
+  max-height: none;
   min-height: 0;
   overflow: visible;
+  gap: 0.5rem;
+}
+
+.sm-layout-root.is-mobile .sm-workspace-split {
+  overflow: visible;
+  flex: none;
   gap: 0.5rem;
 }
 
@@ -1964,21 +2265,27 @@ body.sm-resizing-row * {
   border-radius: 8px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   overflow: hidden;
-  min-height: 0;
+  min-height: 220px;
   display: flex;
   flex-direction: column;
 }
 
 .sm-analytics-card.is-collapsed {
   flex: 0 0 auto !important;
+  min-height: 0;
 }
 
 .sm-analytics-card.is-collapsed .sm-analytics-tabs-bar {
   border-bottom: none;
 }
 
+.sm-analytics-card.is-chart-priority {
+  min-height: 280px;
+}
+
 .sm-analytics-card.is-expanded {
-  min-height: min(72vh, 920px);
+  /* Chevrons hide positions — chart can take most of the split */
+  min-height: min(58vh, 720px);
 }
 
 .sm-analytics-card.is-fullscreen {
@@ -2217,8 +2524,10 @@ body.sm-resizing-row * {
 /* Payoff Split Layout (Left Stats + Right Chart) */
 .sm-payoff-split-container {
   display: flex;
-  flex: 1;
-  min-height: 280px;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 @media (max-width: 860px) {
@@ -2236,6 +2545,8 @@ body.sm-resizing-row * {
   flex-direction: column;
   gap: 0.35rem;
   background: #FAFBFC;
+  overflow: auto;
+  min-height: 0;
 }
 
 @media (max-width: 860px) {
@@ -2342,7 +2653,8 @@ body.sm-resizing-row * {
 .sm-payoff-chart-col {
   flex: 1;
   min-width: 0;
-  min-height: 260px;
+  min-height: 0;
+  height: 100%;
   padding: 0.5rem;
   position: relative;
   display: flex;
@@ -2514,17 +2826,22 @@ body.sm-resizing-row * {
   border-radius: 8px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   overflow: hidden;
-  min-height: 0;
+  min-height: 180px;
   display: flex;
   flex-direction: column;
 }
 
 .sm-positions-card.is-collapsed {
   flex: 0 0 auto !important;
+  min-height: 0;
 }
 
 .sm-positions-card.is-collapsed .sm-positions-tabs-bar {
   border-bottom: none;
+}
+
+.sm-positions-card.is-pos-priority {
+  min-height: 220px;
 }
 
 .sm-positions-tabs-bar {
@@ -2589,15 +2906,15 @@ body.sm-resizing-row * {
 }
 
 .sm-positions-table-wrap {
-  flex: 1;
-  min-height: 120px;
-  max-height: min(48vh, 520px);
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
 
 .sm-positions-card:not(.is-collapsed) {
-  min-height: 160px;
+  min-height: 180px;
 }
 
 .sm-positions-tab.active::after {
@@ -3669,7 +3986,7 @@ button.sm-stepper-btn:active,
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   width: 100%;
-  max-height: min(42vh, 420px);
+  max-height: none;
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -3744,13 +4061,21 @@ button.sm-stepper-btn:active,
     width: 100%;
     min-width: 0;
     height: auto;
+    max-height: none;
     overflow: visible;
+    gap: 0.45rem;
+  }
+
+  .sm-workspace-split {
+    overflow: visible;
+    flex: none;
     gap: 0.45rem;
   }
 
   .sm-analytics-card,
   .sm-positions-card {
     flex: none !important;
+    min-height: 0;
   }
 
   .sm-action-btn,
@@ -4314,6 +4639,92 @@ button.sm-stepper-btn:active,
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+.oc-feed-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid #E2E8F0;
+  color: #64748B;
+  background: #F8FAFC;
+}
+
+.oc-feed-pill.live {
+  color: #047857;
+  background: #ECFDF5;
+  border-color: #A7F3D0;
+}
+
+.oc-feed-pill.cached {
+  color: #B45309;
+  background: #FFFBEB;
+  border-color: #FDE68A;
+}
+
+.oc-asof {
+  color: #94A3B8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Live NSE heatmaps (intensity from relative OI / OI%) */
+.oc-heat-ce-1 { background: #ECFDF5 !important; }
+.oc-heat-ce-2 { background: #A7F3D0 !important; }
+.oc-heat-ce-3 { background: #34D399 !important; color: #064E3B !important; }
+.oc-heat-ce-4 { background: #059669 !important; color: #FFFFFF !important; }
+.oc-heat-ce-4.oc-pos,
+.oc-heat-ce-3.oc-pos { color: inherit !important; }
+
+.oc-heat-pe-1 { background: #FFF1F2 !important; }
+.oc-heat-pe-2 { background: #FECDD3 !important; }
+.oc-heat-pe-3 { background: #FB7185 !important; color: #881337 !important; }
+.oc-heat-pe-4 { background: #E11D48 !important; color: #FFFFFF !important; }
+.oc-heat-pe-4.oc-neg,
+.oc-heat-pe-3.oc-neg { color: inherit !important; }
+
+.oc-oi-chg-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 1.1rem;
+  z-index: 0;
+}
+
+.oc-oi-chg-cell > span:first-child {
+  position: relative;
+  z-index: 1;
+}
+
+.oc-oi-chg-bar {
+  position: absolute;
+  left: 0;
+  top: 10%;
+  bottom: 10%;
+  border-radius: 2px;
+  opacity: 0.35;
+  z-index: 0;
+  max-width: 100%;
+}
+
+.oc-oi-chg-bar--ce { background: #10B981; }
+.oc-oi-chg-bar--pe { background: #F43F5E; }
+
+.oc-buildup-hit {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+}
+
+.oc-maxpain-cell .oc-badge-maxpain {
+  display: block;
+  margin-top: 1px;
+}
+
 .oc-col-filter-wrap {
   position: relative;
 }
@@ -4643,9 +5054,9 @@ button.sm-stepper-btn:active,
   inset: 0;
   z-index: 120;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
-  padding: 0.75rem;
+  padding: 1rem;
   box-sizing: border-box;
 }
 
@@ -4655,7 +5066,7 @@ button.sm-stepper-btn:active,
   border: none;
   padding: 0;
   margin: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.5);
   cursor: pointer;
 }
 
@@ -4664,21 +5075,22 @@ button.sm-stepper-btn:active,
   z-index: 1;
   display: flex;
   flex-direction: column;
-  width: min(1200px, 100%);
-  max-height: calc(100vh - 1.5rem);
-  border: 1px solid #E2E8F0;
-  border-radius: 10px;
+  width: min(1180px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  border: 1px solid #CBD5E1;
+  border-radius: 12px;
   background: #FFFFFF;
   overflow: hidden;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
 }
 
 .oc-chart-drawer--live {
-  width: min(1280px, 100%);
+  width: min(1180px, calc(100vw - 2rem));
 }
 
 .oc-chart-overlay.is-fullscreen {
   padding: 0;
+  align-items: stretch;
 }
 
 .oc-chart-overlay.is-fullscreen .oc-chart-drawer {
@@ -4691,26 +5103,30 @@ button.sm-stepper-btn:active,
 
 .oc-chart-drawer-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.65rem 0.85rem;
+  padding: 0.7rem 0.9rem;
   border-bottom: 1px solid #E2E8F0;
-  background: #F8FAFC;
+  background: linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%);
   flex: 0 0 auto;
 }
 
 .oc-chart-drawer-head-main {
   display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.oc-chart-drawer-titles {
   min-width: 0;
   flex: 1;
 }
 
 .oc-chart-live-pill {
   flex-shrink: 0;
-  margin-top: 0.15rem;
   font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -4718,22 +5134,51 @@ button.sm-stepper-btn:active,
   background: #ECFDF5;
   border: 1px solid #A7F3D0;
   border-radius: 999px;
-  padding: 0.18rem 0.45rem;
+  padding: 0.22rem 0.5rem;
+  line-height: 1;
 }
 
 .oc-chart-drawer-head h3 {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 800;
   color: #0F172A;
   line-height: 1.25;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
 }
 
-.oc-chart-drawer-head p {
-  margin: 0.2rem 0 0;
+.oc-chart-drawer-exp {
   font-size: 0.72rem;
+  font-weight: 600;
   color: #64748B;
-  line-height: 1.4;
+}
+
+.oc-chart-drawer-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  color: #475569;
+}
+
+.oc-chart-drawer-stats strong {
+  color: #0F172A;
+  font-weight: 800;
+}
+
+.oc-chart-drawer-spot {
+  color: #0284C7;
+  font-weight: 700;
+}
+
+.oc-chart-drawer-note {
+  color: #94A3B8;
+  font-weight: 600;
 }
 
 .oc-chart-head-sep {
@@ -4744,7 +5189,7 @@ button.sm-stepper-btn:active,
 .oc-chart-drawer-actions {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   flex-shrink: 0;
 }
 
@@ -4753,15 +5198,17 @@ button.sm-stepper-btn:active,
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
-  min-height: 32px;
-  padding: 0 0.65rem;
-  border-radius: 6px;
+  min-height: 34px;
+  min-width: 72px;
+  padding: 0 0.7rem;
+  border-radius: 7px;
   border: 1px solid #CBD5E1;
   background: #FFFFFF;
   color: #334155;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .oc-chart-tool-btn svg {
@@ -4777,19 +5224,22 @@ button.sm-stepper-btn:active,
 
 .oc-chart-tool-btn--close {
   border-color: #E2E8F0;
+  min-width: 72px;
 }
 
 .oc-chart-drawer-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: #FFFFFF;
 }
 
 .oc-chart-drawer-body .nifty-chart-shell {
   border-top: none;
+  flex: 1;
+  min-height: 0;
 }
 
 .oc-chart-ltp-strip {
@@ -4805,6 +5255,7 @@ button.sm-stepper-btn:active,
 @media (max-width: 720px) {
   .oc-chart-overlay {
     padding: 0;
+    align-items: stretch;
   }
   .oc-chart-drawer {
     width: 100%;
@@ -4816,11 +5267,17 @@ button.sm-stepper-btn:active,
     display: none;
   }
   .oc-chart-tool-btn {
-    min-width: 32px;
+    min-width: 34px;
     padding: 0;
   }
+  .oc-chart-drawer-head {
+    padding: 0.55rem 0.65rem;
+  }
   .oc-chart-drawer-head h3 {
-    font-size: 0.78rem;
+    font-size: 0.8rem;
+  }
+  .oc-chart-drawer-note {
+    display: none;
   }
 }
 
@@ -4991,7 +5448,7 @@ button.sm-stepper-btn:active,
   flex-shrink: 0;
 }
 
-/* ── NIFTY / Strategy live chart shell (TradingView + App Feed) ── */
+/* ── NIFTY / Strategy live chart shell (TradingView NSE) ── */
 .nifty-chart-shell {
   display: flex;
   flex-direction: column;
@@ -5030,7 +5487,6 @@ button.sm-stepper-btn:active,
   flex-wrap: wrap;
 }
 
-.nifty-chart-feed-toggle,
 .nifty-chart-tf {
   display: inline-flex;
   align-items: center;
@@ -5040,7 +5496,6 @@ button.sm-stepper-btn:active,
   background: #FFFFFF;
 }
 
-.nifty-chart-feed-toggle button,
 .nifty-chart-tf button {
   border: none;
   background: transparent;
@@ -5052,12 +5507,10 @@ button.sm-stepper-btn:active,
   line-height: 1.2;
 }
 
-.nifty-chart-feed-toggle button + button,
 .nifty-chart-tf button + button {
   border-left: 1px solid #E2E8F0;
 }
 
-.nifty-chart-feed-toggle button.active,
 .nifty-chart-tf button.active {
   background: #2563EB;
   color: #FFFFFF;
@@ -5180,6 +5633,29 @@ button.sm-stepper-btn:active,
   flex: 1 1 auto;
 }
 
+.tv-advanced-chart-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.65rem;
+  border-bottom: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.tv-advanced-chart-sym {
+  color: #0F766E;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.tv-advanced-chart-tf {
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .tv-advanced-chart-host iframe {
   width: 100% !important;
 }
@@ -5201,7 +5677,6 @@ button.sm-stepper-btn:active,
   .nifty-chart-toolbar {
     padding: 0.35rem 0.45rem;
   }
-  .nifty-chart-feed-toggle button,
   .nifty-chart-tf button {
     padding: 0.26rem 0.4rem;
     font-size: 0.62rem;

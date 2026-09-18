@@ -20,8 +20,9 @@ type SpotQuoteResult = {
   timestamp: string;
   source: string;
   vix?: number;
+  vixChangePct?: number;
   lotSize: number;
-  futures: Array<{ expiry: string; ltp: number; lots: string }>;
+  futures: Array<{ expiry: string; ltp: number; lots: string; changePct?: number }>;
   available: boolean;
 };
 
@@ -30,7 +31,7 @@ export class MarketDataService {
   private readonly logger = new Logger(MarketDataService.name);
   private nseSessionCache: { cookies: string; expiresAt: number } | null = null;
   private nseSessionInFlight: Promise<string> | null = null;
-  private liveVixCache: { vix: number; expiresAt: number } | null = null;
+  private liveVixCache: { vix: number; changePct: number; expiresAt: number } | null = null;
   /** Shared public NSE/broker-fail chain — one scrape serves all users. */
   private readonly chainCache = new Map<
     string,
@@ -74,11 +75,16 @@ export class MarketDataService {
   }
 
   private getSharedCacheEntry(symbol: string, expiry?: string) {
-    return (
-      this.chainCache.get(this.cacheKey(symbol, expiry)) ||
-      this.chainCache.get(this.cacheKey(symbol)) ||
-      null
-    );
+    const clean = symbol.toUpperCase();
+    if (expiry) {
+      const iso = this.normalizeToIsoDate(expiry);
+      return (
+        this.chainCache.get(this.cacheKey(clean, expiry)) ||
+        this.chainCache.get(this.cacheKey(clean, iso)) ||
+        null
+      );
+    }
+    return this.chainCache.get(this.cacheKey(clean)) || null;
   }
 
   private serveFromSharedCache(
@@ -106,6 +112,7 @@ export class MarketDataService {
       spotChange: number;
       spotChangePct: number;
       vix?: number;
+      vixChangePct?: number;
       lotSize?: number;
       futures?: Array<{ expiry: string; ltp: number; lots: string }>;
     },
@@ -120,6 +127,7 @@ export class MarketDataService {
       spotChange: liveSpot.spotChange,
       spotChangePct: liveSpot.spotChangePct,
       vix: liveSpot.vix ?? hit.chain.vix,
+      vixChangePct: liveSpot.vixChangePct ?? hit.chain.vixChangePct,
       lotSize: liveSpot.lotSize ?? hit.chain.lotSize,
       futures: liveSpot.futures?.length ? liveSpot.futures : hit.chain.futures,
       timestamp: new Date().toISOString(),
@@ -145,14 +153,18 @@ export class MarketDataService {
    * Fetches real-time India VIX from Yahoo Finance (^INDIAVIX).
    * Cached in memory for 15 seconds to avoid rate limiting.
    */
-  async fetchLiveVix(): Promise<number | undefined> {
+  async fetchLiveVix(): Promise<{ vix: number; changePct: number } | undefined> {
     if (this.liveVixCache && this.liveVixCache.expiresAt > Date.now()) {
-      return this.liveVixCache.vix;
+      return { vix: this.liveVixCache.vix, changePct: this.liveVixCache.changePct };
     }
-    const vix = await this.fetchYahooRegularPrice('^INDIAVIX');
-    if (vix != null) {
-      this.liveVixCache = { vix, expiresAt: Date.now() + 15000 };
-      return vix;
+    const meta = await this.fetchYahooChartMeta('^INDIAVIX');
+    const vix = Number(meta?.regularMarketPrice);
+    if (Number.isFinite(vix) && vix > 0) {
+      const prev = Number(meta?.chartPreviousClose || meta?.previousClose || vix);
+      const changePct =
+        prev > 0 ? parseFloat((((vix - prev) / prev) * 100).toFixed(2)) : 0;
+      this.liveVixCache = { vix, changePct, expiresAt: Date.now() + 15000 };
+      return { vix, changePct };
     }
     return undefined;
   }
@@ -242,7 +254,9 @@ export class MarketDataService {
 
   private async fetchLiveSpotQuoteUncached(clean: string): Promise<SpotQuoteResult> {
     const lotSize = this.getLotSize(clean);
-    const vix = await this.fetchLiveVix();
+    const vixQuote = await this.fetchLiveVix();
+    const vix = vixQuote?.vix;
+    const vixChangePct = vixQuote?.changePct;
 
     let ticker = `${clean}.NS`;
     if (clean === 'NIFTY' || clean === 'NIFTY50' || clean === 'NIFTY 50') {
@@ -281,6 +295,7 @@ export class MarketDataService {
           timestamp: new Date().toISOString(),
           source: 'Yahoo Finance Live Feed',
           vix,
+          vixChangePct,
           lotSize,
           futures: [],
           available: true,
@@ -297,6 +312,7 @@ export class MarketDataService {
         return {
           ...nseSpot,
           vix,
+          vixChangePct,
           lotSize,
           futures: [],
           available: true,
@@ -316,6 +332,7 @@ export class MarketDataService {
       timestamp: new Date().toISOString(),
       source: 'unavailable',
       vix,
+      vixChangePct,
       lotSize,
       futures: [],
       available: false,
@@ -334,7 +351,7 @@ export class MarketDataService {
     expiry?: string,
     userId?: string,
     brokerOverride?: BrokerType,
-    opts?: { preferFresh?: boolean },
+    opts?: { preferFresh?: boolean; forceRefresh?: boolean },
   ): Promise<OptionChainDto> {
     const cleanSymbol = (symbol || 'NIFTY').toUpperCase();
 
@@ -352,6 +369,7 @@ export class MarketDataService {
               source: 'BROKER_LIVE' as const,
               dataNote: `Live option chain via your ${brokerOverride} connection`,
               vix: brokerChain.vix ?? liveSpot.vix,
+              vixChangePct: brokerChain.vixChangePct ?? liveSpot.vixChangePct,
               lotSize: brokerChain.lotSize ?? liveSpot.lotSize,
               futures: brokerChain.futures ?? liveSpot.futures,
             };
@@ -364,19 +382,30 @@ export class MarketDataService {
       }
     }
 
+    // Sandbox marks: always coalesce a fresh scrape for the requested expiry
+    if (opts?.forceRefresh) {
+      return this.coalescedSharedChainFetch(cleanSymbol, expiry);
+    }
+
     // Shared hot / SWR path (public NSE) — one scrape serves everyone
     const hit = this.getSharedCacheEntry(cleanSymbol, expiry);
     const age = hit ? Date.now() - hit.fetchedAt : Number.POSITIVE_INFINITY;
 
-    // Sandbox marks / critical paths: avoid serving up-to-90s stale quotes
+    // Prefer fresh: avoid serving up-to-90s stale quotes (still allow hot <5s)
     if (opts?.preferFresh) {
       if (hit?.chain.contracts?.length && age < MarketDataService.HOT_TTL_MS) {
-        return this.serveFromSharedCache(hit, { stale: false });
+        // Guard: never serve a different expiry than requested
+        if (!expiry || this.expiryMatches(hit.chain.selectedExpiry, expiry)) {
+          return this.serveFromSharedCache(hit, { stale: false });
+        }
       }
       return this.coalescedSharedChainFetch(cleanSymbol, expiry);
     }
 
     if (hit?.chain.contracts?.length) {
+      if (expiry && !this.expiryMatches(hit.chain.selectedExpiry, expiry)) {
+        return this.coalescedSharedChainFetch(cleanSymbol, expiry);
+      }
       if (age < MarketDataService.HOT_TTL_MS) {
         return this.serveFromSharedCache(hit, { stale: false });
       }
@@ -387,6 +416,12 @@ export class MarketDataService {
     }
 
     return this.coalescedSharedChainFetch(cleanSymbol, expiry);
+  }
+
+  /** Compare ISO / display expiry strings safely */
+  private expiryMatches(a?: string | null, b?: string | null): boolean {
+    if (!a || !b) return false;
+    return this.normalizeToIsoDate(a) === this.normalizeToIsoDate(b);
   }
 
   private coalescedSharedChainFetch(
@@ -424,6 +459,7 @@ export class MarketDataService {
           const enriched = {
             ...proxied,
             vix: liveSpot.vix ?? proxied.vix,
+            vixChangePct: liveSpot.vixChangePct ?? proxied.vixChangePct,
             lotSize: liveSpot.lotSize || proxied.lotSize,
             futures: liveSpot.futures?.length ? liveSpot.futures : proxied.futures,
           };
@@ -444,6 +480,7 @@ export class MarketDataService {
           const enriched = {
             ...nseLive,
             vix: liveSpot.vix,
+            vixChangePct: liveSpot.vixChangePct,
             lotSize: liveSpot.lotSize,
             futures: liveSpot.futures,
             dataNote:
@@ -597,6 +634,7 @@ export class MarketDataService {
         ? 'Index spot from delayed public feed only. Connect Upstox/Dhan (or wait for NSE option-chain) for live OI/LTP/IV — we do not invent option data.'
         : 'No live spot or option chain available. Connect a broker or retry during NSE market hours — we do not invent prices.',
       vix: liveSpot.vix,
+      vixChangePct: liveSpot.vixChangePct,
       lotSize: liveSpot.lotSize ?? this.getLotSize(symbol),
       futures: liveSpot.futures || [],
     };
@@ -741,15 +779,16 @@ export class MarketDataService {
     const { oiPcr, volumePcr } = calculatePcr(pcrData);
     const maxPain = calculateMaxPain(strikesOiData);
 
-    // Build rows and compute live Greeks
+    // Full NSE strike ladder — UI filters (±10/15/20/All); do not invent a truncated “demo” chain
     const allStrikes = Array.from(strikeMap.keys()).sort((a, b) => a - b);
-    // Limit to ±12 strikes around ATM
-    const filteredStrikes = allStrikes.filter((s) => Math.abs(s - atmStrike) <= 12 * step);
+    // BS IV solve only near ATM (far strikes use exchange IV or stay blank — no fake greeks)
+    const greekRadius = 40 * step;
 
-    const contracts = filteredStrikes.map((strike) => {
+    const contracts = allStrikes.map((strike) => {
       const data = strikeMap.get(strike) || {};
       const ceRaw = data.ce || {};
       const peRaw = data.pe || {};
+      const nearAtm = Math.abs(strike - atmStrike) <= greekRadius;
 
       // After hours lastPrice is often 0 — use bid/ask mid when available (real quotes, not invented)
       const num = (...vals: unknown[]) => {
@@ -777,50 +816,64 @@ export class MarketDataService {
       const r = 0.065; // RBI repo-rate class risk-free benchmark
       const tte = this.yearsToExpiry(targetExpiry);
 
-      // Compute IV or use exchange IV
+      const exchangeCeIv =
+        typeof ceRaw.impliedVolatility === 'number' && ceRaw.impliedVolatility > 0
+          ? ceRaw.impliedVolatility / 100
+          : null;
+      const exchangePeIv =
+        typeof peRaw.impliedVolatility === 'number' && peRaw.impliedVolatility > 0
+          ? peRaw.impliedVolatility / 100
+          : null;
+
       const ceIv =
-        (ceRaw.impliedVolatility ? ceRaw.impliedVolatility / 100 : null) ||
-        impliedVolatility({
-          targetPrice: ceLtp,
-          spot: spotPrice,
-          strike,
-          timeToExpiryYears: tte,
-          riskFreeRate: r,
-          optionType: 'CE',
-        });
+        exchangeCeIv ??
+        (nearAtm && ceLtp > 0
+          ? impliedVolatility({
+              targetPrice: ceLtp,
+              spot: spotPrice,
+              strike,
+              timeToExpiryYears: tte,
+              riskFreeRate: r,
+              optionType: 'CE',
+            })
+          : null);
 
       const peIv =
-        (peRaw.impliedVolatility ? peRaw.impliedVolatility / 100 : null) ||
-        impliedVolatility({
-          targetPrice: peLtp,
-          spot: spotPrice,
-          strike,
-          timeToExpiryYears: tte,
-          riskFreeRate: r,
-          optionType: 'PE',
-        });
+        exchangePeIv ??
+        (nearAtm && peLtp > 0
+          ? impliedVolatility({
+              targetPrice: peLtp,
+              spot: spotPrice,
+              strike,
+              timeToExpiryYears: tte,
+              riskFreeRate: r,
+              optionType: 'PE',
+            })
+          : null);
 
-      const ceGreeks = ceIv != null
-        ? calculateGreeks({
-            spot: spotPrice,
-            strike,
-            timeToExpiryYears: tte,
-            riskFreeRate: r,
-            volatility: ceIv,
-            optionType: 'CE',
-          })
-        : null;
+      const ceGreeks =
+        ceIv != null
+          ? calculateGreeks({
+              spot: spotPrice,
+              strike,
+              timeToExpiryYears: tte,
+              riskFreeRate: r,
+              volatility: ceIv,
+              optionType: 'CE',
+            })
+          : null;
 
-      const peGreeks = peIv != null
-        ? calculateGreeks({
-            spot: spotPrice,
-            strike,
-            timeToExpiryYears: tte,
-            riskFreeRate: r,
-            volatility: peIv,
-            optionType: 'PE',
-          })
-        : null;
+      const peGreeks =
+        peIv != null
+          ? calculateGreeks({
+              spot: spotPrice,
+              strike,
+              timeToExpiryYears: tte,
+              riskFreeRate: r,
+              volatility: peIv,
+              optionType: 'PE',
+            })
+          : null;
 
       return {
         strike,

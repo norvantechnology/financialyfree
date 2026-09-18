@@ -121,8 +121,10 @@ export interface OptionChainDto {
   /** Human-readable provenance for UI banners */
   dataNote?: string;
   vix?: number;
+  /** Day change % for India VIX when available from live feed */
+  vixChangePct?: number;
   lotSize?: number;
-  futures?: Array<{ expiry: string; ltp: number; lots: string }>;
+  futures?: Array<{ expiry: string; ltp: number; lots: string; changePct?: number }>;
 }
 
 export interface StrategyLegDto {

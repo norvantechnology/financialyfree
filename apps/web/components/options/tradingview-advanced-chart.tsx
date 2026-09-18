@@ -1,16 +1,9 @@
 'use client';
 
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-declare global {
-  interface Window {
-    TradingView?: {
-      widget: new (opts: Record<string, unknown>) => unknown;
-    };
-  }
-}
-
-const TV_SCRIPT = 'https://s3.tradingview.com/tv.js';
+const TV_EMBED =
+  'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
 
 /** Map app underlyings to TradingView exchange symbols (live NSE/BSE feed). */
 export function toTradingViewSymbol(symbol: string): string {
@@ -24,7 +17,9 @@ export function toTradingViewSymbol(symbol: string): string {
     BANKEX: 'BSE:BANKEX',
   };
   if (indexMap[s]) return indexMap[s];
-  return `NSE:${s}`;
+  // Equities on NSE cash
+  if (/^[A-Z0-9&-]+$/.test(s)) return `NSE:${s}`;
+  return 'NSE:NIFTY';
 }
 
 function tvInterval(tf: string): string {
@@ -44,49 +39,19 @@ function tvInterval(tf: string): string {
   }
 }
 
-let tvScriptPromise: Promise<void> | null = null;
-
-function loadTradingViewScript(): Promise<void> {
-  if (typeof window === 'undefined') return Promise.resolve();
-  if (window.TradingView?.widget) return Promise.resolve();
-  if (tvScriptPromise) return tvScriptPromise;
-
-  tvScriptPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${TV_SCRIPT}"]`);
-    if (existing) {
-      existing.addEventListener('load', () => resolve());
-      if (window.TradingView?.widget) resolve();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = TV_SCRIPT;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => {
-      tvScriptPromise = null;
-      reject(new Error('Failed to load TradingView library'));
-    };
-    document.head.appendChild(script);
-  });
-
-  return tvScriptPromise;
-}
-
 interface TradingViewAdvancedChartProps {
   symbol: string;
   timeframe?: '1m' | '5m' | '15m' | '1H' | '1D';
   height?: number | string;
-  /** When false, hide with CSS but keep widget alive after first show */
   isActive?: boolean;
   className?: string;
-  /** Full drawing toolbar + richer studies (use in fullscreen / drawer) */
+  /** Show left drawing toolbar */
   fullTools?: boolean;
 }
 
 /**
- * Production TradingView Advanced Chart widget.
- * Drawing tools, indicators, timeframes, live NSE/BSE quotes.
- * Free Advanced Chart widget. Full white-label Charting Library is a paid TradingView license.
+ * Official TradingView Advanced Chart embed (not legacy tv.js).
+ * Locks symbol to the requested NSE/BSE ticker — never falls back to AAPL.
  */
 export const TradingViewAdvancedChart: React.FC<TradingViewAdvancedChartProps> = ({
   symbol,
@@ -94,93 +59,85 @@ export const TradingViewAdvancedChart: React.FC<TradingViewAdvancedChartProps> =
   height = 420,
   isActive = true,
   className,
-  fullTools = false,
+  fullTools = true,
 }) => {
-  const rawId = useId().replace(/:/g, '');
-  const containerId = `tv_chart_${rawId}`;
   const hostRef = useRef<HTMLDivElement | null>(null);
   const heightPx = typeof height === 'number' ? height : 420;
-  // Latch: once the chart tab has been opened, keep the widget mounted across tab switches
   const [booted, setBooted] = useState(isActive);
+  const tvSymbol = toTradingViewSymbol(symbol);
 
   useEffect(() => {
     if (isActive) setBooted(true);
   }, [isActive]);
 
   useEffect(() => {
-    if (!booted) return;
+    if (!booted || !hostRef.current) return;
 
-    let cancelled = false;
+    const host = hostRef.current;
+    host.innerHTML = '';
 
-    async function mount() {
-      try {
-        await loadTradingViewScript();
-        if (cancelled || !hostRef.current || !window.TradingView?.widget) return;
+    const container = document.createElement('div');
+    container.className = 'tradingview-widget-container';
+    container.style.height = `${heightPx}px`;
+    container.style.width = '100%';
 
-        hostRef.current.innerHTML = '';
-        const mountEl = document.createElement('div');
-        mountEl.id = containerId;
-        mountEl.style.height = `${heightPx}px`;
-        mountEl.style.width = '100%';
-        hostRef.current.appendChild(mountEl);
+    const widgetEl = document.createElement('div');
+    widgetEl.className = 'tradingview-widget-container__widget';
+    widgetEl.style.height = 'calc(100% - 2px)';
+    widgetEl.style.width = '100%';
+    container.appendChild(widgetEl);
 
-        new window.TradingView.widget({
-          autosize: true,
-          symbol: toTradingViewSymbol(symbol),
-          interval: tvInterval(timeframe),
-          timezone: 'Asia/Kolkata',
-          theme: 'light',
-          style: '1',
-          locale: 'en',
-          toolbar_bg: '#FFFFFF',
-          enable_publishing: false,
-          allow_symbol_change: true,
-          hide_top_toolbar: false,
-          hide_legend: false,
-          hide_side_toolbar: false,
-          withdateranges: true,
-          details: fullTools,
-          hotlist: false,
-          calendar: false,
-          show_popup_button: fullTools,
-          popup_width: '1000',
-          popup_height: '650',
-          studies: fullTools
-            ? ['Volume@tv-basicstudies', 'STD;EMA', 'STD;SMA', 'STD;RSI']
-            : ['Volume@tv-basicstudies', 'STD;EMA'],
-          disabled_features: fullTools ? [] : undefined,
-          enabled_features: fullTools
-            ? ['side_toolbar_in_fullscreen_mode', 'header_in_fullscreen_mode']
-            : undefined,
-          container_id: containerId,
-          height: heightPx,
-          width: '100%',
-        });
-      } catch {
-        if (hostRef.current) {
-          hostRef.current.innerHTML =
-            '<div class="tv-chart-fallback">TradingView chart unavailable. Switch to App Feed.</div>';
-        }
-      }
-    }
-
-    void mount();
-    return () => {
-      cancelled = true;
+    const config = {
+      autosize: true,
+      symbol: tvSymbol,
+      interval: tvInterval(timeframe),
+      timezone: 'Asia/Kolkata',
+      theme: 'light',
+      style: '1',
+      locale: 'en',
+      backgroundColor: '#ffffff',
+      toolbar_bg: '#f8fafc',
+      enable_publishing: false,
+      allow_symbol_change: false,
+      hide_top_toolbar: false,
+      hide_legend: false,
+      hide_side_toolbar: !fullTools,
+      withdateranges: true,
+      details: false,
+      hotlist: false,
+      calendar: false,
+      show_popup_button: false,
+      hide_volume: false,
+      support_host: 'https://www.tradingview.com',
+      studies: fullTools
+        ? ['Volume@tv-basicstudies', 'STD;EMA']
+        : ['Volume@tv-basicstudies'],
     };
-  }, [booted, symbol, timeframe, heightPx, containerId, fullTools]);
 
-  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = TV_EMBED;
+    script.type = 'text/javascript';
+    script.async = true;
+    script.innerHTML = JSON.stringify(config);
+    container.appendChild(script);
+
+    host.appendChild(container);
+
     return () => {
-      if (hostRef.current) hostRef.current.innerHTML = '';
+      host.innerHTML = '';
     };
-  }, []);
+  }, [booted, tvSymbol, timeframe, heightPx, fullTools]);
 
   return (
     <div
       className={`tv-advanced-chart ${className || ''}`}
       style={{ display: isActive ? 'block' : 'none', width: '100%' }}
+      data-tv-symbol={tvSymbol}
     >
+      <div className="tv-advanced-chart-meta" aria-hidden={false}>
+        <span className="tv-advanced-chart-sym">{tvSymbol}</span>
+        <span className="tv-advanced-chart-tf">{timeframe}</span>
+      </div>
       <div
         ref={hostRef}
         className="tv-advanced-chart-host"

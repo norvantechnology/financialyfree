@@ -49,7 +49,8 @@ type StrikeFilter = '10' | '15' | '20' | 'all';
 type ColumnKey =
   | 'buildup'
   | 'volume'
-  | 'oiChg'
+  | 'oiChgPct'
+  | 'oiChgAbs'
   | 'oi'
   | 'ltp'
   | 'iv'
@@ -57,25 +58,28 @@ type ColumnKey =
   | 'theta'
   | 'action';
 
+/** StockMojo-style defaults — live NSE columns only */
 const DEFAULT_COLUMNS: Record<ColumnKey, boolean> = {
   buildup: true,
-  volume: true,
-  oiChg: true,
+  volume: false,
+  oiChgPct: true,
+  oiChgAbs: true,
   oi: true,
   ltp: true,
   iv: true,
   delta: false,
   theta: false,
-  action: true,
+  action: false,
 };
 
 const COLUMN_LABELS: { key: ColumnKey; label: string }[] = [
   { key: 'buildup', label: 'Buildup' },
-  { key: 'volume', label: 'Volume' },
-  { key: 'oiChg', label: 'OI Chg%' },
   { key: 'oi', label: 'OI' },
+  { key: 'oiChgPct', label: 'OI Chg%' },
+  { key: 'oiChgAbs', label: 'OI Chg' },
   { key: 'ltp', label: 'LTP' },
   { key: 'iv', label: 'IV' },
+  { key: 'volume', label: 'Volume' },
   { key: 'delta', label: 'Delta' },
   { key: 'theta', label: 'Theta' },
   { key: 'action', label: 'Buy / Sell' },
@@ -109,12 +113,36 @@ function formatLtp(n: number): string {
   return n.toFixed(2);
 }
 
-function oiChgPct(contract: OptionContractDto): number | null {
+function formatOiChgPct(contract: OptionContractDto): {
+  text: string;
+  pct: number | null;
+  tone: 'pos' | 'neg' | 'flat';
+} {
   const oi = Number(contract.oi) || 0;
   const chg = Number(contract.oiChange) || 0;
-  if (oi <= 0 && chg === 0) return null;
-  const base = Math.max(oi - chg, Math.abs(chg), 1);
-  return Math.round((chg / base) * 1000) / 10;
+  if (chg === 0) return { text: '—', pct: null, tone: 'flat' };
+  const prev = oi - chg;
+  if (prev <= 0 || Math.abs(prev) < 1) {
+    return { text: '—', pct: null, tone: chg > 0 ? 'pos' : 'neg' };
+  }
+  const pct = Math.round((chg / prev) * 1000) / 10;
+  if (!Number.isFinite(pct)) return { text: '—', pct: null, tone: 'flat' };
+  return {
+    text: `${pct >= 0 ? '+' : ''}${pct}%`,
+    pct,
+    tone: pct >= 0 ? 'pos' : 'neg',
+  };
+}
+
+/** Heat intensity 0–4 from relative magnitude (live NSE values only). */
+function heatLevel(value: number, max: number): 0 | 1 | 2 | 3 | 4 {
+  if (!max || value <= 0) return 0;
+  const r = value / max;
+  if (r >= 0.85) return 4;
+  if (r >= 0.6) return 3;
+  if (r >= 0.35) return 2;
+  if (r >= 0.15) return 1;
+  return 0;
 }
 
 function buildupCode(b: OiBuildupType | string | undefined): {
@@ -198,6 +226,33 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
   const atmStrike = chainData?.atmStrike || 0;
   const maxPain = chainData?.maxPain || 0;
 
+  // Keep popup LTP in sync with live chain row (same strike + side)
+  useEffect(() => {
+    if (!chartContract || !chainData?.contracts?.length) return;
+    const row = chainData.contracts.find(
+      (c) => Math.abs(Number(c.strike) - chartContract.strike) < 0.51,
+    );
+    if (!row) return;
+    const side = chartContract.type === 'CE' ? row.ce : row.pe;
+    const ltp = Number(side?.ltp) || 0;
+    const changePct = Number(side?.changePct) || 0;
+    if (ltp <= 0) return;
+    if (
+      Math.abs(ltp - chartContract.ltp) < 0.005 &&
+      Math.abs(changePct - chartContract.changePct) < 0.005
+    ) {
+      return;
+    }
+    setChartContract((prev) =>
+      prev ? { ...prev, ltp, changePct } : prev,
+    );
+  }, [chainData, chartContract]);
+
+  const liveSpotLabel =
+    spot > 0
+      ? `Spot ₹${spot.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+      : null;
+
   const rows = useMemo(() => {
     const all = chainData?.contracts || [];
     if (strikeFilter === 'all' || all.length === 0) return all;
@@ -214,6 +269,25 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     rows.forEach((r) => {
       if (r.ce.oi > m) m = r.ce.oi;
       if (r.pe.oi > m) m = r.pe.oi;
+    });
+    return m;
+  }, [rows]);
+
+  const maxOiChgAbs = useMemo(() => {
+    let m = 1;
+    rows.forEach((r) => {
+      m = Math.max(m, Math.abs(r.ce.oiChange || 0), Math.abs(r.pe.oiChange || 0));
+    });
+    return m;
+  }, [rows]);
+
+  const maxOiChgPct = useMemo(() => {
+    let m = 1;
+    rows.forEach((r) => {
+      const ce = formatOiChgPct(r.ce).pct;
+      const pe = formatOiChgPct(r.pe).pct;
+      if (ce != null) m = Math.max(m, Math.abs(ce));
+      if (pe != null) m = Math.max(m, Math.abs(pe));
     });
     return m;
   }, [rows]);
@@ -276,271 +350,222 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
   const renderSideCells = (row: OptionChainRowDto, side: 'ce' | 'pe', isItm: boolean) => {
     const c = side === 'ce' ? row.ce : row.pe;
     const type: OptionType = side === 'ce' ? 'CE' : 'PE';
+    const heat = side === 'ce' ? 'ce' : 'pe';
     const itmCls = isItm ? (side === 'ce' ? 'oc-itm-ce' : 'oc-itm-pe') : '';
-    const chgPct = oiChgPct(c);
-    const oiPct = maxOi > 0 ? Math.min(100, Math.round((c.oi / maxOi) * 100)) : 0;
+    const pctInfo = formatOiChgPct(c);
+    const oiAbs = Number(c.oiChange) || 0;
+    const oiHeat = heatLevel(c.oi, maxOi);
+    const pctHeat = pctInfo.pct != null ? heatLevel(Math.abs(pctInfo.pct), maxOiChgPct) : 0;
+    const chgBar = maxOiChgAbs > 0 ? Math.min(100, Math.round((Math.abs(oiAbs) / maxOiChgAbs) * 100)) : 0;
     const priceChg = Number(c.changePct) || 0;
 
+    const pushBuildup = (cells: React.ReactNode[]) => {
+      if (!columns.buildup) return;
+      cells.push(
+        <td key="bu" className={`oc-td oc-td-center ${itmCls}`}>
+          <button
+            type="button"
+            className="oc-buildup-hit"
+            title={`${buildupCode(c.buildup).title} — click to trade`}
+            onClick={() =>
+              onAddOrToggleLeg({
+                side: buildupCode(c.buildup).tone === 'short' || buildupCode(c.buildup).tone === 'unwind' ? 'SELL' : 'BUY',
+                type,
+                strike: row.strike,
+                price: c.ltp,
+                iv: c.iv,
+                expiry: selectedExpiry,
+              })
+            }
+          >
+            <BuildupBadge buildup={c.buildup} />
+          </button>
+        </td>,
+      );
+    };
+
+    const pushOi = (cells: React.ReactNode[]) => {
+      if (!columns.oi) return;
+      cells.push(
+        <td
+          key="oi"
+          className={`oc-td oc-td-num oc-heat oc-heat-${heat}-${oiHeat} ${itmCls}`}
+          title={`Open Interest (NSE): ${c.oi}`}
+        >
+          {formatQty(c.oi)}
+        </td>,
+      );
+    };
+
+    const pushOiChgPct = (cells: React.ReactNode[]) => {
+      if (!columns.oiChgPct) return;
+      cells.push(
+        <td
+          key="oicp"
+          className={`oc-td oc-td-num oc-heat oc-heat-${heat}-${pctHeat} ${itmCls} ${
+            pctInfo.tone === 'flat' ? '' : pctInfo.tone === 'pos' ? 'oc-pos' : 'oc-neg'
+          }`}
+          title="OI change % vs previous day (NSE)"
+        >
+          {pctInfo.text}
+        </td>,
+      );
+    };
+
+    const pushOiChgAbs = (cells: React.ReactNode[]) => {
+      if (!columns.oiChgAbs) return;
+      cells.push(
+        <td
+          key="oica"
+          className={`oc-td oc-td-oi-chg ${itmCls} ${oiAbs > 0 ? 'oc-pos' : oiAbs < 0 ? 'oc-neg' : ''}`}
+          title={`OI change (NSE): ${oiAbs}`}
+        >
+          <div className="oc-oi-chg-cell">
+            <span>
+              {oiAbs === 0 ? '—' : `${oiAbs > 0 ? '' : '-'}${formatQty(Math.abs(oiAbs))}`}
+            </span>
+            <span
+              className={`oc-oi-chg-bar oc-oi-chg-bar--${heat}`}
+              style={{ width: `${chgBar}%` }}
+            />
+          </div>
+        </td>,
+      );
+    };
+
+    const pushLtp = (cells: React.ReactNode[]) => {
+      if (!columns.ltp) return;
+      cells.push(
+        <td key="ltp" className={`oc-td oc-td-ltp oc-td-ltp--${heat} ${itmCls}`}>
+          <button
+            type="button"
+            className="oc-ltp-btn"
+            onClick={() =>
+              setChartContract({
+                strike: row.strike,
+                type,
+                ltp: c.ltp,
+                changePct: priceChg,
+              })
+            }
+            title="Open live LTP chart (TradingView NSE)"
+          >
+            {side === 'pe' ? <LtpChartIcon className="oc-ltp-chart-icon" /> : null}
+            <span className="oc-ltp-main">{formatLtp(c.ltp)}</span>
+            {c.ltp > 0 ? (
+              <span className={priceChg >= 0 ? 'oc-pos' : 'oc-neg'}>
+                {priceChg >= 0 ? '+' : ''}
+                {priceChg.toFixed(0)}%
+              </span>
+            ) : null}
+            {side === 'ce' ? <LtpChartIcon className="oc-ltp-chart-icon" /> : null}
+          </button>
+        </td>,
+      );
+    };
+
+    const pushIv = (cells: React.ReactNode[]) => {
+      if (!columns.iv) return;
+      cells.push(
+        <td key="iv" className={`oc-td oc-td-num oc-muted ${itmCls}`}>
+          {c.iv != null ? c.iv.toFixed(1) : '—'}
+        </td>,
+      );
+    };
+
+    const pushVolume = (cells: React.ReactNode[]) => {
+      if (!columns.volume) return;
+      cells.push(
+        <td key="vol" className={`oc-td oc-td-num ${itmCls}`}>
+          {formatQty(c.volume)}
+        </td>,
+      );
+    };
+
+    const pushGreeks = (cells: React.ReactNode[]) => {
+      if (columns.delta) {
+        cells.push(
+          <td key="d" className={`oc-td oc-td-num oc-muted ${itmCls}`}>
+            {c.delta != null ? c.delta.toFixed(2) : '—'}
+          </td>,
+        );
+      }
+      if (columns.theta) {
+        cells.push(
+          <td key="t" className={`oc-td oc-td-num oc-muted ${itmCls}`}>
+            {c.theta != null ? c.theta.toFixed(2) : '—'}
+          </td>,
+        );
+      }
+    };
+
+    const pushAction = (cells: React.ReactNode[]) => {
+      if (!columns.action) return;
+      cells.push(
+        <td key="act" className={`oc-td oc-td-action ${itmCls}`}>
+          <div className="oc-action-pair">
+            <button
+              type="button"
+              className="oc-btn-buy"
+              title={`Buy ${type}`}
+              onClick={() =>
+                onAddOrToggleLeg({
+                  side: 'BUY',
+                  type,
+                  strike: row.strike,
+                  price: c.ltp,
+                  iv: c.iv,
+                  expiry: selectedExpiry,
+                })
+              }
+            >
+              B
+            </button>
+            <button
+              type="button"
+              className="oc-btn-sell"
+              title={`Sell ${type}`}
+              onClick={() =>
+                onAddOrToggleLeg({
+                  side: 'SELL',
+                  type,
+                  strike: row.strike,
+                  price: c.ltp,
+                  iv: c.iv,
+                  expiry: selectedExpiry,
+                })
+              }
+            >
+              S
+            </button>
+          </div>
+        </td>,
+      );
+    };
+
     const cells: React.ReactNode[] = [];
-
+    // StockMojo order: CE Buildup→OI→OI%→OI Chg→LTP→IV | Strike | PE IV→LTP→OI Chg→OI%→OI→Buildup
     if (side === 'ce') {
-      if (columns.action) {
-        cells.push(
-          <td key="act" className={`oc-td oc-td-action ${itmCls}`}>
-            <div className="oc-action-pair">
-              <button
-                type="button"
-                className="oc-btn-buy"
-                title="Buy Call"
-                onClick={() =>
-                  onAddOrToggleLeg({
-                    side: 'BUY',
-                    type: 'CE',
-                    strike: row.strike,
-                    price: c.ltp,
-                    iv: c.iv,
-                    expiry: selectedExpiry,
-                  })
-                }
-              >
-                B
-              </button>
-              <button
-                type="button"
-                className="oc-btn-sell"
-                title="Sell Call"
-                onClick={() =>
-                  onAddOrToggleLeg({
-                    side: 'SELL',
-                    type: 'CE',
-                    strike: row.strike,
-                    price: c.ltp,
-                    iv: c.iv,
-                    expiry: selectedExpiry,
-                  })
-                }
-              >
-                S
-              </button>
-            </div>
-          </td>,
-        );
-      }
-      if (columns.buildup) {
-        cells.push(
-          <td key="bu" className={`oc-td oc-td-center ${itmCls}`}>
-            <BuildupBadge buildup={c.buildup} />
-          </td>,
-        );
-      }
-      if (columns.volume) {
-        cells.push(
-          <td key="vol" className={`oc-td oc-td-num ${itmCls}`}>
-            {formatQty(c.volume)}
-          </td>,
-        );
-      }
-      if (columns.oiChg) {
-        cells.push(
-          <td
-            key="oic"
-            className={`oc-td oc-td-num ${itmCls} ${
-              chgPct == null ? '' : chgPct >= 0 ? 'oc-pos' : 'oc-neg'
-            }`}
-          >
-            {chgPct == null ? '—' : `${chgPct >= 0 ? '+' : ''}${chgPct}%`}
-          </td>,
-        );
-      }
-      if (columns.oi) {
-        cells.push(
-          <td key="oi" className={`oc-td oc-td-oi ${itmCls}`}>
-            <div className="oc-oi-cell">
-              <span>{formatQty(c.oi)}</span>
-              <span className="oc-oi-bar oc-oi-bar--ce" style={{ width: `${oiPct}%` }} />
-            </div>
-          </td>,
-        );
-      }
-      if (columns.iv) {
-        cells.push(
-          <td key="iv" className={`oc-td oc-td-num oc-muted ${itmCls}`}>
-            {c.iv != null ? c.iv.toFixed(1) : '—'}
-          </td>,
-        );
-      }
-      if (columns.delta) {
-        cells.push(
-          <td key="d" className={`oc-td oc-td-num oc-muted ${itmCls}`}>
-            {c.delta != null ? c.delta.toFixed(2) : '—'}
-          </td>,
-        );
-      }
-      if (columns.theta) {
-        cells.push(
-          <td key="t" className={`oc-td oc-td-num oc-muted ${itmCls}`}>
-            {c.theta != null ? c.theta.toFixed(2) : '—'}
-          </td>,
-        );
-      }
-      if (columns.ltp) {
-        cells.push(
-          <td key="ltp" className={`oc-td oc-td-ltp oc-td-ltp--ce ${itmCls}`}>
-            <button
-              type="button"
-              className="oc-ltp-btn"
-              onClick={() =>
-                setChartContract({
-                  strike: row.strike,
-                  type,
-                  ltp: c.ltp,
-                  changePct: priceChg,
-                })
-              }
-              title="Open LTP chart"
-            >
-              <span className="oc-ltp-main">{formatLtp(c.ltp)}</span>
-              {c.ltp > 0 && (
-                <span className={priceChg >= 0 ? 'oc-pos' : 'oc-neg'}>
-                  {priceChg >= 0 ? '+' : ''}
-                  {priceChg.toFixed(0)}%
-                </span>
-              )}
-              <LtpChartIcon className="oc-ltp-chart-icon" />
-            </button>
-          </td>,
-        );
-      }
+      pushAction(cells);
+      pushBuildup(cells);
+      pushVolume(cells);
+      pushOi(cells);
+      pushOiChgPct(cells);
+      pushOiChgAbs(cells);
+      pushLtp(cells);
+      pushIv(cells);
+      pushGreeks(cells);
     } else {
-      if (columns.ltp) {
-        cells.push(
-          <td key="ltp" className={`oc-td oc-td-ltp oc-td-ltp--pe ${itmCls}`}>
-            <button
-              type="button"
-              className="oc-ltp-btn"
-              onClick={() =>
-                setChartContract({
-                  strike: row.strike,
-                  type,
-                  ltp: c.ltp,
-                  changePct: priceChg,
-                })
-              }
-              title="Open LTP chart"
-            >
-              <LtpChartIcon className="oc-ltp-chart-icon" />
-              <span className="oc-ltp-main">{formatLtp(c.ltp)}</span>
-              {c.ltp > 0 && (
-                <span className={priceChg >= 0 ? 'oc-pos' : 'oc-neg'}>
-                  {priceChg >= 0 ? '+' : ''}
-                  {priceChg.toFixed(0)}%
-                </span>
-              )}
-            </button>
-          </td>,
-        );
-      }
-      if (columns.iv) {
-        cells.push(
-          <td key="iv" className={`oc-td oc-td-num oc-muted ${itmCls}`}>
-            {c.iv != null ? c.iv.toFixed(1) : '—'}
-          </td>,
-        );
-      }
-      if (columns.delta) {
-        cells.push(
-          <td key="d" className={`oc-td oc-td-num oc-muted ${itmCls}`}>
-            {c.delta != null ? c.delta.toFixed(2) : '—'}
-          </td>,
-        );
-      }
-      if (columns.theta) {
-        cells.push(
-          <td key="t" className={`oc-td oc-td-num oc-muted ${itmCls}`}>
-            {c.theta != null ? c.theta.toFixed(2) : '—'}
-          </td>,
-        );
-      }
-      if (columns.oi) {
-        cells.push(
-          <td key="oi" className={`oc-td oc-td-oi ${itmCls}`}>
-            <div className="oc-oi-cell">
-              <span>{formatQty(c.oi)}</span>
-              <span className="oc-oi-bar oc-oi-bar--pe" style={{ width: `${oiPct}%` }} />
-            </div>
-          </td>,
-        );
-      }
-      if (columns.oiChg) {
-        cells.push(
-          <td
-            key="oic"
-            className={`oc-td oc-td-num ${itmCls} ${
-              chgPct == null ? '' : chgPct >= 0 ? 'oc-pos' : 'oc-neg'
-            }`}
-          >
-            {chgPct == null ? '—' : `${chgPct >= 0 ? '+' : ''}${chgPct}%`}
-          </td>,
-        );
-      }
-      if (columns.volume) {
-        cells.push(
-          <td key="vol" className={`oc-td oc-td-num ${itmCls}`}>
-            {formatQty(c.volume)}
-          </td>,
-        );
-      }
-      if (columns.buildup) {
-        cells.push(
-          <td key="bu" className={`oc-td oc-td-center ${itmCls}`}>
-            <BuildupBadge buildup={c.buildup} />
-          </td>,
-        );
-      }
-      if (columns.action) {
-        cells.push(
-          <td key="act" className={`oc-td oc-td-action ${itmCls}`}>
-            <div className="oc-action-pair">
-              <button
-                type="button"
-                className="oc-btn-buy"
-                title="Buy Put"
-                onClick={() =>
-                  onAddOrToggleLeg({
-                    side: 'BUY',
-                    type: 'PE',
-                    strike: row.strike,
-                    price: c.ltp,
-                    iv: c.iv,
-                    expiry: selectedExpiry,
-                  })
-                }
-              >
-                B
-              </button>
-              <button
-                type="button"
-                className="oc-btn-sell"
-                title="Sell Put"
-                onClick={() =>
-                  onAddOrToggleLeg({
-                    side: 'SELL',
-                    type: 'PE',
-                    strike: row.strike,
-                    price: c.ltp,
-                    iv: c.iv,
-                    expiry: selectedExpiry,
-                  })
-                }
-              >
-                S
-              </button>
-            </div>
-          </td>,
-        );
-      }
+      pushIv(cells);
+      pushGreeks(cells);
+      pushLtp(cells);
+      pushOiChgAbs(cells);
+      pushOiChgPct(cells);
+      pushOi(cells);
+      pushVolume(cells);
+      pushBuildup(cells);
+      pushAction(cells);
     }
-
     return cells;
   };
 
@@ -559,19 +584,21 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
       push('action', 'Action', 'center');
       push('buildup', 'Buildup', 'center');
       push('volume', 'Volume');
-      push('oiChg', 'OI Chg%');
       push('oi', 'OI');
+      push('oiChgPct', 'OI%');
+      push('oiChgAbs', 'OI Chg');
+      push('ltp', 'LTP');
       push('iv', 'IV');
       push('delta', 'Delta');
       push('theta', 'Theta');
-      push('ltp', 'LTP');
     } else {
-      push('ltp', 'LTP', 'left');
       push('iv', 'IV', 'left');
       push('delta', 'Delta', 'left');
       push('theta', 'Theta', 'left');
+      push('ltp', 'LTP', 'left');
+      push('oiChgAbs', 'OI Chg');
+      push('oiChgPct', 'OI%');
       push('oi', 'OI');
-      push('oiChg', 'OI Chg%');
       push('volume', 'Volume');
       push('buildup', 'Buildup', 'center');
       push('action', 'Action', 'center');
@@ -593,11 +620,9 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
       if (side === 'ce' && columns.action) bucket.push(<td key="a" className="oc-td" />);
       if (side === 'ce' && columns.buildup) bucket.push(<td key="b" className="oc-td" />);
       if (side === 'ce' && columns.volume) bucket.push(<td key="v" className="oc-td oc-td-num">{formatQty(vol)}</td>);
-      if (side === 'ce' && columns.oiChg) bucket.push(<td key="c" className="oc-td" />);
       if (side === 'ce' && columns.oi) bucket.push(<td key="o" className="oc-td oc-td-num">{formatQty(oi)}</td>);
-      if (side === 'ce' && columns.iv) bucket.push(<td key="i" className="oc-td" />);
-      if (side === 'ce' && columns.delta) bucket.push(<td key="d" className="oc-td" />);
-      if (side === 'ce' && columns.theta) bucket.push(<td key="t" className="oc-td" />);
+      if (side === 'ce' && columns.oiChgPct) bucket.push(<td key="cp" className="oc-td" />);
+      if (side === 'ce' && columns.oiChgAbs) bucket.push(<td key="ca" className="oc-td" />);
       if (side === 'ce' && columns.ltp) {
         bucket.push(
           <td key="l" className="oc-td oc-td-num">
@@ -605,7 +630,13 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
           </td>,
         );
       }
+      if (side === 'ce' && columns.iv) bucket.push(<td key="i" className="oc-td" />);
+      if (side === 'ce' && columns.delta) bucket.push(<td key="d" className="oc-td" />);
+      if (side === 'ce' && columns.theta) bucket.push(<td key="t" className="oc-td" />);
 
+      if (side === 'pe' && columns.iv) bucket.push(<td key="i" className="oc-td" />);
+      if (side === 'pe' && columns.delta) bucket.push(<td key="d" className="oc-td" />);
+      if (side === 'pe' && columns.theta) bucket.push(<td key="t" className="oc-td" />);
       if (side === 'pe' && columns.ltp) {
         bucket.push(
           <td key="l" className="oc-td oc-td-num">
@@ -613,11 +644,9 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
           </td>,
         );
       }
-      if (side === 'pe' && columns.iv) bucket.push(<td key="i" className="oc-td" />);
-      if (side === 'pe' && columns.delta) bucket.push(<td key="d" className="oc-td" />);
-      if (side === 'pe' && columns.theta) bucket.push(<td key="t" className="oc-td" />);
+      if (side === 'pe' && columns.oiChgAbs) bucket.push(<td key="ca" className="oc-td" />);
+      if (side === 'pe' && columns.oiChgPct) bucket.push(<td key="cp" className="oc-td" />);
       if (side === 'pe' && columns.oi) bucket.push(<td key="o" className="oc-td oc-td-num">{formatQty(oi)}</td>);
-      if (side === 'pe' && columns.oiChg) bucket.push(<td key="c" className="oc-td" />);
       if (side === 'pe' && columns.volume) bucket.push(<td key="v" className="oc-td oc-td-num">{formatQty(vol)}</td>);
       if (side === 'pe' && columns.buildup) bucket.push(<td key="b" className="oc-td" />);
       if (side === 'pe' && columns.action) bucket.push(<td key="a" className="oc-td" />);
@@ -654,6 +683,9 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
         </div>
 
         <div className="oc-toolbar-meta">
+          <span className={`oc-feed-pill ${(chainData?.source || '').includes('LIVE') ? 'live' : 'cached'}`}>
+            {chainData?.source || '—'}
+          </span>
           <span>
             Spot <strong>{spot > 0 ? spot.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—'}</strong>
           </span>
@@ -663,6 +695,17 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
           <span>
             Max Pain <strong>{maxPain > 0 ? maxPain.toLocaleString('en-IN') : '—'}</strong>
           </span>
+          {chainData?.timestamp ? (
+            <span className="oc-asof" title="NSE / feed as-of (IST)">
+              {new Date(chainData.timestamp).toLocaleTimeString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true,
+              })}
+            </span>
+          ) : null}
         </div>
 
         <div className="oc-col-filter-wrap">
@@ -744,15 +787,10 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
                 return (
                   <tr key={row.strike} className={isAtm ? 'oc-row-atm' : undefined}>
                     {renderSideCells(row, 'ce', isItmCe)}
-                    <td className={`oc-td oc-td-strike ${isAtm ? 'oc-atm' : ''}`}>
+                    <td className={`oc-td oc-td-strike ${isAtm ? 'oc-atm' : ''} ${isMaxPain ? 'oc-maxpain-cell' : ''}`}>
                       <span className="oc-strike-val">{row.strike}</span>
                       {isAtm && <span className="oc-badge oc-badge-atm">ATM</span>}
-                      {isMaxPain && !isAtm && (
-                        <span className="oc-badge oc-badge-maxpain">MAX PAIN</span>
-                      )}
-                      {isMaxPain && isAtm && (
-                        <span className="oc-badge oc-badge-maxpain">MAX PAIN</span>
-                      )}
+                      {isMaxPain && <span className="oc-badge oc-badge-maxpain">Max Pain</span>}
                     </td>
                     {renderSideCells(row, 'pe', isItmPe)}
                   </tr>
@@ -779,23 +817,30 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
           <div className="oc-chart-drawer oc-chart-drawer--live">
             <div className="oc-chart-drawer-head">
               <div className="oc-chart-drawer-head-main">
-                <div className="oc-chart-live-pill" title="Live NSE via TradingView">
+                <div className="oc-chart-live-pill" title="Live NSE feed">
                   LIVE
                 </div>
-                <div>
+                <div className="oc-chart-drawer-titles">
                   <h3>
-                    {symbol} — {selectedExpiry} — {chartContract.strike} {chartContract.type}
+                    {symbol} {chartContract.strike} {chartContract.type}
+                    <span className="oc-chart-drawer-exp">{selectedExpiry}</span>
                   </h3>
-                  <p>
-                    Contract LTP{' '}
-                    <strong>₹{formatLtp(chartContract.ltp)}</strong>{' '}
+                  <div className="oc-chart-drawer-stats">
+                    <span>
+                      LTP{' '}
+                      <strong>₹{formatLtp(chartContract.ltp)}</strong>
+                    </span>
                     <span className={chartContract.changePct >= 0 ? 'oc-pos' : 'oc-neg'}>
                       {chartContract.changePct >= 0 ? '+' : ''}
                       {chartContract.changePct.toFixed(2)}%
                     </span>
-                    <span className="oc-chart-head-sep">·</span>
-                    Underlying live chart with drawings, indicators &amp; timeframes
-                  </p>
+                    {liveSpotLabel ? (
+                      <span className="oc-chart-drawer-spot">{liveSpotLabel}</span>
+                    ) : null}
+                    <span className="oc-chart-drawer-note">
+                      Chart: {symbol} underlying (NSE)
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="oc-chart-drawer-actions">
@@ -821,11 +866,11 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
             </div>
             <div className="oc-chart-drawer-body">
               <NiftyCandlestickChart
+                key={`oc-chart-${symbol}`}
                 symbol={symbol}
                 spotPrice={spot}
                 spotChange={chainData?.spotChange || 0}
                 spotChangePct={chainData?.spotChangePct || 0}
-                defaultFeed="tradingview"
                 immersive
                 fullTools
                 height={chartHeight}

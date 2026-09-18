@@ -262,6 +262,9 @@ export default function OptionsLabPage() {
   const chainFetchGenRef = useRef(0);
   const chainInFlightRef = useRef(false);
   const payoffChartRef = useRef<any>(null);
+  const workspaceSplitRef = useRef<HTMLDivElement | null>(null);
+  const analyticsBodyRef = useRef<HTMLDivElement | null>(null);
+  const [chartPanelHeight, setChartPanelHeight] = useState(380);
 
   useEffect(() => {
     chainDataRef.current = chainData;
@@ -291,7 +294,8 @@ export default function OptionsLabPage() {
   const [isGuideCollapsed, setIsGuideCollapsed] = useState(true);
   const [isDesktopLayout, setIsDesktopLayout] = useState(true);
   const [chainWidth, setChainWidth] = usePersistedLayoutNumber('chainWidth', 360, 260, 560);
-  const [analyticsFlex, setAnalyticsFlex] = usePersistedLayoutNumber('analyticsFlex', 62, 20, 95);
+  /** Chart vs positions split (default ~58/42). Keep both panels usable. */
+  const [analyticsFlex, setAnalyticsFlex] = usePersistedLayoutNumber('analyticsFlex', 58, 35, 75);
   const [chainMobileHeight, setChainMobileHeight] = usePersistedLayoutNumber(
     'chainMobileHeight',
     360,
@@ -302,28 +306,76 @@ export default function OptionsLabPage() {
   const isChartTab =
     analyticsTab === 'nifty_chart' || analyticsTab === 'strategy_chart';
 
+  const WORKSPACE_DEFAULT_FLEX = 58;
+  const WORKSPACE_CHART_FOCUS = 70;
+  const WORKSPACE_POS_FOCUS = 40;
+
+  /** Give chart more room but keep positions table visible */
   const expandAnalyticsPanel = useCallback(() => {
     setIsAnalyticsCollapsed(false);
-    setIsPositionsCollapsed(true);
-    setAnalyticsFlex(92);
+    setIsPositionsCollapsed(false);
+    setAnalyticsFlex(WORKSPACE_CHART_FOCUS);
     setIsGuideCollapsed(true);
+    setIsChartFullscreen(false);
+  }, [setAnalyticsFlex]);
+
+  /** Give positions more room but keep payoff/chart visible */
+  const expandPositionsPanel = useCallback(() => {
+    setIsAnalyticsCollapsed(false);
+    setIsPositionsCollapsed(false);
+    setAnalyticsFlex(WORKSPACE_POS_FOCUS);
+    setIsChartFullscreen(false);
   }, [setAnalyticsFlex]);
 
   const balanceWorkspace = useCallback(() => {
     setIsAnalyticsCollapsed(false);
     setIsPositionsCollapsed(false);
-    setAnalyticsFlex(62);
+    setAnalyticsFlex(WORKSPACE_DEFAULT_FLEX);
     setIsChartFullscreen(false);
   }, [setAnalyticsFlex]);
 
   const enterChartFullscreen = useCallback(() => {
     setIsAnalyticsCollapsed(false);
     setIsPositionsCollapsed(true);
-    setAnalyticsFlex(95);
+    setAnalyticsFlex(75);
     setIsGuideCollapsed(true);
     setIsChartFullscreen(true);
     if (!isChartTab) setAnalyticsTab('nifty_chart');
   }, [isChartTab, setAnalyticsFlex]);
+
+  const isChartPriority =
+    !isAnalyticsCollapsed && !isPositionsCollapsed && !isChartFullscreen && analyticsFlex >= 65;
+  const isPositionsPriority =
+    !isAnalyticsCollapsed && !isPositionsCollapsed && !isChartFullscreen && analyticsFlex <= 45;
+  const isBalancedSplit =
+    !isAnalyticsCollapsed && !isPositionsCollapsed && !isChartFullscreen && !isChartPriority && !isPositionsPriority;
+
+  // Keep chart height in sync with analytics panel size
+  useEffect(() => {
+    const el = analyticsBodyRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect?.height;
+      if (typeof h === 'number' && h > 100) {
+        setChartPanelHeight(Math.floor(h));
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isAnalyticsCollapsed, analyticsTab, isChartFullscreen]);
+
+  // Resize payoff / chart when split changes so ECharts stays correct
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        payoffChartRef.current?.getEchartsInstance?.()?.resize?.();
+      } catch {
+        /* ignore */
+      }
+      window.dispatchEvent(new Event('resize'));
+    }, 60);
+    return () => window.clearTimeout(t);
+  }, [analyticsFlex, isAnalyticsCollapsed, isPositionsCollapsed, analyticsTab, isChartFullscreen, chartPanelHeight]);
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 901px)');
@@ -379,10 +431,16 @@ export default function OptionsLabPage() {
   }, []);
 
   // Fetch Option Chain — first paint shows loading; polls patch live data without blanking the table
-  const fetchChain = useCallback(async (opts?: { silent?: boolean }) => {
-    const hasExisting = Boolean(chainDataRef.current?.contracts?.length);
-    // Keep existing rows visible whenever we already have a chain (including expiry switches)
-    const silent = Boolean(opts?.silent) || hasExisting;
+  const fetchChain = useCallback(async (opts?: { silent?: boolean; fresh?: boolean }) => {
+    const prev = chainDataRef.current;
+    const hasExisting = Boolean(prev?.contracts?.length);
+    const prevExpiry = (prev?.selectedExpiry || '').slice(0, 10);
+    const wantExpiry = (selectedExpiry || '').slice(0, 10);
+    const expiryMismatch =
+      Boolean(wantExpiry) && Boolean(prevExpiry) && wantExpiry !== prevExpiry;
+    // Keep rows only when same expiry; never leave previous-expiry strikes on screen
+    const silent =
+      Boolean(opts?.silent) && hasExisting && !expiryMismatch && !opts?.fresh;
     const started = performance.now();
 
     // Never cancel a slow NSE request every poll — skip overlapping silent polls instead
@@ -392,8 +450,32 @@ export default function OptionsLabPage() {
     chainInFlightRef.current = true;
 
     try {
-      if (!silent) setIsLoading(true);
-      else setIsRefreshing(true);
+      if (!silent) {
+        setIsLoading(true);
+        if (expiryMismatch) {
+          setChainData((c) =>
+            c
+              ? {
+                  ...c,
+                  contracts: [],
+                  selectedExpiry: wantExpiry || c.selectedExpiry,
+                  pcr: 0,
+                  maxPain: 0,
+                  atmIv: null,
+                }
+              : c,
+          );
+          if (chainDataRef.current) {
+            chainDataRef.current = {
+              ...chainDataRef.current,
+              contracts: [],
+              selectedExpiry: wantExpiry || chainDataRef.current.selectedExpiry,
+            };
+          }
+        }
+      } else {
+        setIsRefreshing(true);
+      }
 
       // Public NSE chain is shared — only attach JWT when a real broker is connected
       // (avoids per-user broker lookup latency on every poll).
@@ -403,11 +485,14 @@ export default function OptionsLabPage() {
         const token = getStoredAccessToken();
         if (token) headers.Authorization = `Bearer ${token}`;
       }
-      const brokerQ =
-        connectedBroker && connectedBroker !== 'sandbox'
-          ? `${selectedExpiry ? '&' : '?'}broker=${encodeURIComponent(connectedBroker)}`
-          : '';
-      const url = `/api/v1/options/chain/${symbol}${selectedExpiry ? `?expiry=${selectedExpiry}` : ''}${brokerQ}`;
+      const qs = new URLSearchParams();
+      if (selectedExpiry) qs.set('expiry', selectedExpiry);
+      if (connectedBroker && connectedBroker !== 'sandbox') {
+        qs.set('broker', connectedBroker);
+      }
+      if (opts?.fresh || expiryMismatch) qs.set('fresh', '1');
+      const q = qs.toString();
+      const url = `/api/v1/options/chain/${symbol}${q ? `?${q}` : ''}`;
       const res = await fetch(url, {
         headers: Object.keys(headers).length ? headers : undefined,
         cache: 'no-store',
@@ -418,33 +503,39 @@ export default function OptionsLabPage() {
         const json = await res.json();
         if (gen !== chainFetchGenRef.current) return;
         if (json.data) {
-          setChainData(json.data);
-          chainDataRef.current = json.data;
-          const nextExpiry = json.data.selectedExpiry as string | undefined;
-          const expiryList: string[] = json.data.expiryDates || [];
+          const incoming = json.data;
+          const incomingExpiry = String(incoming.selectedExpiry || '').slice(0, 10);
+          // Ignore late responses for a different expiry than currently selected
+          if (wantExpiry && incomingExpiry && wantExpiry !== incomingExpiry) {
+            return;
+          }
+          setChainData(incoming);
+          chainDataRef.current = incoming;
+          const nextExpiry = incoming.selectedExpiry as string | undefined;
+          const expiryList: string[] = incoming.expiryDates || [];
           if (nextExpiry && (!selectedExpiry || !expiryList.includes(selectedExpiry))) {
             setSelectedExpiry(nextExpiry);
           }
-          const source = json.data.source as string | undefined;
-          const hasContracts = (json.data.contracts?.length || 0) > 0;
+          const source = incoming.source as string | undefined;
+          const hasContracts = (incoming.contracts?.length || 0) > 0;
           const isExchangeLive =
             (source === 'NSE_LIVE' || source === 'BROKER_LIVE' || source === 'NSE_CACHED') &&
             hasContracts;
           setConnectionStatus(
             isExchangeLive
               ? 'connected'
-              : json.data.spotPrice > 0
+              : incoming.spotPrice > 0
                 ? 'reconnecting'
                 : 'closed',
           );
           setLatencyMs(Math.round(performance.now() - started));
         }
-      } else if (!hasExisting) {
+      } else if (!hasExisting || expiryMismatch) {
         setConnectionStatus('closed');
         setLatencyMs(0);
       }
     } catch {
-      if (gen === chainFetchGenRef.current && !chainDataRef.current) {
+      if (gen === chainFetchGenRef.current && (!chainDataRef.current || expiryMismatch)) {
         setConnectionStatus('closed');
         setLatencyMs(0);
       }
@@ -460,7 +551,7 @@ export default function OptionsLabPage() {
   // Initial load + live poll. 12s interval is enough with 5s server hot-cache;
   // 100k users share one upstream scrape via Nest coalesce + edge proxy cache.
   useEffect(() => {
-    void fetchChain({ silent: false });
+    void fetchChain({ silent: false, fresh: Boolean(selectedExpiry) });
     const interval = setInterval(() => {
       void fetchChain({ silent: true });
     }, 12000);
@@ -941,7 +1032,12 @@ export default function OptionsLabPage() {
     }
 
     const expiryToUse =
-      selectedExpiry || chainData.selectedExpiry || chainData.expiryDates[0] || '2026-09-22';
+      selectedExpiry || chainData.selectedExpiry || chainData.expiryDates[0] || '';
+    if (!expiryToUse) {
+      setNotification('Wait for live expiry list before loading a template.');
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
     const atm = Math.round(spotVal / step) * step;
 
     let baseLegs: StrategyLegDto[] = [];
@@ -979,26 +1075,31 @@ export default function OptionsLabPage() {
     }
 
     if (baseLegs.length > 0) {
-      // Enrich with live contract LTPs and Greeks from chainData
-      const legs = baseLegs.map((leg) => {
-        const contract = chainData.contracts?.find((c) => c.strike === leg.strike);
-        if (contract) {
+      // Enrich with live contract LTPs only — drop legs without a real quote (no fake premiums)
+      const legs = baseLegs
+        .map((leg) => {
+          const contract = chainData.contracts?.find((c) => c.strike === leg.strike);
+          if (!contract) return null;
           const sideContract = leg.optionType === 'CE' ? contract.ce : contract.pe;
-          if (sideContract && sideContract.ltp > 0) {
-            return {
-              ...leg,
-              entryPrice: sideContract.ltp,
-              currentPrice: sideContract.ltp,
-              iv: sideContract.iv || leg.iv,
-              delta: sideContract.delta || leg.delta,
-              gamma: sideContract.gamma || leg.gamma,
-              theta: sideContract.theta || leg.theta,
-              vega: sideContract.vega || leg.vega,
-            };
-          }
-        }
-        return leg;
-      });
+          if (!sideContract || !(sideContract.ltp > 0)) return null;
+          return {
+            ...leg,
+            entryPrice: sideContract.ltp,
+            currentPrice: sideContract.ltp,
+            iv: sideContract.iv || leg.iv,
+            delta: sideContract.delta || leg.delta,
+            gamma: sideContract.gamma || leg.gamma,
+            theta: sideContract.theta || leg.theta,
+            vega: sideContract.vega || leg.vega,
+          };
+        })
+        .filter((l): l is StrategyLegDto => l != null);
+
+      if (legs.length === 0) {
+        setNotification(`No live LTPs for "${tplName}" strikes on this expiry — try another expiry.`);
+        setTimeout(() => setNotification(null), 4000);
+        return;
+      }
 
       setStrategyLegs(legs);
       setAnalyticsTab('payoff');
@@ -1006,15 +1107,6 @@ export default function OptionsLabPage() {
       setTimeout(() => setNotification(null), 3000);
     }
   };
-
-  // Auto-initialize default demo strategy on first load (Short Strangle matching StockMojo)
-  const hasInitializedStrategy = useRef(false);
-  useEffect(() => {
-    if (!hasInitializedStrategy.current && chainData?.spotPrice) {
-      hasInitializedStrategy.current = true;
-      applyTemplate('Short Strangle');
-    }
-  }, [chainData?.spotPrice]);
 
   // Quick Action: Add or Toggle leg from Option Chain
   const onAddOrToggleLeg = (input: {
@@ -1376,6 +1468,7 @@ export default function OptionsLabPage() {
               spotChange={spotChange}
               spotChangePct={spotChangePct}
               vix={vix}
+              vixChangePct={chainData?.vixChangePct ?? null}
               futures={futures}
               selectedExpiry={selectedExpiry}
               expiryDates={chainData?.expiryDates || []}
@@ -1388,6 +1481,10 @@ export default function OptionsLabPage() {
               onToggleCollapse={() => setIsChainCollapsed((p) => !p)}
               panelWidth={isDesktopLayout && !isChainCollapsed ? chainWidth : undefined}
               panelHeight={!isDesktopLayout ? chainMobileHeight : undefined}
+              asOf={chainData?.timestamp || null}
+              dataSource={chainData?.source || null}
+              onOpenBroker={() => setIsBrokerModalOpen(true)}
+              brokerConnected={Boolean(connectedBroker && connectedBroker !== 'sandbox')}
             />
 
             {isDesktopLayout && !isChainCollapsed ? (
@@ -1409,7 +1506,7 @@ export default function OptionsLabPage() {
 
             {/* ── Right Column: Interactive Strategy Workspace ── */}
             <div
-              className={`sm-workspace-panel ${isPositionsCollapsed ? 'is-chart-focus' : ''} ${isChartFullscreen ? 'is-fs-parent' : ''}`}
+              className={`sm-workspace-panel ${isChartPriority || (isPositionsCollapsed && !isChartFullscreen) ? 'is-chart-focus' : ''} ${isPositionsPriority ? 'is-pos-focus' : ''} ${isChartFullscreen ? 'is-fs-parent' : ''}`}
             >
               {/* Top Action Bar (Save, Saved, Reset/New, Clock) */}
               <div className="sm-top-action-bar">
@@ -1452,12 +1549,14 @@ export default function OptionsLabPage() {
                 </div>
               </div>
 
+              <div className="sm-workspace-split" ref={workspaceSplitRef}>
               {/* Upper Section: Visual Analytics Card (Payoff / Charts) */}
               <div
                 className={[
                   'sm-analytics-card',
                   isAnalyticsCollapsed ? 'is-collapsed' : '',
-                  isPositionsCollapsed && !isAnalyticsCollapsed ? 'is-expanded' : '',
+                  isChartPriority ? 'is-chart-priority' : '',
+                  isPositionsCollapsed && !isAnalyticsCollapsed && !isChartFullscreen ? 'is-expanded' : '',
                   isChartFullscreen ? 'is-fullscreen' : '',
                 ]
                   .filter(Boolean)
@@ -1466,10 +1565,10 @@ export default function OptionsLabPage() {
                   isChartFullscreen
                     ? undefined
                     : isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed
-                      ? { flex: `${analyticsFlex} 1 0` }
+                      ? { flex: `${analyticsFlex} 1 0`, minHeight: 220 }
                       : isAnalyticsCollapsed
                         ? { flex: '0 0 auto' }
-                        : { flex: '1 1 auto', minHeight: isPositionsCollapsed ? 'min(72vh, 920px)' : undefined }
+                        : { flex: '1 1 auto', minHeight: isPositionsCollapsed ? 'min(58vh, 720px)' : 220 }
                 }
               >
                 {/* Tabs Bar */}
@@ -1539,8 +1638,8 @@ export default function OptionsLabPage() {
                     <div className="sm-layout-controls" role="group" aria-label="Chart layout">
                       <button
                         type="button"
-                        className={`sm-layout-btn ${isAnalyticsCollapsed ? '' : isPositionsCollapsed && !isChartFullscreen ? 'is-on' : ''}`}
-                        title="Expand chart (hide positions)"
+                        className={`sm-layout-btn ${isChartPriority ? 'is-on' : ''}`}
+                        title="Expand chart (keep positions visible)"
                         onClick={expandAnalyticsPanel}
                       >
                         <Maximize2 strokeWidth={2} />
@@ -1557,8 +1656,8 @@ export default function OptionsLabPage() {
                       </button>
                       <button
                         type="button"
-                        className="sm-layout-btn"
-                        title="Split chart + positions"
+                        className={`sm-layout-btn ${isBalancedSplit ? 'is-on' : ''}`}
+                        title="Split chart + positions (default sizes)"
                         onClick={balanceWorkspace}
                       >
                         <Minimize2 strokeWidth={2} />
@@ -1586,7 +1685,7 @@ export default function OptionsLabPage() {
 
                 {!isAnalyticsCollapsed ? (
                 <>
-                <div className="sm-analytics-body">
+                <div className="sm-analytics-body" ref={analyticsBodyRef}>
                 {/* What-If / Payoff Settings Drawer */}
                 {showPayoffSettings && analyticsTab === 'payoff' && (
                   <div
@@ -1765,7 +1864,11 @@ export default function OptionsLabPage() {
                       </div>
                       <ReactECharts
                         option={payoffChartOption}
-                        style={{ height: '100%', minHeight: 260, width: '100%' }}
+                        style={{
+                          height: Math.max(240, chartPanelHeight - 8),
+                          width: '100%',
+                          minHeight: 240,
+                        }}
                         notMerge={false}
                         lazyUpdate
                         opts={{ renderer: 'canvas' }}
@@ -1828,9 +1931,7 @@ export default function OptionsLabPage() {
                   height={
                     isChartFullscreen
                       ? Math.max(560, typeof window !== 'undefined' ? window.innerHeight - 72 : 560)
-                      : isPositionsCollapsed
-                        ? 560
-                        : 400
+                      : Math.max(280, chartPanelHeight - 4)
                   }
                   isActive={
                     analyticsTab === 'nifty_chart' || analyticsTab === 'strategy_chart'
@@ -1846,24 +1947,23 @@ export default function OptionsLabPage() {
                   axis="vertical"
                   label="Resize analytics and positions"
                   onDrag={(delta) => {
-                    setAnalyticsFlex((prev) => {
-                      return prev + delta / 8;
-                    });
+                    const splitH = workspaceSplitRef.current?.clientHeight || 640;
+                    setAnalyticsFlex((prev) => prev + (delta / Math.max(splitH, 1)) * 100);
                   }}
                 />
               ) : null}
 
               {/* Lower Section: Positions & Greeks Manager */}
               <div
-                className={`sm-positions-card ${isPositionsCollapsed ? 'is-collapsed' : ''} ${isChartFullscreen ? 'is-hidden-fs' : ''}`}
+                className={`sm-positions-card ${isPositionsCollapsed ? 'is-collapsed' : ''} ${isPositionsPriority ? 'is-pos-priority' : ''} ${isChartFullscreen ? 'is-hidden-fs' : ''}`}
                 style={
                   isChartFullscreen
                     ? { display: 'none' }
                     : isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed
-                      ? { flex: `${100 - analyticsFlex} 1 0` }
+                      ? { flex: `${100 - analyticsFlex} 1 0`, minHeight: 180 }
                       : isPositionsCollapsed
                         ? { flex: '0 0 auto' }
-                        : undefined
+                        : { flex: '1 1 auto', minHeight: 180 }
                 }
               >
                 {/* Positions Subtabs Bar */}
@@ -1932,22 +2032,17 @@ export default function OptionsLabPage() {
                     <div className="sm-layout-controls" role="group" aria-label="Positions layout">
                       <button
                         type="button"
-                        className={`sm-layout-btn ${!isAnalyticsCollapsed && !isPositionsCollapsed ? '' : isPositionsCollapsed ? '' : 'is-on'}`}
-                        title="Expand positions table"
-                        onClick={() => {
-                          setIsPositionsCollapsed(false);
-                          setIsAnalyticsCollapsed(true);
-                          setAnalyticsFlex(22);
-                          setIsChartFullscreen(false);
-                        }}
+                        className={`sm-layout-btn ${isPositionsPriority ? 'is-on' : ''}`}
+                        title="Expand positions (keep chart visible)"
+                        onClick={expandPositionsPanel}
                       >
                         <Maximize2 strokeWidth={2} />
                         <span>Expand</span>
                       </button>
                       <button
                         type="button"
-                        className="sm-layout-btn"
-                        title="Split chart + positions"
+                        className={`sm-layout-btn ${isBalancedSplit ? 'is-on' : ''}`}
+                        title="Split chart + positions (default sizes)"
                         onClick={balanceWorkspace}
                       >
                         <Minimize2 strokeWidth={2} />
@@ -2179,6 +2274,7 @@ export default function OptionsLabPage() {
                 </>
                 ) : null}
               </div>
+              </div>{/* /.sm-workspace-split */}
 
               {/* ── Bottom Section: Educational Guide & Related Tools ── */}
               <div className={`sm-guide-card ${isGuideCollapsed ? 'is-collapsed' : ''} ${isChartFullscreen ? 'is-hidden-fs' : ''}`}>

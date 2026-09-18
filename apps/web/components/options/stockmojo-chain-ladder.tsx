@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -8,6 +8,10 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Crosshair,
+  Download,
+  Settings,
+  Clock,
+  Link2,
 } from 'lucide-react';
 import { OptionChainRowDto, StrategyLegDto, TradeSide, OptionType } from '@ff/types';
 
@@ -15,6 +19,7 @@ interface FuturesItem {
   expiry: string;
   ltp: number;
   lots: string;
+  changePct?: number;
 }
 
 interface StockMojoChainLadderProps {
@@ -26,6 +31,7 @@ interface StockMojoChainLadderProps {
   spotChange: number;
   spotChangePct: number;
   vix: number | null;
+  vixChangePct?: number | null;
   futures: FuturesItem[];
   selectedExpiry: string;
   expiryDates: string[];
@@ -43,11 +49,17 @@ interface StockMojoChainLadderProps {
   }) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
-  /** Desktop chain width in px (ignored when collapsed / mobile). */
   panelWidth?: number;
-  /** Optional chain height in px for desktop fill layout. */
   panelHeight?: number;
+  /** Live chain as-of timestamp */
+  asOf?: string | null;
+  dataSource?: string | null;
+  onOpenBroker?: () => void;
+  brokerConnected?: boolean;
 }
+
+type FeedMode = 'live' | 'historical';
+type CycleMode = 'prev_day' | '1w' | '1m';
 
 export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
   symbol,
@@ -55,8 +67,9 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
   symbolList,
   lotSize,
   spotPrice,
-  spotChange,
+  spotChangePct,
   vix,
+  vixChangePct,
   futures,
   selectedExpiry,
   expiryDates,
@@ -69,44 +82,19 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
   onToggleCollapse,
   panelWidth,
   panelHeight,
+  asOf,
+  dataSource,
+  onOpenBroker,
+  brokerConnected,
 }) => {
-  const [isFutDropdownOpen, setIsFutDropdownOpen] = useState(false);
-  const [selectedFutIndex, setSelectedFutIndex] = useState(0);
-  const [isExpiryDropdownOpen, setIsExpiryDropdownOpen] = useState(false);
+  const [feedMode, setFeedMode] = useState<FeedMode>('live');
+  const [cycle, setCycle] = useState<CycleMode>('prev_day');
+  const [showSettings, setShowSettings] = useState(false);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const atmRowRef = useRef<HTMLTableRowElement | null>(null);
-  const expiryMoreRef = useRef<HTMLDivElement | null>(null);
+  const settingsRef = useRef<HTMLDivElement | null>(null);
 
-  const EXPIRY_PILL_COUNT = 4;
-  const visibleExpiries = React.useMemo(() => {
-    const first = expiryDates.slice(0, EXPIRY_PILL_COUNT);
-    if (selectedExpiry && !first.includes(selectedExpiry)) {
-      return [...first.slice(0, Math.max(0, EXPIRY_PILL_COUNT - 1)), selectedExpiry];
-    }
-    return first;
-  }, [expiryDates, selectedExpiry]);
-  const showExpiryMore = expiryDates.length > EXPIRY_PILL_COUNT;
-
-  useEffect(() => {
-    if (!isExpiryDropdownOpen) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (expiryMoreRef.current && !expiryMoreRef.current.contains(e.target as Node)) {
-        setIsExpiryDropdownOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsExpiryDropdownOpen(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDocClick);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [isExpiryDropdownOpen]);
-
-  // Maximum OI across both CE and PE for scaling horizontal bars
-  const maxOi = React.useMemo(() => {
+  const maxOi = useMemo(() => {
     let max = 1;
     contracts.forEach((r) => {
       if (r.ce.oi > max) max = r.ce.oi;
@@ -115,7 +103,31 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
     return max;
   }, [contracts]);
 
-  // Symbol cycler (< and >)
+  /** Synthetic future from ATM CE − PE (live). Prefer exchange fut LTP when present. */
+  const synFuture = useMemo(() => {
+    const fut = futures[0];
+    if (fut?.ltp > 0) {
+      return {
+        value: fut.ltp,
+        changePct:
+          fut.changePct != null
+            ? fut.changePct
+            : spotPrice > 0
+              ? parseFloat((((fut.ltp - spotPrice) / spotPrice) * 100).toFixed(2))
+              : 0,
+        label: 'Syn Future',
+      };
+    }
+    const atm = contracts.find((c) => c.strike === atmStrike);
+    if (atm && atm.ce.ltp > 0 && atm.pe.ltp > 0) {
+      const value = parseFloat((atmStrike + atm.ce.ltp - atm.pe.ltp).toFixed(2));
+      const changePct =
+        spotPrice > 0 ? parseFloat((((value - spotPrice) / spotPrice) * 100).toFixed(2)) : 0;
+      return { value, changePct, label: 'Syn Future' };
+    }
+    return null;
+  }, [futures, contracts, atmStrike, spotPrice]);
+
   const currentSymbolIndex = symbolList.indexOf(symbol);
   const handlePrevSymbol = () => {
     const nextIdx = (currentSymbolIndex - 1 + symbolList.length) % symbolList.length;
@@ -126,7 +138,6 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
     onSymbolChange(symbolList[nextIdx]);
   };
 
-  // Scroll to ATM
   const scrollToAtm = () => {
     if (atmRowRef.current && tableContainerRef.current) {
       const container = tableContainerRef.current;
@@ -145,7 +156,17 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
     }
   }, [contracts.length, symbol]);
 
-  // Calculate days to expiry for each date using calendar-day difference
+  useEffect(() => {
+    if (!showSettings) return;
+    const onDoc = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [showSettings]);
+
   const formatExpiryLabel = (dateStr: string) => {
     try {
       const [y, m, d] = dateStr.split('-').map(Number);
@@ -154,16 +175,64 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
       const now = new Date();
       const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const diffDays = Math.max(0, Math.round((target.getTime() - nowDate.getTime()) / 86400000));
-      const day = target.getDate();
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const month = months[target.getMonth()];
-      return `${day} ${month} (${diffDays}d)`;
+      return `${target.getDate()} ${months[target.getMonth()]} (${diffDays}d)`;
     } catch {
       return dateStr;
     }
   };
 
-  const selectedFut = futures[selectedFutIndex] || futures[0] || null;
+  const asOfLabel = useMemo(() => {
+    if (!asOf) return null;
+    try {
+      return new Date(asOf).toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: 'numeric',
+        month: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+    } catch {
+      return null;
+    }
+  }, [asOf]);
+
+  const isLiveSource =
+    dataSource === 'NSE_LIVE' || dataSource === 'BROKER_LIVE' || dataSource === 'NSE_CACHED';
+
+  const downloadCsv = () => {
+    if (!contracts.length) return;
+    const lines = ['Strike,CE_LTP,CE_OI,CE_IV,PE_LTP,PE_OI,PE_IV'];
+    contracts.forEach((r) => {
+      lines.push(
+        [
+          r.strike,
+          r.ce.ltp,
+          r.ce.oi,
+          r.ce.iv ?? '',
+          r.pe.ltp,
+          r.pe.oi,
+          r.pe.iv ?? '',
+        ].join(','),
+      );
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${symbol}-${selectedExpiry || 'chain'}-live.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  /** Historical mode only uses real prev-day OI change from NSE — no invented history */
+  const displayContracts = useMemo(() => {
+    if (feedMode === 'live') return contracts;
+    // Prev-day cycle: still live chain; OI change column is vs previous day (NSE field)
+    return contracts;
+  }, [contracts, feedMode, cycle]);
 
   return (
     <div
@@ -180,200 +249,219 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
             : undefined
       }
     >
-      {/* ── Top Row 1: Symbol Lot Pill & Ticker Bar ── */}
-      <div className="sm-chain-top-header">
-        <div className="sm-symbol-pill-box">
-          <span className="sm-lot-badge">{lotSize}</span>
-          <span className="sm-symbol-name">{symbol}</span>
-          <div className="sm-symbol-arrows">
-            <button
-              onClick={handlePrevSymbol}
-              className="sm-arrow-btn"
-              title="Previous Symbol"
+      {/* ── StockMojo-style live ticker header ── */}
+      <div className="sm-chain-live-header">
+        <div className="sm-chain-live-top">
+          <div className="sm-symbol-pill-box">
+            <span className="sm-lot-badge">{lotSize}</span>
+            <span className="sm-symbol-name">{symbol}</span>
+            <div className="sm-symbol-arrows">
+              <button type="button" onClick={handlePrevSymbol} className="sm-arrow-btn" title="Previous symbol">
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <button type="button" onClick={handleNextSymbol} className="sm-arrow-btn" title="Next symbol">
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="sm-expiry-select-wrap">
+            <select
+              className="sm-expiry-select"
+              value={selectedExpiry || expiryDates[0] || ''}
+              onChange={(e) => onExpiryChange(e.target.value)}
+              aria-label="Expiry"
+              disabled={expiryDates.length === 0}
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
+              {expiryDates.length === 0 ? (
+                <option value="">No expiry</option>
+              ) : (
+                expiryDates.map((exp) => (
+                  <option key={exp} value={exp}>
+                    {formatExpiryLabel(exp)}
+                  </option>
+                ))
+              )}
+            </select>
+            <ChevronDown className="sm-expiry-select-chevron" aria-hidden />
+          </div>
+
+          <div className="sm-live-metrics">
+            <div className="sm-live-metric">
+              <span className="sm-live-metric-label">Spot</span>
+              <span className="sm-live-metric-val">
+                {spotPrice > 0
+                  ? spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  : '—'}
+              </span>
+              {spotPrice > 0 ? (
+                <span className={`sm-live-metric-chg ${spotChangePct >= 0 ? 'pos' : 'neg'}`}>
+                  {spotChangePct >= 0 ? '+' : ''}
+                  {spotChangePct.toFixed(2)}%
+                </span>
+              ) : null}
+            </div>
+
+            <div className="sm-live-metric">
+              <span className="sm-live-metric-label">Syn Future</span>
+              <span className="sm-live-metric-val">
+                {synFuture
+                  ? synFuture.value.toLocaleString('en-IN', {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })
+                  : '—'}
+              </span>
+              {synFuture ? (
+                <span className={`sm-live-metric-chg ${synFuture.changePct >= 0 ? 'pos' : 'neg'}`}>
+                  {synFuture.changePct >= 0 ? '+' : ''}
+                  {synFuture.changePct.toFixed(2)}%
+                </span>
+              ) : null}
+            </div>
+
+            <div className="sm-live-metric">
+              <span className="sm-live-metric-label">VIX</span>
+              <span className="sm-live-metric-val">
+                {vix != null && vix > 0 ? vix.toFixed(2) : '—'}
+              </span>
+              {vix != null && vixChangePct != null ? (
+                <span className={`sm-live-metric-chg ${vixChangePct >= 0 ? 'pos' : 'neg'}`}>
+                  {vixChangePct >= 0 ? '+' : ''}
+                  {vixChangePct.toFixed(2)}%
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="sm-live-tools">
+            <button type="button" className="sm-tool-ico" title="Download live chain CSV" onClick={downloadCsv}>
+              <Download strokeWidth={2} />
             </button>
-            <button
-              onClick={handleNextSymbol}
-              className="sm-arrow-btn"
-              title="Next Symbol"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            <div className="sm-settings-wrap" ref={settingsRef}>
+              <button
+                type="button"
+                className="sm-tool-ico"
+                title="Chain settings"
+                onClick={() => setShowSettings((p) => !p)}
+              >
+                <Settings strokeWidth={2} />
+              </button>
+              {showSettings ? (
+                <div className="sm-settings-popover">
+                  <button type="button" onClick={scrollToAtm}>
+                    Scroll to ATM
+                  </button>
+                  <button type="button" onClick={onToggleCollapse}>
+                    {isCollapsed ? 'Expand panel' : 'Collapse panel'}
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          className="sm-hide-chain-btn"
-          title={isCollapsed ? 'Show option chain' : 'Hide option chain'}
-          aria-label={isCollapsed ? 'Show option chain' : 'Hide option chain'}
-        >
-          {isCollapsed ? (
-            <PanelLeftOpen className="sm-icon" aria-hidden />
-          ) : (
-            <PanelLeftClose className="sm-icon" aria-hidden />
-          )}
-          <span>{isCollapsed ? 'Show' : 'Hide'}</span>
-        </button>
-      </div>
-
-      {/* ── Top Row 2: Micro Ticker Stats (SPOT, VIX, FUT) ── */}
-      <div className="sm-chain-ticker-row">
-        <div className="sm-ticker-item">
-          <span className="sm-ticker-label">SPOT</span>
-          <span className="sm-ticker-value">
-            {spotPrice > 0
-              ? spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-              : '—'}
-          </span>
-          {spotPrice > 0 ? (
-            <span className={`sm-ticker-change ${spotChange >= 0 ? 'pos' : 'neg'}`}>
-              {spotChange >= 0 ? '+' : ''}{spotChange.toFixed(1)}
-            </span>
-          ) : null}
-        </div>
-
-        <div className="sm-ticker-divider" />
-
-        <div className="sm-ticker-item">
-          <span className="sm-ticker-label">VIX</span>
-          <span className="sm-ticker-value">{vix != null && vix > 0 ? vix.toFixed(2) : '—'}</span>
-        </div>
-
-        <div className="sm-ticker-divider" />
-
-        {/* Futures Dropdown */}
-        <div className="sm-futures-dropdown-wrapper">
-          {selectedFut ? (
-            <>
-              <button
-                onClick={() => setIsFutDropdownOpen((p) => !p)}
-                className="sm-fut-trigger-btn"
-              >
-                <span className="sm-ticker-label">FUT ({selectedFut.expiry}):</span>
-                <span className="sm-ticker-value font-mono">
-                  {selectedFut.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </span>
-                <ChevronDown className="w-3 h-3 ml-0.5 text-slate-500" />
-              </button>
-
-              {isFutDropdownOpen && (
-                <div className="sm-fut-popover">
-                  <div className="sm-fut-popover-header">
-                    <span>Expiry</span>
-                    <span>LTP</span>
-                    <span>Lots</span>
-                  </div>
-                  {futures.map((fut, idx) => (
-                    <div
-                      key={fut.expiry}
-                      onClick={() => {
-                        setSelectedFutIndex(idx);
-                        setIsFutDropdownOpen(false);
-                      }}
-                      className={`sm-fut-popover-row ${idx === selectedFutIndex ? 'active' : ''}`}
-                    >
-                      <span className="flex items-center gap-1">
-                        <span className={`w-1.5 h-1.5 rounded-full ${idx === selectedFutIndex ? 'bg-teal-600' : 'bg-slate-300'}`} />
-                        {fut.expiry}
-                      </span>
-                      <span className="font-mono font-bold">
-                        {fut.ltp.toLocaleString('en-IN', { minimumFractionDigits: 1 })}
-                      </span>
-                      <span className="text-slate-500 font-mono text-[11px]">{fut.lots}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="sm-ticker-item">
-              <span className="sm-ticker-label">FUT</span>
-              <span className="sm-ticker-value">—</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Top Row 3: Horizontal Expiry Date Tabs ── */}
-      <div className="sm-chain-expiries-row">
-        <div className="sm-expiry-pills-list">
-          {visibleExpiries.map((exp) => {
-            const isSelected = exp === selectedExpiry;
-            return (
-              <button
-                key={exp}
-                type="button"
-                onClick={() => {
-                  setIsExpiryDropdownOpen(false);
-                  onExpiryChange(exp);
-                }}
-                className={`sm-expiry-pill ${isSelected ? 'active' : ''}`}
-              >
-                {formatExpiryLabel(exp)}
-              </button>
-            );
-          })}
-        </div>
-
-        {showExpiryMore && (
-          <div className="sm-expiry-more-wrap" ref={expiryMoreRef}>
+        <div className="sm-chain-live-bottom">
+          <div className="sm-feed-toggle" role="group" aria-label="Data mode">
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpiryDropdownOpen((p) => !p);
-              }}
-              className={`sm-expiry-more-btn ${isExpiryDropdownOpen ? 'open' : ''}`}
-              title="All expiries"
-              aria-expanded={isExpiryDropdownOpen}
-              aria-haspopup="listbox"
+              className={feedMode === 'live' ? 'active' : ''}
+              onClick={() => setFeedMode('live')}
             >
-              <ChevronDown className="w-3.5 h-3.5" />
+              Live
             </button>
-            {isExpiryDropdownOpen && (
-              <div className="sm-expiry-more-popover" role="listbox" aria-label="Expiry dates">
-                {expiryDates.map((exp) => (
-                  <button
-                    key={exp}
-                    type="button"
-                    role="option"
-                    aria-selected={exp === selectedExpiry}
-                    onClick={() => {
-                      onExpiryChange(exp);
-                      setIsExpiryDropdownOpen(false);
-                    }}
-                    className={`sm-expiry-more-item ${exp === selectedExpiry ? 'active' : ''}`}
-                  >
-                    {formatExpiryLabel(exp)}
-                  </button>
-                ))}
-              </div>
-            )}
+            <button
+              type="button"
+              className={feedMode === 'historical' ? 'active' : ''}
+              onClick={() => setFeedMode('historical')}
+              title="Uses NSE previous-day OI change — no invented history"
+            >
+              Historical
+            </button>
           </div>
-        )}
 
-        <div className="sm-expiry-spacer" aria-hidden />
+          {/* Cycle only for Historical — unwanted in Live */}
+          {feedMode === 'historical' ? (
+            <label className="sm-cycle-label">
+              Cycle:
+              <select
+                className="sm-cycle-select"
+                value={cycle}
+                onChange={(e) => setCycle(e.target.value as CycleMode)}
+              >
+                <option value="prev_day">Prev Day</option>
+                <option value="1w">1 Week</option>
+                <option value="1m">1 Month</option>
+              </select>
+            </label>
+          ) : null}
 
+          <div className="sm-live-status">
+            {asOfLabel ? (
+              <span className="sm-live-asof" title={dataSource || 'Feed time'}>
+                <Clock strokeWidth={2} />
+                {asOfLabel}
+              </span>
+            ) : null}
+            {isLiveSource && feedMode === 'live' ? (
+              <span className="sm-live-badge" title={dataSource || ''}>
+                NSE LIVE
+              </span>
+            ) : null}
+            {!brokerConnected && onOpenBroker ? (
+              <button type="button" className="sm-login-latest-btn" onClick={onOpenBroker}>
+                <Link2 strokeWidth={2} />
+                Connect for latest
+              </button>
+            ) : null}
+          </div>
+
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="sm-hide-chain-btn sm-hide-chain-btn--inline"
+            title={isCollapsed ? 'Show option chain' : 'Hide option chain'}
+          >
+            {isCollapsed ? <PanelLeftOpen className="sm-icon" /> : <PanelLeftClose className="sm-icon" />}
+            <span>{isCollapsed ? 'Show' : 'Hide'}</span>
+          </button>
+        </div>
+
+        {feedMode === 'historical' && cycle !== 'prev_day' ? (
+          <p className="sm-hist-note">
+            Multi-week OI history needs saved snapshots. Showing live chain with NSE prev-day OI change only — no
+            fake history.
+          </p>
+        ) : null}
       </div>
 
-      {/* ── Option Chain Table (Dual CE/PE Ladder - 6 Columns matching StockMojo) ── */}
+      {/* ── Option Chain Table ── */}
       <div className="sm-chain-table-container" ref={tableContainerRef}>
         <table className="sm-ladder-table">
           <thead>
             <tr>
-              <th className="th-delta th-call" title="Call delta">CE Δ</th>
-              <th className="th-ltp th-call" title="Call last traded price">LTP</th>
-              <th className="th-strike" title="Strike price">Strike</th>
-              <th className="th-oi" title="Open interest CE / PE">OI</th>
-              <th className="th-ltp th-put" title="Put last traded price">LTP</th>
-              <th className="th-delta th-put" title="Put delta">PE Δ</th>
+              <th className="th-delta th-call" title="Call delta">
+                CE Δ
+              </th>
+              <th className="th-ltp th-call" title="Call last traded price">
+                LTP
+              </th>
+              <th className="th-strike" title="Strike price">
+                Strike
+              </th>
+              <th className="th-oi" title={feedMode === 'historical' ? 'OI / OI Chg (prev day)' : 'Open interest CE / PE'}>
+                {feedMode === 'historical' ? 'OI Chg' : 'OI'}
+              </th>
+              <th className="th-ltp th-put" title="Put last traded price">
+                LTP
+              </th>
+              <th className="th-delta th-put" title="Put delta">
+                PE Δ
+              </th>
             </tr>
           </thead>
           <tbody>
-            {contracts.length === 0 ? (
+            {displayContracts.length === 0 ? (
               <tr>
                 <td colSpan={6} className="sm-chain-empty-cell">
                   {spotPrice > 0
@@ -382,17 +470,16 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                 </td>
               </tr>
             ) : null}
-            {contracts.map((row) => {
+            {displayContracts.map((row) => {
               const isAtm = row.strike === atmStrike;
               const isCeItm = row.strike < atmStrike;
               const isPeItm = row.strike > atmStrike;
 
-              // Check if any strategy leg is on this strike
               const activeCeLeg = activeLegs.find(
-                (l) => l.strike === row.strike && l.optionType === 'CE'
+                (l) => l.strike === row.strike && l.optionType === 'CE',
               );
               const activePeLeg = activeLegs.find(
-                (l) => l.strike === row.strike && l.optionType === 'PE'
+                (l) => l.strike === row.strike && l.optionType === 'PE',
               );
 
               const formatCallDelta = (d?: number | null) => {
@@ -400,20 +487,23 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                 if (d >= 0.995) return '1';
                 return d.toFixed(2);
               };
-
               const formatPutDelta = (d?: number | null) => {
                 if (d == null) return '—';
                 if (Math.abs(d) <= 0.005) return '0';
                 return d.toFixed(2);
               };
-
               const formatOi = (n: number) => {
                 if (!n) return '—';
                 if (n >= 100000) return `${(n / 100000).toFixed(1)}L`;
                 if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
                 return String(n);
               };
-
+              const formatChg = (n: number) => {
+                if (!n) return '—';
+                const abs = Math.abs(n);
+                const s = abs >= 1000 ? `${(abs / 1000).toFixed(1)}k` : String(Math.round(abs));
+                return `${n > 0 ? '+' : '-'}${s}`;
+              };
               const ceOiPct = maxOi > 0 ? Math.min(100, Math.round((row.ce.oi / maxOi) * 100)) : 0;
               const peOiPct = maxOi > 0 ? Math.min(100, Math.round((row.pe.oi / maxOi) * 100)) : 0;
 
@@ -423,12 +513,9 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                   ref={isAtm ? atmRowRef : null}
                   className={`sm-ladder-row ${isAtm ? 'atm-row' : ''}`}
                 >
-                  {/* 1. Call Delta */}
                   <td className={`td-delta ${isCeItm ? 'itm-call' : ''}`}>
                     {formatCallDelta(row.ce.delta)}
                   </td>
-
-                  {/* 2. Call LTP */}
                   <td
                     className={`td-ltp call ${isCeItm ? 'itm-call' : ''} ${
                       activeCeLeg ? `has-leg leg-${activeCeLeg.side.toLowerCase()}` : ''
@@ -449,22 +536,28 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                       {row.ce.ltp > 0 ? row.ce.ltp.toFixed(2) : '—'}
                     </span>
                   </td>
-
-                  {/* 3. Strike (Center Column) */}
                   <td className={`td-strike ${isAtm ? 'atm-cell' : ''} ${isCeItm ? 'itm-call' : ''}`}>
                     <span className="strike-text">{row.strike}</span>
                     {(activeCeLeg || activePeLeg) && (
                       <span className="sm-strike-leg-dot" aria-hidden />
                     )}
                   </td>
-
-                  {/* 4. OI with compact number + depth bar */}
                   <td className="td-oi">
                     <div className="sm-oi-cell">
                       <div className="sm-oi-nums">
-                        <span className="sm-oi-ce">{formatOi(row.ce.oi)}</span>
-                        <span className="sm-oi-sep">/</span>
-                        <span className="sm-oi-pe">{formatOi(row.pe.oi)}</span>
+                        {feedMode === 'historical' ? (
+                          <>
+                            <span className="sm-oi-ce">{formatChg(row.ce.oiChange)}</span>
+                            <span className="sm-oi-sep">/</span>
+                            <span className="sm-oi-pe">{formatChg(row.pe.oiChange)}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="sm-oi-ce">{formatOi(row.ce.oi)}</span>
+                            <span className="sm-oi-sep">/</span>
+                            <span className="sm-oi-pe">{formatOi(row.pe.oi)}</span>
+                          </>
+                        )}
                       </div>
                       <div className="sm-oi-bar-wrapper" aria-hidden>
                         <div
@@ -478,8 +571,6 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                       </div>
                     </div>
                   </td>
-
-                  {/* 5. Put LTP */}
                   <td
                     className={`td-ltp put ${isPeItm ? 'itm-put' : ''} ${
                       activePeLeg ? `has-leg leg-${activePeLeg.side.toLowerCase()}` : ''
@@ -500,8 +591,6 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                       {row.pe.ltp > 0 ? row.pe.ltp.toFixed(2) : '—'}
                     </span>
                   </td>
-
-                  {/* 6. Put Delta */}
                   <td className={`td-delta ${isPeItm ? 'itm-put' : ''}`}>
                     {formatPutDelta(row.pe.delta)}
                   </td>
@@ -511,8 +600,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
           </tbody>
         </table>
 
-        {/* Floating "Go to ATM" button */}
-        {contracts.length > 0 ? (
+        {displayContracts.length > 0 ? (
           <button
             type="button"
             onClick={scrollToAtm}

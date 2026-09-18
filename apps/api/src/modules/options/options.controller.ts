@@ -86,16 +86,19 @@ export class OptionsController {
     @Param('underlying') underlying: string,
     @Query('expiry') expiry?: string,
     @Query('broker') broker?: BrokerType,
+    @Query('fresh') fresh?: string,
     @Req() req?: any,
     @Res({ passthrough: true }) res?: Response,
   ) {
     const userId = req?.user?.id || req?.user?.userId;
+    const preferFresh = fresh === '1' || fresh === 'true';
     // Only hit user-scoped broker path when explicitly requested
     const chain = await this.marketDataService.getOptionChain(
       underlying,
       expiry,
       broker ? userId : undefined,
       broker,
+      preferFresh ? { preferFresh: true } : undefined,
     );
     if (chain.source === 'NSE_LIVE' || chain.source === 'NSE_CACHED') {
       res?.setHeader('Cache-Control', 'public, max-age=0, s-maxage=5, stale-while-revalidate=60');
@@ -317,17 +320,28 @@ export class OptionsController {
       return { success: false, message: 'Invalid paper order (symbol/expiry/side/quantity required)' };
     }
 
-    // Shared NSE cache path — prefer fresh quotes for paper fills
+    // Shared NSE cache path — force expiry-specific fresh quotes for paper fills
     const chain = await this.marketDataService.getOptionChain(
       order.symbol,
       order.expiry,
       undefined,
       undefined,
-      { preferFresh: true },
+      { forceRefresh: true },
     );
     let fillPrice: number | null = order.price && order.price > 0 ? order.price : null;
 
+    const expiryMatches =
+      chain.selectedExpiry &&
+      order.expiry &&
+      String(chain.selectedExpiry).slice(0, 10) === String(order.expiry).slice(0, 10);
+
     if (order.strike && order.optionType && order.optionType !== 'FUT') {
+      if (!expiryMatches) {
+        return {
+          success: false,
+          message: `Could not load live chain for expiry ${order.expiry}. Try again in a moment.`,
+        };
+      }
       const row = chain.contracts.find(
         (c) => Math.abs(Number(c.strike) - Number(order.strike)) < 0.51,
       );

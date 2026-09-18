@@ -19,6 +19,11 @@ function calcUnrealized(
   return Math.round(raw * 100) / 100;
 }
 
+function sameExpiry(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false;
+  return String(a).slice(0, 10) === String(b).slice(0, 10);
+}
+
 function ltpFromChain(
   chain: OptionChainDto | null | undefined,
   pos: Pick<SandboxPositionDto, 'symbol' | 'strike' | 'optionType' | 'expiry'>,
@@ -27,9 +32,9 @@ function ltpFromChain(
   if (chain.underlying && pos.symbol && chain.underlying.toUpperCase() !== pos.symbol.toUpperCase()) {
     return null;
   }
-  // Prefer matching expiry when available
-  if (pos.expiry && chain.selectedExpiry && chain.selectedExpiry !== pos.expiry) {
-    // Still allow quotes if chain is for same underlying (common when user views same symbol)
+  // Critical: never overlay LTP from a different expiry (e.g. weekly vs monthly)
+  if (!sameExpiry(pos.expiry, chain.selectedExpiry)) {
+    return null;
   }
   if (pos.strike == null || pos.optionType === 'FUT') {
     return chain.spotPrice > 0 ? chain.spotPrice : null;
@@ -126,12 +131,12 @@ export const SandboxPortfolioView: React.FC<{
     [authHeaders],
   );
 
-  // Fast poll while Simulator tab is active
+  // Fast poll while Simulator tab is active (1.5s)
   useEffect(() => {
     void fetchPortfolio({ silent: false });
     const interval = setInterval(() => {
       if (isActive) void fetchPortfolio({ silent: true });
-    }, 2000);
+    }, 1500);
     return () => clearInterval(interval);
   }, [fetchPortfolio, isActive]);
 
@@ -159,9 +164,8 @@ export const SandboxPortfolioView: React.FC<{
       const cmp = chainLtp != null && chainLtp > 0 ? chainLtp : apiCmp;
       const entry = Number(pos.entryPrice);
       const unrealized = calcUnrealized(pos.side, entry, cmp, pos.quantity, pos.lotSize);
-      const quoteLive = Boolean(
-        (chainLtp != null && chainLtp > 0) || pos.quoteLive || (apiCmp > 0 && Math.abs(apiCmp - entry) > 0.001),
-      );
+      const fromMatchingChain = chainLtp != null && chainLtp > 0;
+      const quoteLive = Boolean(fromMatchingChain || pos.quoteLive === true);
       return { ...pos, currentPrice: cmp, unrealizedPnl: unrealized, quoteLive };
     });
   }, [portfolio, liveChain]);
@@ -384,8 +388,10 @@ export const SandboxPortfolioView: React.FC<{
             <div>
               <h3 className="opt-chart-title">Open Positions ({markedPositions.length})</h3>
               <p className="opt-chart-subtitle">
-                Marked to live market prices
-                {liveChain ? ' · live chain linked' : ''}
+                Marked to live market prices for each position expiry
+                {liveChain?.selectedExpiry
+                  ? ` · chain ${liveChain.selectedExpiry}`
+                  : ''}
               </p>
             </div>
           </div>
@@ -451,7 +457,7 @@ export const SandboxPortfolioView: React.FC<{
                         </div>
                         <div className="opt-sandbox-instr-meta">
                           Expiry: {pos.expiry} · Lot {pos.lotSize}
-                          {pos.quoteLive ? ' · live' : ' · marking…'}
+                          {pos.quoteLive ? ' · live' : ' · awaiting quote'}
                         </div>
                       </td>
                       <td>
