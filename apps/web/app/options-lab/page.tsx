@@ -2248,23 +2248,29 @@ export default function OptionsLabPage() {
                         </tbody>
                       </table>
                     ) : (
-                      <div className="p-6 text-center bg-slate-50/50">
-                        <p className="text-sm font-bold text-slate-700">No active positions</p>
-                        <p className="text-xs text-slate-500 mt-1">
-                          Click any strike in the Option Chain on the left, or load a popular strategy template below:
+                      <div className="sm-positions-empty">
+                        <p className="sm-positions-empty-title">No active positions</p>
+                        <p className="sm-positions-empty-msg">
+                          Click any strike in the Option Chain on the left, or load a popular strategy
+                          template below:
                         </p>
-                        <div className="flex flex-wrap justify-center gap-2 mt-3">
-                          {['Bull Call Spread', 'Bear Put Spread', 'Short Straddle', 'Short Strangle', 'Iron Condor'].map(
-                            (tpl) => (
-                              <button
-                                key={tpl}
-                                onClick={() => applyTemplate(tpl)}
-                                className="sm-quick-tpl-btn"
-                              >
-                                + {tpl}
-                              </button>
-                            ),
-                          )}
+                        <div className="sm-positions-empty-actions">
+                          {[
+                            'Bull Call Spread',
+                            'Bear Put Spread',
+                            'Short Straddle',
+                            'Short Strangle',
+                            'Iron Condor',
+                          ].map((tpl) => (
+                            <button
+                              key={tpl}
+                              type="button"
+                              onClick={() => applyTemplate(tpl)}
+                              className="sm-quick-tpl-btn"
+                            >
+                              + {tpl}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     )}
