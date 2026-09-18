@@ -693,8 +693,8 @@ const GUIDED_PROMPTS = [
   { label: '🎓 Learn investing step-by-step from zero', cat: 'academy' },
 ];
 
-function renderIcon(name: string) {
-  const props = { size: 20 };
+function renderIcon(name: string, size = 20) {
+  const props = { size };
   switch (name) {
     case 'target': return <Target {...props} />;
     case 'shield': return <ShieldCheck {...props} />;
@@ -860,73 +860,73 @@ export function FeaturesExplorer() {
         <div className="fe-grid">
           {filteredFeatures.map((item) => (
             <div key={item.id} className="fe-card" id={item.id}>
-              {/* Card Top: Badges & Track */}
-              <div className="fe-card-top">
-                <div
-                  className="fe-cat-chip"
-                  style={{
-                    color: item.categoryColor,
-                    backgroundColor: `${item.categoryColor}15`,
-                    borderColor: `${item.categoryColor}30`,
-                  }}
-                >
-                  <span className="fe-chip-dot" style={{ backgroundColor: item.categoryColor }} />
-                  {item.categoryLabel}
-                </div>
-                <span className="fe-track-pill">{item.track}</span>
-              </div>
-
-              {/* Card Title & Icon */}
-              <div className="fe-card-header">
-                <div
-                  className="fe-card-icon"
-                  style={{
-                    color: item.categoryColor,
-                    backgroundColor: `${item.categoryColor}12`,
-                  }}
-                >
-                  {renderIcon(item.icon)}
-                </div>
-                <div>
-                  <h3 className="fe-card-title">{item.title}</h3>
-                  <div className="fe-card-subtitle">{item.simpleName}</div>
+              <div
+                className="fe-card-thumb"
+                style={{
+                  background: `linear-gradient(145deg, ${item.categoryColor}22 0%, ${item.categoryColor}08 55%, #f8fafc 100%)`,
+                }}
+                aria-hidden
+              >
+                <div className="fe-card-thumb-pattern" />
+                <div className="fe-card-thumb-icon" style={{ color: item.categoryColor }}>
+                  {renderIcon(item.icon, 28)}
                 </div>
               </div>
 
-              {/* "In Plain English" Highlight Box */}
-              <div className="fe-card-callout">
-                <div className="fe-callout-label">
-                  <Sparkles size={13} style={{ color: 'var(--mkt-gold)' }} />
-                  <span>In Plain English:</span>
-                </div>
-                <p className="fe-callout-text">{item.plainEnglish}</p>
-              </div>
-
-              {/* Benefits Checklist */}
-              <div className="fe-card-benefits">
-                {item.benefits.map((b, idx) => (
-                  <div key={idx} className="fe-benefit-item">
-                    <CheckCircle2 size={15} className="fe-benefit-check" />
-                    <span>{b}</span>
+              <div className="fe-card-body">
+                <div className="fe-card-top">
+                  <div
+                    className="fe-cat-chip"
+                    style={{
+                      color: item.categoryColor,
+                      backgroundColor: `${item.categoryColor}15`,
+                      borderColor: `${item.categoryColor}30`,
+                    }}
+                  >
+                    <span className="fe-chip-dot" style={{ backgroundColor: item.categoryColor }} />
+                    {item.categoryLabel}
                   </div>
-                ))}
-              </div>
+                  <span className="fe-track-pill">{item.track}</span>
+                </div>
 
-              {/* Tags / Pills */}
-              <div className="fe-card-tags">
-                {item.tags.map((t) => (
-                  <span key={t} className="fe-tag">
-                    {t}
-                  </span>
-                ))}
-              </div>
+                <div className="fe-card-header">
+                  <div>
+                    <h3 className="fe-card-title">{item.title}</h3>
+                    <div className="fe-card-subtitle">{item.simpleName}</div>
+                  </div>
+                </div>
 
-              {/* Footer CTA Button */}
-              <div className="fe-card-footer">
-                <Link href={item.href} className="fe-card-cta">
-                  <span>{item.ctaText}</span>
-                  <ArrowRight size={15} />
-                </Link>
+                <div className="fe-card-callout">
+                  <div className="fe-callout-label">
+                    <Sparkles size={13} style={{ color: 'var(--mkt-gold)' }} />
+                    <span>In Plain English:</span>
+                  </div>
+                  <p className="fe-callout-text">{item.plainEnglish}</p>
+                </div>
+
+                <div className="fe-card-benefits">
+                  {item.benefits.map((b, idx) => (
+                    <div key={idx} className="fe-benefit-item">
+                      <CheckCircle2 size={15} className="fe-benefit-check" />
+                      <span>{b}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="fe-card-tags">
+                  {item.tags.map((t) => (
+                    <span key={t} className="fe-tag">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="fe-card-footer">
+                  <Link href={item.href} className="fe-card-cta">
+                    <span>{item.ctaText}</span>
+                    <ArrowRight size={15} />
+                  </Link>
+                </div>
               </div>
             </div>
           ))}
