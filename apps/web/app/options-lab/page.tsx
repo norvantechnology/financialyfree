@@ -707,7 +707,7 @@ export default function OptionsLabPage() {
       lineStyle: { color: '#D97706', type: 'dotted' as const, width: 1.5 },
       label: {
         formatter: `BE ${Math.round(b).toLocaleString('en-IN')}`,
-        position: (i % 2 === 0 ? 'insideStartBottom' : 'insideEndBottom') as const,
+        position: i % 2 === 0 ? 'insideStartBottom' : 'insideEndBottom',
         color: '#B45309',
         fontSize: 9,
         fontWeight: 700,
