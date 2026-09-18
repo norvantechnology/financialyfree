@@ -1752,7 +1752,8 @@ export class TechnoFundaService {
   normalizeFilingText(text: string): string {
     return String(text || '')
       .replace(/[\u00A0\u202F\u2007]/g, ' ')
-      .replace(/[‐‑‒--―]/g, '-')
+      // Unicode hyphens/dashes (U+2010..U+2015) + ASCII hyphen - keep hyphen at end of class
+      .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015-]/g, '-')
       .replace(/\s+/g, ' ')
       .trim();
   }
