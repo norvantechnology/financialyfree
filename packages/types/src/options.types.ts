@@ -91,6 +91,8 @@ export interface OptionContractDto {
   rho: number | null;
   oi: number;
   oiChange: number;
+  /** Exchange-provided OI change % (NSE pchangeinOpenInterest), when available */
+  oiChangePct?: number;
   volume: number;
   buildup: OiBuildupType;
   bidPrice?: number;

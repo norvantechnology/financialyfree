@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -113,17 +113,43 @@ function formatLtp(n: number): string {
   return n.toFixed(2);
 }
 
+/** Prefer last trade; fall back to bid/ask mid so illiquid rows still show a quote */
+function effectiveLtp(contract: OptionContractDto): number {
+  const ltp = Number(contract.ltp) || 0;
+  if (ltp > 0) return ltp;
+  const bid = Number(contract.bidPrice) || 0;
+  const ask = Number(contract.askPrice) || 0;
+  if (bid > 0 && ask > 0) return Math.round(((bid + ask) / 2) * 100) / 100;
+  if (bid > 0) return bid;
+  if (ask > 0) return ask;
+  return 0;
+}
+
 function formatOiChgPct(contract: OptionContractDto): {
   text: string;
   pct: number | null;
   tone: 'pos' | 'neg' | 'flat';
 } {
+  // Prefer exchange-provided OI change % when present
+  const exch = Number(contract.oiChangePct);
+  if (Number.isFinite(exch) && exch !== 0) {
+    const pct = Math.round(exch * 10) / 10;
+    return {
+      text: `${pct >= 0 ? '+' : ''}${pct}%`,
+      pct,
+      tone: pct >= 0 ? 'pos' : 'neg',
+    };
+  }
   const oi = Number(contract.oi) || 0;
   const chg = Number(contract.oiChange) || 0;
   if (chg === 0) return { text: '—', pct: null, tone: 'flat' };
   const prev = oi - chg;
   if (prev <= 0 || Math.abs(prev) < 1) {
-    return { text: '—', pct: null, tone: chg > 0 ? 'pos' : 'neg' };
+    return {
+      text: chg > 0 ? '+New' : '—',
+      pct: chg > 0 ? 100 : null,
+      tone: chg > 0 ? 'pos' : 'neg',
+    };
   }
   const pct = Math.round((chg / prev) * 1000) / 10;
   if (!Number.isFinite(pct)) return { text: '—', pct: null, tone: 'flat' };
@@ -222,9 +248,12 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     return Math.max(480, Math.min(640, window.innerHeight - 160));
   }, [chartFullscreen]);
 
-  const spot = chainData?.spotPrice || 0;
-  const atmStrike = chainData?.atmStrike || 0;
-  const maxPain = chainData?.maxPain || 0;
+  const spot = Number(chainData?.spotPrice) || 0;
+  const atmStrike =
+    Number(chainData?.atmStrike) ||
+    (spot > 0 ? Math.round(spot / 50) * 50 : 0);
+  const maxPain = Number(chainData?.maxPain) || 0;
+  const atmRowRef = useRef<HTMLTableRowElement | null>(null);
 
   // Keep popup LTP in sync with live chain row (same strike + side)
   useEffect(() => {
@@ -234,7 +263,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     );
     if (!row) return;
     const side = chartContract.type === 'CE' ? row.ce : row.pe;
-    const ltp = Number(side?.ltp) || 0;
+    const ltp = effectiveLtp(side);
     const changePct = Number(side?.changePct) || 0;
     if (ltp <= 0) return;
     if (
@@ -257,12 +286,21 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     const all = chainData?.contracts || [];
     if (strikeFilter === 'all' || all.length === 0) return all;
     const limit = parseInt(strikeFilter, 10);
-    const atmIndex = all.findIndex((c) => c.strike >= atmStrike);
+    const atmIndex = all.findIndex((c) => Number(c.strike) >= atmStrike);
     const idx = atmIndex >= 0 ? atmIndex : Math.floor(all.length / 2);
     const start = Math.max(0, idx - limit);
     const end = Math.min(all.length, idx + limit + 1);
     return all.slice(start, end);
   }, [chainData?.contracts, strikeFilter, atmStrike]);
+
+  // Scroll ATM into view whenever the chain / filter changes
+  useEffect(() => {
+    if (!atmStrike || rows.length === 0) return;
+    const t = window.setTimeout(() => {
+      atmRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [atmStrike, strikeFilter, chainData?.selectedExpiry, rows.length]);
 
   const maxOi = useMemo(() => {
     let m = 1;
@@ -310,14 +348,14 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     let atmPeLtp = 0;
 
     all.forEach((r) => {
-      if (r.strike === atmStrike) {
+      if (Number(r.strike) === atmStrike) {
         atmCeOi = r.ce.oi;
         atmPeOi = r.pe.oi;
         atmCeVol = r.ce.volume;
         atmPeVol = r.pe.volume;
-        atmCeLtp = r.ce.ltp;
-        atmPeLtp = r.pe.ltp;
-      } else if (r.strike < atmStrike) {
+        atmCeLtp = effectiveLtp(r.ce);
+        atmPeLtp = effectiveLtp(r.pe);
+      } else if (Number(r.strike) < atmStrike) {
         itmCeOi += r.ce.oi;
         itmCeVol += r.ce.volume;
         otmPeOi += r.pe.oi;
@@ -354,6 +392,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     const itmCls = isItm ? (side === 'ce' ? 'oc-itm-ce' : 'oc-itm-pe') : '';
     const pctInfo = formatOiChgPct(c);
     const oiAbs = Number(c.oiChange) || 0;
+    const quote = effectiveLtp(c);
     const oiHeat = heatLevel(c.oi, maxOi);
     const pctHeat = pctInfo.pct != null ? heatLevel(Math.abs(pctInfo.pct), maxOiChgPct) : 0;
     const chgBar = maxOiChgAbs > 0 ? Math.min(100, Math.round((Math.abs(oiAbs) / maxOiChgAbs) * 100)) : 0;
@@ -372,7 +411,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
                 side: buildupCode(c.buildup).tone === 'short' || buildupCode(c.buildup).tone === 'unwind' ? 'SELL' : 'BUY',
                 type,
                 strike: row.strike,
-                price: c.ltp,
+                price: quote,
                 iv: c.iv,
                 expiry: selectedExpiry,
               })
@@ -444,15 +483,15 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
               setChartContract({
                 strike: row.strike,
                 type,
-                ltp: c.ltp,
+                ltp: quote,
                 changePct: priceChg,
               })
             }
             title="Open live LTP chart (TradingView NSE)"
           >
             {side === 'pe' ? <LtpChartIcon className="oc-ltp-chart-icon" /> : null}
-            <span className="oc-ltp-main">{formatLtp(c.ltp)}</span>
-            {c.ltp > 0 ? (
+            <span className="oc-ltp-main">{formatLtp(quote)}</span>
+            {quote > 0 ? (
               <span className={priceChg >= 0 ? 'oc-pos' : 'oc-neg'}>
                 {priceChg >= 0 ? '+' : ''}
                 {priceChg.toFixed(0)}%
@@ -513,7 +552,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
                   side: 'BUY',
                   type,
                   strike: row.strike,
-                  price: c.ltp,
+                  price: quote,
                   iv: c.iv,
                   expiry: selectedExpiry,
                 })
@@ -530,7 +569,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
                   side: 'SELL',
                   type,
                   strike: row.strike,
-                  price: c.ltp,
+                  price: quote,
                   iv: c.iv,
                   expiry: selectedExpiry,
                 })
@@ -779,13 +818,17 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
               </tr>
             ) : (
               rows.map((row) => {
-                const isAtm = row.strike === atmStrike;
-                const isMaxPain = row.strike === maxPain;
-                const isItmCe = spot > 0 ? row.strike < spot : row.strike < atmStrike;
-                const isItmPe = spot > 0 ? row.strike > spot : row.strike > atmStrike;
+                const isAtm = Number(row.strike) === atmStrike;
+                const isMaxPain = Number(row.strike) === maxPain;
+                const isItmCe = spot > 0 ? Number(row.strike) < spot : Number(row.strike) < atmStrike;
+                const isItmPe = spot > 0 ? Number(row.strike) > spot : Number(row.strike) > atmStrike;
 
                 return (
-                  <tr key={row.strike} className={isAtm ? 'oc-row-atm' : undefined}>
+                  <tr
+                    key={row.strike}
+                    ref={isAtm ? atmRowRef : undefined}
+                    className={isAtm ? 'oc-row-atm' : undefined}
+                  >
                     {renderSideCells(row, 'ce', isItmCe)}
                     <td className={`oc-td oc-td-strike ${isAtm ? 'oc-atm' : ''} ${isMaxPain ? 'oc-maxpain-cell' : ''}`}>
                       <span className="oc-strike-val">{row.strike}</span>

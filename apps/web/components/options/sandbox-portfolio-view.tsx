@@ -19,9 +19,17 @@ function calcUnrealized(
   return Math.round(raw * 100) / 100;
 }
 
+function toExpiryIso(a?: string | null): string {
+  if (!a) return '';
+  const s = String(a).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return s.slice(0, 10);
+}
+
 function sameExpiry(a?: string | null, b?: string | null): boolean {
-  if (!a || !b) return false;
-  return String(a).slice(0, 10) === String(b).slice(0, 10);
+  const x = toExpiryIso(a);
+  const y = toExpiryIso(b);
+  return Boolean(x && y && x === y);
 }
 
 function ltpFromChain(
@@ -52,6 +60,10 @@ function ltpFromChain(
   return null;
 }
 
+function chainKey(symbol: string, expiry: string): string {
+  return `${symbol.toUpperCase()}|${toExpiryIso(expiry)}`;
+}
+
 export const SandboxPortfolioView: React.FC<{
   isActive?: boolean;
   /** Live option chain from Strategy Builder / WS — overlays CMP instantly */
@@ -65,8 +77,11 @@ export const SandboxPortfolioView: React.FC<{
   const [busy, setBusy] = useState<ActionKind>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lastMarkAt, setLastMarkAt] = useState<number | null>(null);
+  /** Per symbol|expiry chains so multi-expiry books mark correctly */
+  const [markChains, setMarkChains] = useState<Record<string, OptionChainDto>>({});
   const hasPortfolioRef = useRef(false);
   const inFlightRef = useRef(false);
+  const marksInFlightRef = useRef(false);
 
   const showMsg = (msg: string, isError = false) => {
     if (isError) {
@@ -131,12 +146,12 @@ export const SandboxPortfolioView: React.FC<{
     [authHeaders],
   );
 
-  // Fast poll while Simulator tab is active (1.5s)
+  // Fast poll while Simulator tab is active (3s — marks use shared hot cache)
   useEffect(() => {
     void fetchPortfolio({ silent: false });
     const interval = setInterval(() => {
       if (isActive) void fetchPortfolio({ silent: true });
-    }, 1500);
+    }, 3000);
     return () => clearInterval(interval);
   }, [fetchPortfolio, isActive]);
 
@@ -150,11 +165,66 @@ export const SandboxPortfolioView: React.FC<{
     return () => window.removeEventListener('sandbox:refresh', onRefresh);
   }, [fetchPortfolio]);
 
-  /** Merge API portfolio with live chain LTPs for instant P&L */
+  // Fetch a live chain for every open position expiry (Strategy Builder only has one)
+  const openExpiryKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const pos of portfolio?.positions || []) {
+      if (!pos.symbol || !pos.expiry) continue;
+      keys.add(chainKey(pos.symbol, pos.expiry));
+    }
+    return Array.from(keys).sort();
+  }, [portfolio?.positions]);
+
+  const fetchMarkChains = useCallback(async () => {
+    if (!isActive || openExpiryKeys.length === 0 || marksInFlightRef.current) return;
+    marksInFlightRef.current = true;
+    try {
+      const next: Record<string, OptionChainDto> = {};
+      await Promise.all(
+        openExpiryKeys.map(async (key) => {
+          const [sym, exp] = key.split('|');
+          if (!sym || !exp) return;
+          try {
+            const qs = new URLSearchParams({ expiry: exp, fresh: '1' });
+            const res = await fetch(`/api/v1/options/chain/${sym}?${qs.toString()}`, {
+              cache: 'no-store',
+            });
+            if (!res.ok) return;
+            const json = await res.json().catch(() => null);
+            const chain = json?.data as OptionChainDto | undefined;
+            if (chain?.contracts?.length && sameExpiry(chain.selectedExpiry, exp)) {
+              next[key] = chain;
+            }
+          } catch {
+            /* keep previous mark chain */
+          }
+        }),
+      );
+      if (Object.keys(next).length > 0) {
+        setMarkChains((prev) => ({ ...prev, ...next }));
+        setLastMarkAt(Date.now());
+      }
+    } finally {
+      marksInFlightRef.current = false;
+    }
+  }, [isActive, openExpiryKeys]);
+
+  useEffect(() => {
+    void fetchMarkChains();
+    const interval = setInterval(() => {
+      if (isActive) void fetchMarkChains();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [fetchMarkChains, isActive]);
+
+  /** Merge API portfolio with live LTPs from every matching expiry chain */
   const markedPositions = useMemo(() => {
     const positions = portfolio?.positions || [];
     return positions.map((pos) => {
-      const chainLtp = ltpFromChain(liveChain, pos);
+      const key = chainKey(pos.symbol, pos.expiry);
+      const expiryChain = markChains[key] || null;
+      const chainLtp =
+        ltpFromChain(expiryChain, pos) ?? ltpFromChain(liveChain, pos);
       const apiCmp =
         Number(pos.currentPrice) > 0
           ? Number(pos.currentPrice)
@@ -168,7 +238,7 @@ export const SandboxPortfolioView: React.FC<{
       const quoteLive = Boolean(fromMatchingChain || pos.quoteLive === true);
       return { ...pos, currentPrice: cmp, unrealizedPnl: unrealized, quoteLive };
     });
-  }, [portfolio, liveChain]);
+  }, [portfolio, liveChain, markChains]);
 
   const liveUnrealized = useMemo(
     () => Math.round(markedPositions.reduce((a, p) => a + p.unrealizedPnl, 0) * 100) / 100,
@@ -180,8 +250,19 @@ export const SandboxPortfolioView: React.FC<{
   const availableMargin = portfolio?.availableMargin ?? 1000000;
   const deployedMargin = portfolio?.deployedMargin ?? 0;
   const isBusy = busy != null;
-  const marksLabel = portfolio?.marksSource || (liveChain?.source ? String(liveChain.source) : null);
+  const anyLiveQuote = markedPositions.some((p) => p.quoteLive);
+  const marksLabel =
+    (anyLiveQuote
+      ? markChains[openExpiryKeys[0]]?.source ||
+        portfolio?.marksSource ||
+        liveChain?.source
+      : portfolio?.marksSource) ||
+    (liveChain?.source ? String(liveChain.source) : null);
   const showInitialLoad = isLoading && !portfolio && !authError;
+  const markExpiryLabel =
+    openExpiryKeys.length > 1
+      ? `${openExpiryKeys.length} expiries`
+      : openExpiryKeys[0]?.split('|')[1] || liveChain?.selectedExpiry || null;
 
   const squareOffPosition = async (id: string) => {
     if (busy) return;
@@ -201,6 +282,7 @@ export const SandboxPortfolioView: React.FC<{
       if (res.ok && json?.success !== false) {
         showMsg(json?.message || 'Position squared off at live market price.');
         await fetchPortfolio({ silent: true });
+        void fetchMarkChains();
       } else {
         showMsg(json?.message || 'Could not square off position.', true);
       }
@@ -235,6 +317,7 @@ export const SandboxPortfolioView: React.FC<{
             : 'All positions successfully squared off.',
         );
         await fetchPortfolio({ silent: true });
+        void fetchMarkChains();
       } else {
         showMsg(json?.message || 'Could not square off all positions.', true);
       }
@@ -268,6 +351,7 @@ export const SandboxPortfolioView: React.FC<{
       const json = await res.json().catch(() => null);
       if (res.ok && json?.success !== false) {
         showMsg(json?.message || 'Sandbox portfolio reset to ₹10,00,000.');
+        setMarkChains({});
         await fetchPortfolio({ silent: false });
       } else {
         showMsg(json?.message || 'Could not reset portfolio.', true);
@@ -389,9 +473,7 @@ export const SandboxPortfolioView: React.FC<{
               <h3 className="opt-chart-title">Open Positions ({markedPositions.length})</h3>
               <p className="opt-chart-subtitle">
                 Marked to live market prices for each position expiry
-                {liveChain?.selectedExpiry
-                  ? ` · chain ${liveChain.selectedExpiry}`
-                  : ''}
+                {markExpiryLabel ? ` · ${markExpiryLabel}` : ''}
               </p>
             </div>
           </div>
@@ -399,7 +481,10 @@ export const SandboxPortfolioView: React.FC<{
           <div className="opt-sandbox-actions">
             <button
               type="button"
-              onClick={() => void fetchPortfolio({ silent: true })}
+              onClick={() => {
+                void fetchPortfolio({ silent: true });
+                void fetchMarkChains();
+              }}
               className="opt-sandbox-btn"
               title="Refresh live quotes"
               disabled={isBusy}
@@ -456,7 +541,7 @@ export const SandboxPortfolioView: React.FC<{
                           {pos.symbol} {pos.strike ? `₹${pos.strike} ${pos.optionType}` : 'FUT'}
                         </div>
                         <div className="opt-sandbox-instr-meta">
-                          Expiry: {pos.expiry} · Lot {pos.lotSize}
+                          Expiry: {toExpiryIso(pos.expiry) || pos.expiry} · Lot {pos.lotSize}
                           {pos.quoteLive ? ' · live' : ' · awaiting quote'}
                         </div>
                       </td>
@@ -538,7 +623,9 @@ export const SandboxPortfolioView: React.FC<{
                         <div className="opt-sandbox-instr">
                           {pos.symbol} {pos.strike ? `₹${pos.strike} ${pos.optionType}` : 'FUT'}
                         </div>
-                        <div className="opt-sandbox-instr-meta">Expiry: {pos.expiry}</div>
+                        <div className="opt-sandbox-instr-meta">
+                          Expiry: {toExpiryIso(pos.expiry) || pos.expiry}
+                        </div>
                       </td>
                       <td>
                         <span className={`opt-badge-pill ${pos.side === 'BUY' ? 'green' : 'rose'}`}>

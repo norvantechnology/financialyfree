@@ -317,12 +317,15 @@ export class MarketDataService {
    */
   async getOptionChain(
     symbol: string,
-    expiry?: string,
+    expiry?: string | Date,
     userId?: string,
     brokerOverride?: BrokerType,
     opts?: { preferFresh?: boolean; forceRefresh?: boolean },
   ): Promise<OptionChainDto> {
     const cleanSymbol = (symbol || 'NIFTY').toUpperCase();
+    // Normalize early — TypeORM `date` columns may arrive as Date objects; raw strings
+    // break cache keys and NSE expiry matching if left as "Tue Sep 29 …".
+    const expiryIso = expiry ? this.toExpiryIso(expiry) : undefined;
 
     // Explicit broker request — user-scoped, never shared
     if (userId && brokerOverride && brokerOverride !== 'sandbox') {
@@ -331,7 +334,7 @@ export class MarketDataService {
         const token = await this.brokerAuthService.getDecryptedToken(userId, brokerOverride);
         if (token && !/_mock_|mock_/i.test(token)) {
           const adapter = this.brokerAuthService.getAdapter(brokerOverride);
-          const brokerChain = await adapter.getOptionChain(cleanSymbol, expiry, token);
+          const brokerChain = await adapter.getOptionChain(cleanSymbol, expiryIso, token);
           if (brokerChain?.contracts?.length) {
             const enriched = {
               ...brokerChain,
@@ -351,44 +354,49 @@ export class MarketDataService {
       }
     }
 
-    // Sandbox marks: always coalesce a fresh scrape for the requested expiry
+    // Sandbox marks / square-off: coalesce a scrape (still shares in-flight)
     if (opts?.forceRefresh) {
-      return this.coalescedSharedChainFetch(cleanSymbol, expiry);
+      return this.coalescedSharedChainFetch(cleanSymbol, expiryIso);
     }
 
     // Shared hot / SWR path (public NSE) — one scrape serves everyone
-    const hit = this.getSharedCacheEntry(cleanSymbol, expiry);
+    const hit = this.getSharedCacheEntry(cleanSymbol, expiryIso);
     const age = hit ? Date.now() - hit.fetchedAt : Number.POSITIVE_INFINITY;
 
     // Prefer fresh: avoid serving up-to-90s stale quotes (still allow hot <5s)
     if (opts?.preferFresh) {
       if (hit?.chain.contracts?.length && age < MarketDataService.HOT_TTL_MS) {
         // Guard: never serve a different expiry than requested
-        if (!expiry || this.expiryMatches(hit.chain.selectedExpiry, expiry)) {
+        if (!expiryIso || this.expiryMatches(hit.chain.selectedExpiry, expiryIso)) {
           return this.serveFromSharedCache(hit, { stale: false });
         }
       }
-      return this.coalescedSharedChainFetch(cleanSymbol, expiry);
+      return this.coalescedSharedChainFetch(cleanSymbol, expiryIso);
     }
 
     if (hit?.chain.contracts?.length) {
-      if (expiry && !this.expiryMatches(hit.chain.selectedExpiry, expiry)) {
-        return this.coalescedSharedChainFetch(cleanSymbol, expiry);
+      if (expiryIso && !this.expiryMatches(hit.chain.selectedExpiry, expiryIso)) {
+        return this.coalescedSharedChainFetch(cleanSymbol, expiryIso);
       }
       if (age < MarketDataService.HOT_TTL_MS) {
         return this.serveFromSharedCache(hit, { stale: false });
       }
       if (age < MarketDataService.SWR_TTL_MS) {
-        void this.coalescedSharedChainFetch(cleanSymbol, expiry);
+        void this.coalescedSharedChainFetch(cleanSymbol, expiryIso);
         return this.serveFromSharedCache(hit, { stale: true });
       }
     }
 
-    return this.coalescedSharedChainFetch(cleanSymbol, expiry);
+    return this.coalescedSharedChainFetch(cleanSymbol, expiryIso);
+  }
+
+  /** Public expiry normalizer — handles Date, ISO datetime, DD-MMM-YYYY */
+  toExpiryIso(d: string | Date | null | undefined): string {
+    return this.normalizeToIsoDate(d as string | Date);
   }
 
   /** Compare ISO / display expiry strings safely */
-  private expiryMatches(a?: string | null, b?: string | null): boolean {
+  private expiryMatches(a?: string | Date | null, b?: string | Date | null): boolean {
     if (!a || !b) return false;
     return this.normalizeToIsoDate(a) === this.normalizeToIsoDate(b);
   }
@@ -733,14 +741,19 @@ export class MarketDataService {
       // When NSE already filtered by expiry (v3), rowExpiry may be empty — keep the row
       if (targetExpiry && rowExpiry && rowExpiry !== targetExpiry) continue;
 
-      const strike = item.strikePrice;
-      if (!strike && strike !== 0) continue;
-      strikeMap.set(strike, { ce: item.CE, pe: item.PE });
+      const strike = Number(item.strikePrice);
+      if (!Number.isFinite(strike)) continue;
+      const prev = strikeMap.get(strike) || {};
+      // Merge so a sparse CE-only / PE-only row never wipes the other side
+      strikeMap.set(strike, {
+        ce: item.CE || item.ce || prev.ce,
+        pe: item.PE || item.pe || prev.pe,
+      });
 
-      const cOi = item.CE?.openInterest || 0;
-      const pOi = item.PE?.openInterest || 0;
-      const cVol = item.CE?.totalTradedVolume || 0;
-      const pVol = item.PE?.totalTradedVolume || 0;
+      const cOi = Number(item.CE?.openInterest || item.ce?.openInterest || 0) || 0;
+      const pOi = Number(item.PE?.openInterest || item.pe?.openInterest || 0) || 0;
+      const cVol = Number(item.CE?.totalTradedVolume || item.ce?.totalTradedVolume || 0) || 0;
+      const pVol = Number(item.PE?.totalTradedVolume || item.pe?.totalTradedVolume || 0) || 0;
 
       strikesOiData.push({ strike, callOi: cOi, putOi: pOi });
       pcrData.push({ callOi: cOi, putOi: pOi, callVolume: cVol, putVolume: pVol });
@@ -754,34 +767,78 @@ export class MarketDataService {
     // BS IV solve only near ATM (far strikes use exchange IV or stay blank — no fake greeks)
     const greekRadius = 40 * step;
 
+    /** Pick first finite number (optionally allow zero). */
+    const pickNum = (allowZero: boolean, ...vals: unknown[]) => {
+      for (const v of vals) {
+        const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN;
+        if (!Number.isFinite(n)) continue;
+        if (n > 0 || (allowZero && n === 0)) return n;
+        // Negative values (OI change, price change) are meaningful
+        if (n < 0) return n;
+      }
+      return allowZero ? 0 : 0;
+    };
+
     const contracts = allStrikes.map((strike) => {
       const data = strikeMap.get(strike) || {};
       const ceRaw = data.ce || {};
       const peRaw = data.pe || {};
       const nearAtm = Math.abs(strike - atmStrike) <= greekRadius;
 
-      // After hours lastPrice is often 0 — use bid/ask mid when available (real quotes, not invented)
-      const num = (...vals: unknown[]) => {
-        for (const v of vals) {
-          const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN;
-          if (Number.isFinite(n) && n > 0) return n;
-        }
-        return 0;
-      };
-      const mid = (bid?: number, ask?: number) =>
-        bid && ask && bid > 0 && ask > 0 ? (bid + ask) / 2 : 0;
-      const ceBid = num(ceRaw.buyPrice1, ceRaw.bidprice, ceRaw.bidPrice, ceRaw.bid);
-      const ceAsk = num(ceRaw.sellPrice1, ceRaw.askPrice, ceRaw.askprice, ceRaw.ask);
-      const peBid = num(peRaw.buyPrice1, peRaw.bidprice, peRaw.bidPrice, peRaw.bid);
-      const peAsk = num(peRaw.sellPrice1, peRaw.askPrice, peRaw.askprice, peRaw.ask);
-      const ceLtp =
-        num(ceRaw.lastPrice, ceRaw.lastTradedPrice, ceRaw.LTP, ceRaw.ltp, ceRaw.last) ||
-        mid(ceBid, ceAsk) ||
-        0;
-      const peLtp =
-        num(peRaw.lastPrice, peRaw.lastTradedPrice, peRaw.LTP, peRaw.ltp, peRaw.last) ||
-        mid(peBid, peAsk) ||
-        0;
+      // After hours / illiquid lastPrice is often 0 — use bid/ask mid when available
+      const mid = (bid: number, ask: number) =>
+        bid > 0 && ask > 0 ? Math.round(((bid + ask) / 2) * 100) / 100 : 0;
+      const ceBid = pickNum(false, ceRaw.buyPrice1, ceRaw.bidprice, ceRaw.bidPrice, ceRaw.bid);
+      const ceAsk = pickNum(false, ceRaw.sellPrice1, ceRaw.askPrice, ceRaw.askprice, ceRaw.ask);
+      const peBid = pickNum(false, peRaw.buyPrice1, peRaw.bidprice, peRaw.bidPrice, peRaw.bid);
+      const peAsk = pickNum(false, peRaw.sellPrice1, peRaw.askPrice, peRaw.askprice, peRaw.ask);
+      const ceLast = pickNum(
+        false,
+        ceRaw.lastPrice,
+        ceRaw.lastTradedPrice,
+        ceRaw.LTP,
+        ceRaw.ltp,
+        ceRaw.last,
+      );
+      const peLast = pickNum(
+        false,
+        peRaw.lastPrice,
+        peRaw.lastTradedPrice,
+        peRaw.LTP,
+        peRaw.ltp,
+        peRaw.last,
+      );
+      const ceLtp = ceLast > 0 ? ceLast : mid(ceBid, ceAsk);
+      const peLtp = peLast > 0 ? peLast : mid(peBid, peAsk);
+
+      const ceOiChg = pickNum(
+        true,
+        ceRaw.changeinOpenInterest,
+        ceRaw.changeInOpenInterest,
+        ceRaw.oiChange,
+      );
+      const peOiChg = pickNum(
+        true,
+        peRaw.changeinOpenInterest,
+        peRaw.changeInOpenInterest,
+        peRaw.oiChange,
+      );
+      const ceOiChgPct = pickNum(
+        true,
+        ceRaw.pchangeinOpenInterest,
+        ceRaw.pChangeinOpenInterest,
+        ceRaw.oiChangePct,
+      );
+      const peOiChgPct = pickNum(
+        true,
+        peRaw.pchangeinOpenInterest,
+        peRaw.pChangeinOpenInterest,
+        peRaw.oiChangePct,
+      );
+      const ceChange = pickNum(true, ceRaw.change);
+      const peChange = pickNum(true, peRaw.change);
+      const ceChangePct = pickNum(true, ceRaw.pChange, ceRaw.PChange, ceRaw.pchange);
+      const peChangePct = pickNum(true, peRaw.pChange, peRaw.PChange, peRaw.pchange);
 
       const r = 0.065; // RBI repo-rate class risk-free benchmark
       const tte = this.yearsToExpiry(targetExpiry);
@@ -852,18 +909,19 @@ export class MarketDataService {
           strike,
           optionType: 'CE' as const,
           ltp: ceLtp,
-          change: ceRaw.change || 0,
-          changePct: ceRaw.pChange || 0,
+          change: ceChange,
+          changePct: ceChangePct,
           iv: ceIv ? parseFloat((ceIv * 100).toFixed(2)) : null,
           delta: ceGreeks ? parseFloat(ceGreeks.delta.toFixed(3)) : null,
           gamma: ceGreeks ? parseFloat(ceGreeks.gamma.toFixed(5)) : null,
           theta: ceGreeks ? parseFloat(ceGreeks.theta.toFixed(1)) : null,
           vega: ceGreeks ? parseFloat(ceGreeks.vega.toFixed(1)) : null,
           rho: ceGreeks ? parseFloat(ceGreeks.rho.toFixed(1)) : null,
-          oi: ceRaw.openInterest || 0,
-          oiChange: ceRaw.changeinOpenInterest || 0,
-          volume: ceRaw.totalTradedVolume || 0,
-          buildup: classifyOiBuildup(ceRaw.change || 0, ceRaw.changeinOpenInterest || 0),
+          oi: pickNum(true, ceRaw.openInterest) || 0,
+          oiChange: ceOiChg,
+          oiChangePct: ceOiChgPct,
+          volume: pickNum(true, ceRaw.totalTradedVolume) || 0,
+          buildup: classifyOiBuildup(ceChange, ceOiChg),
           bidPrice: ceBid || undefined,
           askPrice: ceAsk || undefined,
         },
@@ -872,18 +930,19 @@ export class MarketDataService {
           strike,
           optionType: 'PE' as const,
           ltp: peLtp,
-          change: peRaw.change || 0,
-          changePct: peRaw.pChange || 0,
+          change: peChange,
+          changePct: peChangePct,
           iv: peIv ? parseFloat((peIv * 100).toFixed(2)) : null,
           delta: peGreeks ? parseFloat(peGreeks.delta.toFixed(3)) : null,
           gamma: peGreeks ? parseFloat(peGreeks.gamma.toFixed(5)) : null,
           theta: peGreeks ? parseFloat(peGreeks.theta.toFixed(1)) : null,
           vega: peGreeks ? parseFloat(peGreeks.vega.toFixed(1)) : null,
           rho: peGreeks ? parseFloat(peGreeks.rho.toFixed(1)) : null,
-          oi: peRaw.openInterest || 0,
-          oiChange: peRaw.changeinOpenInterest || 0,
-          volume: peRaw.totalTradedVolume || 0,
-          buildup: classifyOiBuildup(peRaw.change || 0, peRaw.changeinOpenInterest || 0),
+          oi: pickNum(true, peRaw.openInterest) || 0,
+          oiChange: peOiChg,
+          oiChangePct: peOiChgPct,
+          volume: pickNum(true, peRaw.totalTradedVolume) || 0,
+          buildup: classifyOiBuildup(peChange, peOiChg),
           bidPrice: peBid || undefined,
           askPrice: peAsk || undefined,
         },
@@ -1136,17 +1195,26 @@ export class MarketDataService {
     };
   }
 
-  private normalizeToIsoDate(d: string): string {
-    if (!d) return '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  private normalizeToIsoDate(d: string | Date | null | undefined): string {
+    if (d == null || d === '') return '';
+    // TypeORM `date` columns often hydrate as Date at UTC midnight
+    if (d instanceof Date && !isNaN(d.getTime())) {
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    const raw = String(d).trim();
+    // ISO date or datetime → take calendar date prefix
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
     // Handle DD-MM-YYYY or DD/MM/YYYY
-    const ddmmyyyy = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(d);
+    const ddmmyyyy = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(raw);
     if (ddmmyyyy) {
       const [, day, month, year] = ddmmyyyy;
       return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
     }
     // Handle DD-MMM-YYYY (e.g. 22-Sep-2026 or 22 Sep 2026)
-    const ddmmmyyyy = /^(\d{1,2})[-/\s]([A-Za-z]{3})[-/\s](\d{4})$/.exec(d);
+    const ddmmmyyyy = /^(\d{1,2})[-/\s]([A-Za-z]{3})[-/\s](\d{4})$/.exec(raw);
     if (ddmmmyyyy) {
       const [, day, monStr, year] = ddmmmyyyy;
       const months: Record<string, string> = {
@@ -1159,14 +1227,16 @@ export class MarketDataService {
       }
     }
     try {
-      const parsed = new Date(d);
+      const parsed = new Date(raw);
       if (!isNaN(parsed.getTime())) {
-        const y = parsed.getFullYear();
-        const m = String(parsed.getMonth() + 1).padStart(2, '0');
-        const dt = String(parsed.getDate()).padStart(2, '0');
+        const y = parsed.getUTCFullYear();
+        const m = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+        const dt = String(parsed.getUTCDate()).padStart(2, '0');
         return `${y}-${m}-${dt}`;
       }
-    } catch {}
-    return d;
+    } catch {
+      /* keep raw */
+    }
+    return raw;
   }
 }

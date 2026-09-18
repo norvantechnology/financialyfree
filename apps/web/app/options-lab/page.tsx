@@ -264,7 +264,7 @@ export default function OptionsLabPage() {
   const payoffChartRef = useRef<any>(null);
   const workspaceSplitRef = useRef<HTMLDivElement | null>(null);
   const analyticsBodyRef = useRef<HTMLDivElement | null>(null);
-  const [chartPanelHeight, setChartPanelHeight] = useState(380);
+  const [chartPanelHeight, setChartPanelHeight] = useState(320);
 
   useEffect(() => {
     chainDataRef.current = chainData;
@@ -295,7 +295,7 @@ export default function OptionsLabPage() {
   const [isDesktopLayout, setIsDesktopLayout] = useState(true);
   const [chainWidth, setChainWidth] = usePersistedLayoutNumber('chainWidth', 360, 260, 560);
   /** Chart vs positions split (default ~58/42). Keep both panels usable. */
-  const [analyticsFlex, setAnalyticsFlex] = usePersistedLayoutNumber('analyticsFlex', 58, 35, 75);
+  const [analyticsFlex, setAnalyticsFlex] = usePersistedLayoutNumber('analyticsFlex', 58, 38, 72);
   const [chainMobileHeight, setChainMobileHeight] = usePersistedLayoutNumber(
     'chainMobileHeight',
     360,
@@ -307,8 +307,8 @@ export default function OptionsLabPage() {
     analyticsTab === 'nifty_chart' || analyticsTab === 'strategy_chart';
 
   const WORKSPACE_DEFAULT_FLEX = 58;
-  const WORKSPACE_CHART_FOCUS = 70;
-  const WORKSPACE_POS_FOCUS = 40;
+  const WORKSPACE_CHART_FOCUS = 68;
+  const WORKSPACE_POS_FOCUS = 42;
 
   /** Give chart more room but keep positions table visible */
   const expandAnalyticsPanel = useCallback(() => {
@@ -548,13 +548,13 @@ export default function OptionsLabPage() {
     }
   }, [symbol, selectedExpiry, connectedBroker]);
 
-  // Initial load + live poll. 12s interval is enough with 5s server hot-cache;
+  // Initial load + live poll. preferFresh (~5s hot) so LTPs move for Simulator overlays.
   // 100k users share one upstream scrape via Nest coalesce + edge proxy cache.
   useEffect(() => {
     void fetchChain({ silent: false, fresh: Boolean(selectedExpiry) });
     const interval = setInterval(() => {
-      void fetchChain({ silent: true });
-    }, 12000);
+      void fetchChain({ silent: true, fresh: true });
+    }, 8000);
     return () => {
       clearInterval(interval);
       chainFetchGenRef.current += 1;
@@ -600,16 +600,25 @@ export default function OptionsLabPage() {
       setLatencyMs(0);
       setChainData((prev) => {
         if (!prev) return prev;
+        const tickLtp = Number(tick.ltp);
+        const tickOi = Number(tick.oi);
+        const tickOiChg = Number(tick.oiChange);
+        const tickVol = Number(tick.volume);
         const updatedContracts = prev.contracts.map((row) => {
           if (row.ce.instrumentToken === tick.instrumentToken) {
             return {
               ...row,
               ce: {
                 ...row.ce,
-                ltp: tick.ltp,
-                oi: tick.oi || row.ce.oi,
-                oiChange: tick.oiChange || row.ce.oiChange,
-                volume: tick.volume || row.ce.volume,
+                // Never wipe a good NSE LTP with a zero/invalid tick
+                ltp: tickLtp > 0 ? tickLtp : row.ce.ltp,
+                oi: Number.isFinite(tickOi) && tickOi > 0 ? tickOi : row.ce.oi,
+                oiChange: Number.isFinite(tickOiChg) ? tickOiChg : row.ce.oiChange,
+                volume: Number.isFinite(tickVol) && tickVol > 0 ? tickVol : row.ce.volume,
+                changePct:
+                  Number.isFinite(Number(tick.changePct)) && tickLtp > 0
+                    ? Number(tick.changePct)
+                    : row.ce.changePct,
               },
             };
           }
@@ -618,10 +627,14 @@ export default function OptionsLabPage() {
               ...row,
               pe: {
                 ...row.pe,
-                ltp: tick.ltp,
-                oi: tick.oi || row.pe.oi,
-                oiChange: tick.oiChange || row.pe.oiChange,
-                volume: tick.volume || row.pe.volume,
+                ltp: tickLtp > 0 ? tickLtp : row.pe.ltp,
+                oi: Number.isFinite(tickOi) && tickOi > 0 ? tickOi : row.pe.oi,
+                oiChange: Number.isFinite(tickOiChg) ? tickOiChg : row.pe.oiChange,
+                volume: Number.isFinite(tickVol) && tickVol > 0 ? tickVol : row.pe.volume,
+                changePct:
+                  Number.isFinite(Number(tick.changePct)) && tickLtp > 0
+                    ? Number(tick.changePct)
+                    : row.pe.changePct,
               },
             };
           }
@@ -1478,7 +1491,7 @@ export default function OptionsLabPage() {
               onAddOrToggleLeg={onAddOrToggleLeg}
               isCollapsed={isDesktopLayout ? isChainCollapsed : false}
               onToggleCollapse={() => setIsChainCollapsed((p) => !p)}
-              panelWidth={isDesktopLayout && !isChainCollapsed ? chainWidth : undefined}
+              panelWidth={isDesktopLayout && !isChainCollapsed ? Math.max(280, chainWidth) : undefined}
               panelHeight={!isDesktopLayout ? chainMobileHeight : undefined}
               asOf={chainData?.timestamp || null}
               dataSource={chainData?.source || null}
@@ -1564,10 +1577,10 @@ export default function OptionsLabPage() {
                   isChartFullscreen
                     ? undefined
                     : isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed
-                      ? { flex: `${analyticsFlex} 1 0`, minHeight: 220 }
+                      ? { flex: `${analyticsFlex} 1 0%`, minHeight: 280 }
                       : isAnalyticsCollapsed
                         ? { flex: '0 0 auto' }
-                        : { flex: '1 1 auto', minHeight: isPositionsCollapsed ? 'min(58vh, 720px)' : 220 }
+                        : { flex: '1 1 auto', minHeight: isPositionsCollapsed ? 'min(58vh, 720px)' : 280 }
                 }
               >
                 {/* Tabs Bar */}
@@ -1861,18 +1874,29 @@ export default function OptionsLabPage() {
                           <RotateCcw strokeWidth={2} />
                         </button>
                       </div>
+                      {strategyLegs.length === 0 ? (
+                        <div className="sm-payoff-empty-hint">
+                          Add a strike from the Option Chain on the left, or load a template below, to see the payoff curve.
+                        </div>
+                      ) : null}
                       <ReactECharts
                         option={payoffChartOption}
                         style={{
-                          height: Math.max(240, chartPanelHeight - 8),
+                          height: '100%',
                           width: '100%',
-                          minHeight: 240,
+                          minHeight: 280,
+                          flex: '1 1 auto',
                         }}
                         notMerge={false}
                         lazyUpdate
                         opts={{ renderer: 'canvas' }}
                         onChartReady={(inst: any) => {
                           payoffChartRef.current = { getEchartsInstance: () => inst };
+                          try {
+                            inst.resize?.();
+                          } catch {
+                            /* ignore */
+                          }
                         }}
                       />
                     </div>
@@ -1959,10 +1983,10 @@ export default function OptionsLabPage() {
                   isChartFullscreen
                     ? { display: 'none' }
                     : isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed
-                      ? { flex: `${100 - analyticsFlex} 1 0`, minHeight: 180 }
+                      ? { flex: `${100 - analyticsFlex} 1 0%`, minHeight: 200 }
                       : isPositionsCollapsed
                         ? { flex: '0 0 auto' }
-                        : { flex: '1 1 auto', minHeight: 180 }
+                        : { flex: '1 1 auto', minHeight: 200 }
                 }
               >
                 {/* Positions Subtabs Bar */}

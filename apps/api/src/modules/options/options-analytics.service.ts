@@ -368,31 +368,29 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
     let totalUnrealizedPnl = 0;
     let deployedMargin = 0;
     let marksSource = 'FALLBACK';
+    let liveQuoteCount = 0;
 
-    // One fresh-ish chain fetch per symbol:expiry instead of N scrapes
+    // One shared-cache chain per symbol:expiry (preferFresh — do not hammer NSE every poll)
     const chainCache = new Map<string, Awaited<ReturnType<typeof this.marketDataService.getOptionChain>>>();
-    const loadChain = async (symbol: string, expiry: string) => {
-      const key = `${symbol}|${expiry}`;
+    const loadChain = async (symbol: string, expiry: string | Date) => {
+      const expiryIso = this.marketDataService.toExpiryIso(expiry);
+      const key = `${symbol}|${expiryIso}`;
       let chain = chainCache.get(key);
       if (!chain) {
         chain = await this.marketDataService.getOptionChain(
           symbol,
-          expiry,
+          expiryIso,
           undefined,
           undefined,
-          { forceRefresh: true },
+          { preferFresh: true },
         );
         chainCache.set(key, chain);
-        if (chain?.source) marksSource = String(chain.source);
       }
       return chain;
     };
 
-    const expiryOk = (chainExp: string | undefined, posExp: string) => {
-      if (!chainExp || !posExp) return false;
-      const a = String(chainExp).slice(0, 10);
-      const b = String(posExp).slice(0, 10);
-      return a === b;
+    const expiryOk = (chainExp: string | undefined, posExp: string | Date) => {
+      return this.marketDataService.toExpiryIso(chainExp) === this.marketDataService.toExpiryIso(posExp);
     };
 
     const quoteOption = (
@@ -415,25 +413,26 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
 
     const resolveLivePrice = async (
       pos: (typeof openPositions)[number],
-    ): Promise<{ price: number; live: boolean }> => {
+    ): Promise<{ price: number; live: boolean; source?: string }> => {
       const entry = Number(pos.entryPrice) || 0;
+      // Prefer last good mark over entry when a refresh fails
       const fallback =
         Number(pos.currentPrice) > 0 ? Number(pos.currentPrice) : entry > 0 ? entry : 0;
       try {
         const chain = await loadChain(pos.symbol, pos.expiry);
-        // Never mark with a different expiry's LTP (was causing stuck/wrong CMP)
         if (!expiryOk(chain.selectedExpiry, pos.expiry)) {
           this.logger.warn(
-            `Sandbox mark skipped: wanted expiry ${pos.expiry}, got ${chain.selectedExpiry} (${chain.source})`,
+            `Sandbox mark skipped: wanted expiry ${this.marketDataService.toExpiryIso(pos.expiry)}, got ${chain.selectedExpiry} (${chain.source})`,
           );
-          return { price: fallback, live: false };
+          return { price: fallback, live: false, source: chain.source };
         }
         if (pos.strike != null && pos.optionType !== 'FUT') {
           const quote = quoteOption(chain, Number(pos.strike), String(pos.optionType));
-          if (quote > 0) return { price: quote, live: true };
+          if (quote > 0) return { price: quote, live: true, source: chain.source };
         } else if (chain.spotPrice > 0) {
-          return { price: chain.spotPrice, live: true };
+          return { price: chain.spotPrice, live: true, source: chain.source };
         }
+        return { price: fallback, live: false, source: chain.source };
       } catch (e) {
         this.logger.debug(`Could not refresh price for position ${pos.id}: ${(e as any)?.message}`);
       }
@@ -442,7 +441,11 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
 
     const marked = await Promise.all(
       openPositions.map(async (pos) => {
-        const { price: livePrice, live } = await resolveLivePrice(pos);
+        const { price: livePrice, live, source } = await resolveLivePrice(pos);
+        if (live) {
+          liveQuoteCount += 1;
+          if (source) marksSource = String(source);
+        }
         pos.currentPrice = livePrice;
         const totalQty = pos.quantity * pos.lotSize;
         const entry = Number(pos.entryPrice);
@@ -460,6 +463,10 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
         return { pos, live, unrealized, margin };
       }),
     );
+
+    if (openPositions.length > 0 && liveQuoteCount === 0) {
+      marksSource = 'AWAITING_QUOTE';
+    }
 
     for (const m of marked) {
       totalUnrealizedPnl += m.unrealized;
@@ -484,7 +491,7 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
       symbol: pos.symbol,
       strike: pos.strike ? Number(pos.strike) : null,
       optionType: pos.optionType,
-      expiry: pos.expiry,
+      expiry: this.marketDataService.toExpiryIso(pos.expiry),
       side: pos.side,
       quantity: pos.quantity,
       lotSize: pos.lotSize,
@@ -530,9 +537,10 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
       return { success: false, message: 'Position not found or already closed' };
     }
 
+    const expiryIso = this.marketDataService.toExpiryIso(pos.expiry);
     const chain = await this.marketDataService.getOptionChain(
       pos.symbol,
-      pos.expiry,
+      expiryIso,
       undefined,
       undefined,
       { forceRefresh: true },
@@ -545,8 +553,8 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
           : 0;
     const expiryOk =
       chain.selectedExpiry &&
-      pos.expiry &&
-      String(chain.selectedExpiry).slice(0, 10) === String(pos.expiry).slice(0, 10);
+      expiryIso &&
+      this.marketDataService.toExpiryIso(chain.selectedExpiry) === expiryIso;
     if (pos.strike != null && pos.optionType !== 'FUT' && expiryOk) {
       const row = chain.contracts.find(
         (c) => Math.abs(Number(c.strike) - Number(pos.strike)) < 0.51,

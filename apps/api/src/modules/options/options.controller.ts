@@ -320,26 +320,33 @@ export class OptionsController {
       return { success: false, message: 'Invalid paper order (symbol/expiry/side/quantity required)' };
     }
 
+    const expiryIso = this.marketDataService.toExpiryIso(order.expiry);
+    if (!expiryIso) {
+      return { success: false, message: 'Invalid paper order expiry' };
+    }
+
     // Shared NSE cache path — force expiry-specific fresh quotes for paper fills
     const chain = await this.marketDataService.getOptionChain(
       order.symbol,
-      order.expiry,
+      expiryIso,
       undefined,
       undefined,
       { forceRefresh: true },
     );
-    let fillPrice: number | null = order.price && order.price > 0 ? order.price : null;
+    // MARKET fills must use live LTP — never trust client leg price alone
+    const isMarket = !order.orderType || order.orderType === 'MARKET';
+    let fillPrice: number | null =
+      !isMarket && order.price && order.price > 0 ? order.price : null;
 
     const expiryMatches =
       chain.selectedExpiry &&
-      order.expiry &&
-      String(chain.selectedExpiry).slice(0, 10) === String(order.expiry).slice(0, 10);
+      this.marketDataService.toExpiryIso(chain.selectedExpiry) === expiryIso;
 
     if (order.strike && order.optionType && order.optionType !== 'FUT') {
       if (!expiryMatches) {
         return {
           success: false,
-          message: `Could not load live chain for expiry ${order.expiry}. Try again in a moment.`,
+          message: `Could not load live chain for expiry ${expiryIso}. Try again in a moment.`,
         };
       }
       const row = chain.contracts.find(
@@ -376,7 +383,7 @@ export class OptionsController {
       symbol: order.symbol.toUpperCase(),
       strike: order.strike || null,
       optionType: order.optionType || 'CE',
-      expiry: order.expiry,
+      expiry: expiryIso,
       side: order.side,
       quantity,
       lotSize,
