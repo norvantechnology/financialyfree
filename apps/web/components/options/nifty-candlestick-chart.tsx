@@ -1,459 +1,437 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import dynamic from 'next/dynamic';
-import {
-  BarChart2,
-  Maximize2,
-  RefreshCw,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ReactECharts from 'echarts-for-react';
+import type { EChartsOption } from 'echarts';
+import { TradingViewAdvancedChart } from './tradingview-advanced-chart';
+import { thinChartDataZoom } from './echarts-data-zoom';
 
-const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
+export type ChartTimeframe = '1m' | '5m' | '15m' | '1H' | '1D';
+export type ChartFeedMode = 'tradingview' | 'app';
 
 interface CandlePoint {
-  time: number;
-  timeStr: string;
+  time: string;
   open: number;
   high: number;
   low: number;
   close: number;
-  volume: number;
+  volume?: number;
 }
 
 interface NiftyCandlestickChartProps {
-  symbol: string;
-  spotPrice: number;
-  spotChange: number;
-  spotChangePct: number;
-  /** When false, chart stays mounted but hidden — call resize when shown again */
+  symbol?: string;
+  height?: number;
   isActive?: boolean;
+  defaultFeed?: ChartFeedMode;
+  /** Optional spot overlay (kept for callers; TV shows live OHLC itself) */
+  spotPrice?: number;
+  spotChange?: number;
+  spotChangePct?: number;
+  /** Immersive mode: TradingView full tools, hide compact hint */
+  immersive?: boolean;
+  fullTools?: boolean;
 }
 
-/** Module cache so remount / tab switch keeps the same candles */
-const candleCache = new Map<string, CandlePoint[]>();
-const cacheKey = (symbol: string, tf: string) => `${symbol}:${tf}`;
+const TF_OPTIONS: ChartTimeframe[] = ['1m', '5m', '15m', '1H', '1D'];
 
-export const NiftyCandlestickChart: React.FC<NiftyCandlestickChartProps> = ({
-  symbol,
-  spotPrice: _spotPrice,
-  spotChange,
-  spotChangePct,
-  isActive = true,
-}) => {
-  const [timeframe, setTimeframe] = useState<'1m' | '5m' | '15m' | '1D'>('5m');
-  const [candles, setCandles] = useState<CandlePoint[]>(
-    () => candleCache.get(cacheKey(symbol, '5m')) || [],
+const chartCache = new Map<string, { candles: CandlePoint[]; asOf: string | null; fetchedAt: number }>();
+const CACHE_TTL_MS = 60_000;
+
+function IconCandles({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M7 4v3M7 17v3M17 6v2M17 16v2" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+      <rect x="5" y="7" width="4" height="10" rx="0.75" stroke="currentColor" strokeWidth="1.75" />
+      <rect x="15" y="8" width="4" height="8" rx="0.75" stroke="currentColor" strokeWidth="1.75" />
+    </svg>
   );
-  const [isLoading, setIsLoading] = useState(() => !(candleCache.get(cacheKey(symbol, '5m'))?.length));
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [hoveredCandle, setHoveredCandle] = useState<CandlePoint | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const candlesRef = useRef<CandlePoint[]>(candles);
-  const inFlightRef = useRef(false);
+}
+
+function IconIndicators({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M4 18V6M10 18V10M16 18V8M20 18H3" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 12c2.5-3 5.5-3 8 0s5.5 3 8 0" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconSettings({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.75" />
+      <path
+        d="M12 3.5v2.2M12 18.3v2.2M4.9 6.5l1.6 1.6M17.5 15.9l1.6 1.6M3.5 12h2.2M18.3 12h2.2M4.9 17.5l1.6-1.6M17.5 8.1l1.6-1.6"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function IconFullscreen({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconCamera({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.1l1.2-1.6A1 1 0 0 1 9.6 5h4.8a1 1 0 0 1 .8.4L16.4 7h2.1A1.5 1.5 0 0 1 20 8.5v8A1.5 1.5 0 0 1 18.5 18h-13A1.5 1.5 0 0 1 4 16.5v-8Z" stroke="currentColor" strokeWidth="1.75" />
+      <circle cx="12" cy="12.5" r="3" stroke="currentColor" strokeWidth="1.75" />
+    </svg>
+  );
+}
+
+function IconLightning({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/**
+ * Production chart shell:
+ * - TradingView Advanced Chart (default): live NSE data + drawings, indicators, timeframes
+ * - App Feed: our Yahoo/NSE candle API via ECharts (offline / no-TV fallback)
+ */
+export const NiftyCandlestickChart: React.FC<NiftyCandlestickChartProps> = ({
+  symbol = 'NIFTY',
+  height = 420,
+  isActive = true,
+  defaultFeed = 'tradingview',
+  spotPrice: _spotPrice,
+  spotChange: _spotChange,
+  spotChangePct: _spotChangePct,
+  immersive = false,
+  fullTools = false,
+}) => {
+  const [feed, setFeed] = useState<ChartFeedMode>(defaultFeed);
+  const [timeframe, setTimeframe] = useState<ChartTimeframe>('5m');
+  const [candles, setCandles] = useState<CandlePoint[]>([]);
+  const [asOf, setAsOf] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showMa, setShowMa] = useState(true);
+  const [showVolume, setShowVolume] = useState(true);
+  const [fullscreen, setFullscreen] = useState(false);
   const chartRef = useRef<any>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    candlesRef.current = candles;
-  }, [candles]);
-
-  // Seed from cache when symbol/timeframe changes
-  useEffect(() => {
-    const cached = candleCache.get(cacheKey(symbol, timeframe));
-    if (cached?.length) {
-      setCandles(cached);
-      candlesRef.current = cached;
-      setIsLoading(false);
+    if (feed !== 'app' || !isActive) return;
+    let cancelled = false;
+    const key = `${symbol}|${timeframe}`;
+    const cached = chartCache.get(key);
+    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+      setCandles(cached.candles);
+      setAsOf(cached.asOf);
+      setError(null);
+      setLoading(false);
     }
-  }, [symbol, timeframe]);
 
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchChart(silent: boolean) {
-      if (silent && inFlightRef.current) return;
-      inFlightRef.current = true;
-      const keepUi = silent || candlesRef.current.length > 0;
+    async function load() {
+      setLoading(true);
+      setError(null);
       try {
-        if (!keepUi) setIsLoading(true);
-        else setIsRefreshing(true);
-        const intervalMap = {
-          '1m': '1m',
-          '5m': '5m',
-          '15m': '15m',
-          '1D': '1d',
-        };
-        const rangeMap = {
-          '1m': '1d',
-          '5m': '1d',
-          '15m': '5d',
-          '1D': '1mo',
-        };
-        const interval = intervalMap[timeframe] || '5m';
-        const range = rangeMap[timeframe] || '1d';
-
         const res = await fetch(
-          `/api/v1/options/chart/${symbol}?interval=${interval}&range=${range}`,
+          `/api/v1/options/chart/${encodeURIComponent(symbol)}?timeframe=${timeframe}`,
+          { credentials: 'include' },
         );
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data?.candles && isMounted) {
-            const next = json.data.candles as CandlePoint[];
-            candleCache.set(cacheKey(symbol, timeframe), next);
-            setCandles(next);
-            candlesRef.current = next;
-          }
-        }
-      } catch {
-        // Keep last candles when network fails
+        if (!res.ok) throw new Error(`Chart ${res.status}`);
+        const json = await res.json();
+        const next: CandlePoint[] = Array.isArray(json?.candles) ? json.candles : [];
+        if (cancelled) return;
+        setCandles(next);
+        setAsOf(json?.asOf || null);
+        chartCache.set(key, { candles: next, asOf: json?.asOf || null, fetchedAt: Date.now() });
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || 'Failed to load chart');
       } finally {
-        inFlightRef.current = false;
-        if (isMounted) {
-          setIsLoading(false);
-          setIsRefreshing(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
-    void fetchChart(false);
-    const intervalId = setInterval(() => {
-      void fetchChart(true);
-    }, 15000);
+    void load();
+    const id = window.setInterval(load, 30_000);
     return () => {
-      isMounted = false;
-      clearInterval(intervalId);
+      cancelled = true;
+      window.clearInterval(id);
     };
-  }, [symbol, timeframe]);
+  }, [symbol, timeframe, feed, isActive]);
 
-  // Resize when tab becomes visible again (fixes blank / wrong first paint)
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || feed !== 'app') return;
     const t = window.setTimeout(() => {
       try {
         chartRef.current?.getEchartsInstance?.()?.resize?.();
       } catch {
         /* ignore */
       }
-    }, 60);
+    }, 80);
     return () => window.clearTimeout(t);
-  }, [isActive, timeframe, candles.length]);
+  }, [isActive, feed, height, fullscreen]);
 
   useEffect(() => {
-    const el = wrapRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => {
-      try {
-        chartRef.current?.getEchartsInstance?.()?.resize?.();
-      } catch {
-        /* ignore */
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fullscreen]);
+
+  const option = useMemo<EChartsOption>(() => {
+    const times = candles.map((c) => {
+      const d = new Date(c.time);
+      if (timeframe === '1D') {
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
       }
+      return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
     });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+    const ohlc = candles.map((c) => [c.open, c.close, c.low, c.high]);
+    const volumes = candles.map((c) => c.volume ?? 0);
+    const closes = candles.map((c) => c.close);
+    const ma = (period: number) =>
+      closes.map((_, i) => {
+        if (i < period - 1) return null;
+        const slice = closes.slice(i - period + 1, i + 1);
+        return +(slice.reduce((a, b) => a + b, 0) / period).toFixed(2);
+      });
 
-  const zoomBy = useCallback((factor: number) => {
-    const inst = chartRef.current?.getEchartsInstance?.();
-    if (!inst) return;
-    const opt = inst.getOption() as any;
-    const dz = opt?.dataZoom?.[0];
-    const start = typeof dz?.start === 'number' ? dz.start : 0;
-    const end = typeof dz?.end === 'number' ? dz.end : 100;
-    const center = (start + end) / 2;
-    const span = Math.max(5, (end - start) * factor);
-    let nextStart = center - span / 2;
-    let nextEnd = center + span / 2;
-    if (nextStart < 0) {
-      nextEnd = Math.min(100, nextEnd - nextStart);
-      nextStart = 0;
+    const series: any[] = [
+      {
+        type: 'candlestick',
+        name: symbol,
+        data: ohlc,
+        itemStyle: {
+          color: '#16A34A',
+          color0: '#DC2626',
+          borderColor: '#16A34A',
+          borderColor0: '#DC2626',
+        },
+      },
+    ];
+    if (showMa) {
+      series.push(
+        { type: 'line', name: 'EMA 9', data: ma(9), smooth: true, showSymbol: false, lineStyle: { width: 1.2, color: '#2563EB' } },
+        { type: 'line', name: 'EMA 21', data: ma(21), smooth: true, showSymbol: false, lineStyle: { width: 1.2, color: '#F59E0B' } },
+      );
     }
-    if (nextEnd > 100) {
-      nextStart = Math.max(0, nextStart - (nextEnd - 100));
-      nextEnd = 100;
+    if (showVolume) {
+      series.push({
+        type: 'bar',
+        name: 'Volume',
+        data: volumes,
+        xAxisIndex: 1,
+        yAxisIndex: 1,
+        itemStyle: { color: 'rgba(100,116,139,0.35)' },
+      });
     }
-    inst.dispatchAction({ type: 'dataZoom', start: nextStart, end: nextEnd });
-  }, []);
-
-  const resetZoom = useCallback(() => {
-    const inst = chartRef.current?.getEchartsInstance?.();
-    if (!inst) return;
-    const n = candlesRef.current.length || 1;
-    const start = Math.max(0, 100 - (35 / n) * 100);
-    inst.dispatchAction({ type: 'dataZoom', start, end: 100 });
-  }, []);
-
-  const activeCandle = hoveredCandle || candles[candles.length - 1] || null;
-  const isPositive = spotChange >= 0;
-
-  const chartOption = useMemo(() => {
-    if (!candles || candles.length === 0) return {};
-
-    const dates = candles.map((c) => c.timeStr);
-    const ohlcData = candles.map((c) => [c.open, c.close, c.low, c.high]);
-    const volumes = candles.map((c) => [c.timeStr, c.volume, c.close >= c.open ? 1 : -1]);
-    const zoomStart = Math.max(0, 100 - (35 / candles.length) * 100);
 
     return {
-      backgroundColor: 'transparent',
       animation: false,
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: {
-          type: 'cross',
-          lineStyle: { color: '#94A3B8', type: 'dashed' },
-        },
-        formatter: (params: any[]) => {
-          if (!params || params.length === 0) return '';
-          const p = params[0];
-          const cIndex = p.dataIndex;
-          const c = candles[cIndex];
-          if (c) {
-            setTimeout(() => setHoveredCandle(c), 0);
-          }
-          return `
-            <div style="font-family: monospace; font-size: 11px; padding: 4px;">
-              <strong>${symbol} (${p.name})</strong><br/>
-              O: ₹${c?.open.toLocaleString('en-IN')}<br/>
-              H: ₹${c?.high.toLocaleString('en-IN')}<br/>
-              L: ₹${c?.low.toLocaleString('en-IN')}<br/>
-              C: ₹${c?.close.toLocaleString('en-IN')}<br/>
-              Vol: ${c?.volume.toLocaleString('en-IN')}
-            </div>
-          `;
-        },
-      },
-      toolbox: {
-        show: false,
-      },
-      grid: [
-        {
-          left: 12,
-          right: 56,
-          top: 16,
-          height: '58%',
-          containLabel: false,
-        },
-        {
-          left: 12,
-          right: 56,
-          top: '72%',
-          height: '16%',
-          containLabel: false,
-        },
-      ],
-      xAxis: [
-        {
-          type: 'category',
-          data: dates,
-          scale: true,
-          boundaryGap: true,
-          axisLine: { lineStyle: { color: '#CBD5E1' } },
-          axisLabel: { color: '#64748B', fontSize: 10 },
-          splitLine: { show: false },
-        },
-        {
-          type: 'category',
-          gridIndex: 1,
-          data: dates,
-          scale: true,
-          boundaryGap: true,
-          axisLine: { lineStyle: { color: '#E2E8F0' } },
-          axisLabel: { show: false },
-          splitLine: { show: false },
-        },
-      ],
-      yAxis: [
-        {
-          scale: true,
-          position: 'right',
-          splitLine: { lineStyle: { color: '#F1F5F9' } },
-          axisLabel: {
-            color: '#64748B',
-            fontSize: 10,
-            formatter: (v: number) => Math.round(v).toLocaleString('en-IN'),
-          },
-        },
-        {
-          scale: true,
-          gridIndex: 1,
-          splitNumber: 2,
-          axisLabel: { show: false },
-          axisLine: { show: false },
-          axisTick: { show: false },
-          splitLine: { show: false },
-        },
-      ],
-      dataZoom: [
-        {
-          type: 'inside',
-          xAxisIndex: [0, 1],
-          start: zoomStart,
-          end: 100,
-          zoomOnMouseWheel: true,
-          moveOnMouseMove: true,
-          moveOnMouseWheel: false,
-        },
-        {
-          type: 'slider',
-          xAxisIndex: [0, 1],
-          start: zoomStart,
-          end: 100,
-          height: 18,
-          bottom: 4,
-          borderColor: '#E2E8F0',
-          fillerColor: 'rgba(15, 118, 110, 0.15)',
-          handleStyle: { color: '#0F766E' },
-          textStyle: { color: '#64748B', fontSize: 9 },
-        },
-      ],
-      series: [
-        {
-          name: symbol,
-          type: 'candlestick',
-          data: ohlcData,
-          itemStyle: {
-            color: '#10B981',
-            color0: '#F43F5E',
-            borderColor: '#10B981',
-            borderColor0: '#F43F5E',
-          },
-        },
-        {
-          name: 'Volume',
-          type: 'bar',
-          xAxisIndex: 1,
-          yAxisIndex: 1,
-          data: volumes.map((v) => ({
-            value: v[1],
-            itemStyle: {
-              color: v[2] === 1 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(244, 63, 94, 0.4)',
-            },
-          })),
-        },
-      ],
+      backgroundColor: '#FFFFFF',
+      legend: { top: 4, left: 8, textStyle: { fontSize: 11, color: '#64748B' }, data: showMa ? [symbol, 'EMA 9', 'EMA 21'] : [symbol] },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+      axisPointer: { link: [{ xAxisIndex: 'all' }] },
+      grid: showVolume
+        ? [
+            { left: 48, right: 16, top: 36, height: '58%' },
+            { left: 48, right: 16, top: '74%', height: '16%' },
+          ]
+        : [{ left: 48, right: 16, top: 36, bottom: 28 }],
+      xAxis: showVolume
+        ? [
+            { type: 'category', data: times, boundaryGap: true, axisLine: { lineStyle: { color: '#E2E8F0' } }, axisLabel: { color: '#94A3B8', fontSize: 10 }, splitLine: { show: false } },
+            { type: 'category', gridIndex: 1, data: times, boundaryGap: true, axisLabel: { show: false }, axisTick: { show: false }, axisLine: { show: false } },
+          ]
+        : [{ type: 'category', data: times, boundaryGap: true, axisLine: { lineStyle: { color: '#E2E8F0' } }, axisLabel: { color: '#94A3B8', fontSize: 10 } }],
+      yAxis: showVolume
+        ? [
+            { scale: true, splitLine: { lineStyle: { color: '#F1F5F9' } }, axisLabel: { color: '#64748B', fontSize: 10 } },
+            { scale: true, gridIndex: 1, splitNumber: 2, axisLabel: { show: false }, axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false } },
+          ]
+        : [{ scale: true, splitLine: { lineStyle: { color: '#F1F5F9' } }, axisLabel: { color: '#64748B', fontSize: 10 } }],
+      dataZoom: thinChartDataZoom({
+        xAxisIndex: showVolume ? [0, 1] : [0],
+        start: 60,
+        end: 100,
+        bottom: 2,
+        accent: 'blue',
+      }),
+      series,
     };
-  }, [candles, symbol]);
+  }, [candles, symbol, timeframe, showMa, showVolume]);
+
+  const last = candles[candles.length - 1];
+  const prev = candles[candles.length - 2];
+  const chg = last && prev ? last.close - prev.close : 0;
+  const chgPct = last && prev && prev.close ? (chg / prev.close) * 100 : 0;
+  const up = chg >= 0;
+
+  const takeSnapshot = () => {
+    if (feed === 'tradingview') {
+      window.open(`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(symbol)}`, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    try {
+      const url = chartRef.current?.getEchartsInstance?.()?.getDataURL?.({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' });
+      if (!url) return;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${symbol}-${timeframe}-${Date.now()}.png`;
+      a.click();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const chartHeight = fullscreen ? Math.max(480, typeof window !== 'undefined' ? window.innerHeight - 120 : 480) : height;
 
   return (
     <div
+      className={`nifty-chart-shell ${fullscreen ? 'nifty-chart-shell--fs' : ''}`}
       ref={wrapRef}
-      className={`sm-candlestick-wrapper ${isFullscreen ? 'is-fullscreen' : ''}`}
-      style={isActive ? undefined : { display: 'none' }}
+      style={{ display: isActive ? undefined : 'none' }}
+      aria-hidden={!isActive}
     >
-      <div className="sm-chart-header-bar">
-        <div className="sm-chart-toolbar-start">
-          <div className="sm-timeframe-group">
-            {(['1m', '5m', '15m', '1D'] as const).map((tf) => (
+      <div className="nifty-chart-toolbar">
+        <div className="nifty-chart-toolbar-left">
+          <div className="nifty-chart-feed-toggle" role="group" aria-label="Chart data source">
+            <button
+              type="button"
+              className={feed === 'tradingview' ? 'active' : ''}
+              onClick={() => setFeed('tradingview')}
+              title="Live TradingView chart (NSE) — drawings, indicators, professional tools"
+            >
+              Live TV
+            </button>
+            <button
+              type="button"
+              className={feed === 'app' ? 'active' : ''}
+              onClick={() => setFeed('app')}
+              title="App candle feed (Yahoo/NSE via our API)"
+            >
+              App Feed
+            </button>
+          </div>
+
+          <div className="nifty-chart-tf" role="group" aria-label="Timeframe">
+            {TF_OPTIONS.map((tf) => (
               <button
                 key={tf}
                 type="button"
+                className={timeframe === tf ? 'active' : ''}
                 onClick={() => setTimeframe(tf)}
-                className={`sm-tf-btn ${timeframe === tf ? 'active' : ''}`}
               >
                 {tf}
               </button>
             ))}
           </div>
 
-          <button type="button" className="sm-indicators-btn" title="Indicators (coming soon)">
-            <BarChart2 strokeWidth={2} />
-            <span>Indicators</span>
-          </button>
-
-          <div className="sm-chart-zoom-btns" title="Scroll to pan · pinch/wheel to zoom">
-            <button
-              type="button"
-              className="sm-chart-zoom-btn"
-              onClick={() => zoomBy(0.7)}
-              title="Zoom in"
-              aria-label="Zoom in"
-            >
-              <ZoomIn strokeWidth={2} />
-            </button>
-            <button
-              type="button"
-              className="sm-chart-zoom-btn"
-              onClick={() => zoomBy(1.4)}
-              title="Zoom out"
-              aria-label="Zoom out"
-            >
-              <ZoomOut strokeWidth={2} />
-            </button>
-            <button
-              type="button"
-              className="sm-chart-zoom-btn"
-              onClick={resetZoom}
-              title="Reset zoom"
-              aria-label="Reset zoom"
-            >
-              <RotateCcw strokeWidth={2} />
-            </button>
-          </div>
-        </div>
-
-        <div className="sm-chart-toolbar-end">
-          {(isLoading || isRefreshing) && (
-            <RefreshCw className="sm-chart-spin-icon" />
+          {feed === 'app' && (
+            <>
+              <button type="button" className="nifty-chart-ico" title="Candlestick" aria-label="Candlestick">
+                <IconCandles />
+              </button>
+              <button
+                type="button"
+                className={`nifty-chart-ico ${showMa ? 'active' : ''}`}
+                title="Indicators (EMA)"
+                aria-label="Indicators"
+                onClick={() => setShowMa((v) => !v)}
+              >
+                <IconIndicators />
+                <span className="nifty-chart-ico-label">fx</span>
+              </button>
+              <button
+                type="button"
+                className={`nifty-chart-ico ${showVolume ? 'active' : ''}`}
+                title="Volume"
+                aria-label="Volume"
+                onClick={() => setShowVolume((v) => !v)}
+              >
+                <IconSettings />
+              </button>
+            </>
           )}
-          <button
-            type="button"
-            className="sm-panel-icon-btn"
-            onClick={() => setIsFullscreen((v) => !v)}
-            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-          >
-            <Maximize2 strokeWidth={2} />
+        </div>
+
+        <div className="nifty-chart-toolbar-right">
+          {feed === 'tradingview' ? (
+            <span className="nifty-chart-live-pill" title="Streaming via TradingView (NSE/BSE)">
+              NSE LIVE · TradingView
+            </span>
+          ) : asOf ? (
+            <span className="nifty-chart-asof">
+              {new Date(asOf).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          ) : null}
+          <button type="button" className="nifty-chart-ico" title="Quick trade" aria-label="Quick trade">
+            <IconLightning />
+          </button>
+          <button type="button" className="nifty-chart-ico" title="Fullscreen" aria-label="Fullscreen" onClick={() => setFullscreen((v) => !v)}>
+            <IconFullscreen />
+          </button>
+          <button type="button" className="nifty-chart-ico" title="Snapshot" aria-label="Snapshot" onClick={takeSnapshot}>
+            <IconCamera />
           </button>
         </div>
       </div>
 
-      <div className="sm-ohlc-status-strip">
-        <span className="sm-ohlc-symbol">{symbol}</span>
-        {activeCandle ? (
-          <>
-            <span className="sm-ohlc-item">
-              O <strong className="font-mono">{activeCandle.open.toFixed(2)}</strong>
-            </span>
-            <span className="sm-ohlc-item">
-              H <strong className="font-mono">{activeCandle.high.toFixed(2)}</strong>
-            </span>
-            <span className="sm-ohlc-item">
-              L <strong className="font-mono">{activeCandle.low.toFixed(2)}</strong>
-            </span>
-            <span className="sm-ohlc-item">
-              C <strong className="font-mono">{activeCandle.close.toFixed(2)}</strong>
-            </span>
-          </>
-        ) : (
-          <span className="sm-ohlc-item">No candle data</span>
-        )}
-        <span className={`sm-ohlc-diff ${isPositive ? 'pos' : 'neg'}`}>
-          {isPositive ? '+' : ''}
-          {spotChange.toFixed(2)} ({isPositive ? '+' : ''}
-          {spotChangePct.toFixed(2)}%)
-        </span>
-      </div>
+      {feed === 'app' && last && (
+        <div className="nifty-chart-ohlc">
+          <strong>{symbol}</strong>
+          <span>· {timeframe}</span>
+          <span className="ohlc-vals">
+            O {last.open.toLocaleString('en-IN')} H {last.high.toLocaleString('en-IN')} L {last.low.toLocaleString('en-IN')} C{' '}
+            <em className={up ? 'up' : 'dn'}>{last.close.toLocaleString('en-IN')}</em>{' '}
+            <em className={up ? 'up' : 'dn'}>
+              {up ? '+' : ''}
+              {chg.toFixed(2)} ({up ? '+' : ''}
+              {chgPct.toFixed(2)}%)
+            </em>
+          </span>
+        </div>
+      )}
 
-      <div className="sm-candlestick-canvas">
-        {candles.length > 0 ? (
-          <ReactECharts
-            option={chartOption}
-            style={{ height: isFullscreen ? '70vh' : '320px', width: '100%' }}
-            notMerge={false}
-            lazyUpdate
-            opts={{ renderer: 'canvas' }}
-            onChartReady={(inst: any) => {
-              chartRef.current = { getEchartsInstance: () => inst };
-            }}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-[320px] text-slate-400 text-xs">
-            {isLoading ? 'Loading live chart feed…' : 'No candle data for this timeframe'}
-          </div>
-        )}
-      </div>
+      {feed === 'tradingview' ? (
+        <TradingViewAdvancedChart
+          symbol={symbol}
+          timeframe={timeframe}
+          height={chartHeight}
+          isActive={isActive}
+          fullTools={fullTools || immersive}
+        />
+      ) : (
+        <div className="nifty-chart-body" style={{ height: chartHeight }}>
+          {loading && candles.length === 0 && <div className="nifty-chart-state">Loading chart…</div>}
+          {error && candles.length === 0 && <div className="nifty-chart-state nifty-chart-state--err">{error}</div>}
+          {candles.length > 0 && (
+            <ReactECharts
+              ref={chartRef}
+              option={option}
+              style={{ height: '100%', width: '100%' }}
+              opts={{ renderer: 'canvas' }}
+              notMerge
+              lazyUpdate
+            />
+          )}
+        </div>
+      )}
+
+      {feed === 'tradingview' && !immersive && (
+        <p className="nifty-chart-hint">
+          Drawing tools, Fibonacci, indicators &amp; live NSE quotes via TradingView Advanced Chart.
+          Switch to <button type="button" className="linkish" onClick={() => setFeed('app')}>App Feed</button> for our API candles.
+        </p>
+      )}
     </div>
   );
 };

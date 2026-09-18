@@ -44,6 +44,7 @@ import { SandboxPortfolioView } from '../../components/options/sandbox-portfolio
 import { StockMojoChainLadder } from '../../components/options/stockmojo-chain-ladder';
 import { OptionChainTable } from '../../components/options/option-chain-table';
 import { NiftyCandlestickChart } from '../../components/options/nifty-candlestick-chart';
+import { thinChartDataZoom } from '../../components/options/echarts-data-zoom';
 import {
   PanelResizeHandle,
   usePersistedLayoutNumber,
@@ -286,15 +287,43 @@ export default function OptionsLabPage() {
   const [currentTime, setCurrentTime] = useState('');
   const [isAnalyticsCollapsed, setIsAnalyticsCollapsed] = useState(false);
   const [isPositionsCollapsed, setIsPositionsCollapsed] = useState(false);
+  const [isChartFullscreen, setIsChartFullscreen] = useState(false);
+  const [isGuideCollapsed, setIsGuideCollapsed] = useState(true);
   const [isDesktopLayout, setIsDesktopLayout] = useState(true);
   const [chainWidth, setChainWidth] = usePersistedLayoutNumber('chainWidth', 360, 260, 560);
-  const [analyticsFlex, setAnalyticsFlex] = usePersistedLayoutNumber('analyticsFlex', 58, 28, 78);
+  const [analyticsFlex, setAnalyticsFlex] = usePersistedLayoutNumber('analyticsFlex', 62, 20, 95);
   const [chainMobileHeight, setChainMobileHeight] = usePersistedLayoutNumber(
     'chainMobileHeight',
     360,
     200,
     640,
   );
+
+  const isChartTab =
+    analyticsTab === 'nifty_chart' || analyticsTab === 'strategy_chart';
+
+  const expandAnalyticsPanel = useCallback(() => {
+    setIsAnalyticsCollapsed(false);
+    setIsPositionsCollapsed(true);
+    setAnalyticsFlex(92);
+    setIsGuideCollapsed(true);
+  }, [setAnalyticsFlex]);
+
+  const balanceWorkspace = useCallback(() => {
+    setIsAnalyticsCollapsed(false);
+    setIsPositionsCollapsed(false);
+    setAnalyticsFlex(62);
+    setIsChartFullscreen(false);
+  }, [setAnalyticsFlex]);
+
+  const enterChartFullscreen = useCallback(() => {
+    setIsAnalyticsCollapsed(false);
+    setIsPositionsCollapsed(true);
+    setAnalyticsFlex(95);
+    setIsGuideCollapsed(true);
+    setIsChartFullscreen(true);
+    if (!isChartTab) setAnalyticsTab('nifty_chart');
+  }, [isChartTab, setAnalyticsFlex]);
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 901px)');
@@ -303,6 +332,24 @@ export default function OptionsLabPage() {
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
   }, []);
+
+  useEffect(() => {
+    if (!isChartFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsChartFullscreen(false);
+    };
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [isChartFullscreen]);
+
+  useEffect(() => {
+    if (isChartTab) setIsGuideCollapsed(true);
+  }, [isChartTab]);
 
   // Strategy Builder State
   const [strategyLegs, setStrategyLegs] = useState<StrategyLegDto[]>([]);
@@ -617,29 +664,9 @@ export default function OptionsLabPage() {
         : currentSpot * 0.02;
     const roundSpot = Math.round(currentSpot);
 
-    const baseGrid = { left: 52, right: 28, bottom: 52, top: 36, containLabel: true };
+    const baseGrid = { left: 52, right: 28, bottom: 28, top: 36, containLabel: true };
     const baseAnim = { animation: false, animationDurationUpdate: 0 };
-    const baseZoom = [
-      {
-        type: 'inside' as const,
-        xAxisIndex: 0,
-        filterMode: 'none' as const,
-        zoomOnMouseWheel: true,
-        moveOnMouseMove: true,
-        moveOnMouseWheel: false,
-      },
-      {
-        type: 'slider' as const,
-        xAxisIndex: 0,
-        height: 16,
-        bottom: 8,
-        borderColor: '#E2E8F0',
-        fillerColor: 'rgba(15, 118, 110, 0.14)',
-        handleStyle: { color: '#0F766E' },
-        textStyle: { color: '#64748B', fontSize: 9 },
-        filterMode: 'none' as const,
-      },
-    ];
+    const baseZoom = thinChartDataZoom({ accent: 'teal', bottom: 4, filterMode: 'none' });
 
     // Baseline chart when no legs are active
     if (!payoffResult.payoffPoints || payoffResult.payoffPoints.length === 0) {
@@ -1381,7 +1408,9 @@ export default function OptionsLabPage() {
             ) : null}
 
             {/* ── Right Column: Interactive Strategy Workspace ── */}
-            <div className="sm-workspace-panel">
+            <div
+              className={`sm-workspace-panel ${isPositionsCollapsed ? 'is-chart-focus' : ''} ${isChartFullscreen ? 'is-fs-parent' : ''}`}
+            >
               {/* Top Action Bar (Save, Saved, Reset/New, Clock) */}
               <div className="sm-top-action-bar">
                 <div className="sm-action-btn-group">
@@ -1425,13 +1454,22 @@ export default function OptionsLabPage() {
 
               {/* Upper Section: Visual Analytics Card (Payoff / Charts) */}
               <div
-                className={`sm-analytics-card ${isAnalyticsCollapsed ? 'is-collapsed' : ''}`}
+                className={[
+                  'sm-analytics-card',
+                  isAnalyticsCollapsed ? 'is-collapsed' : '',
+                  isPositionsCollapsed && !isAnalyticsCollapsed ? 'is-expanded' : '',
+                  isChartFullscreen ? 'is-fullscreen' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 style={
-                  isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed
-                    ? { flex: `${analyticsFlex} 1 0` }
-                    : isAnalyticsCollapsed
-                      ? { flex: '0 0 auto' }
-                      : undefined
+                  isChartFullscreen
+                    ? undefined
+                    : isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed
+                      ? { flex: `${analyticsFlex} 1 0` }
+                      : isAnalyticsCollapsed
+                        ? { flex: '0 0 auto' }
+                        : { flex: '1 1 auto', minHeight: isPositionsCollapsed ? 'min(72vh, 920px)' : undefined }
                 }
               >
                 {/* Tabs Bar */}
@@ -1498,13 +1536,43 @@ export default function OptionsLabPage() {
                         </span>
                       </button>
                     )}
-                    <div className="sm-panel-chrome-actions" role="group" aria-label="Panel layout">
+                    <div className="sm-layout-controls" role="group" aria-label="Chart layout">
                       <button
                         type="button"
-                        className="sm-panel-icon-btn"
-                        title={isAnalyticsCollapsed ? 'Expand analytics' : 'Collapse analytics'}
-                        aria-label={isAnalyticsCollapsed ? 'Expand analytics' : 'Collapse analytics'}
-                        onClick={() => setIsAnalyticsCollapsed((p) => !p)}
+                        className={`sm-layout-btn ${isAnalyticsCollapsed ? '' : isPositionsCollapsed && !isChartFullscreen ? 'is-on' : ''}`}
+                        title="Expand chart (hide positions)"
+                        onClick={expandAnalyticsPanel}
+                      >
+                        <Maximize2 strokeWidth={2} />
+                        <span>Expand</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`sm-layout-btn sm-layout-btn--accent ${isChartFullscreen ? 'is-on' : ''}`}
+                        title="Fullscreen chart (Esc to exit)"
+                        onClick={() => (isChartFullscreen ? setIsChartFullscreen(false) : enterChartFullscreen())}
+                      >
+                        {isChartFullscreen ? <Minimize2 strokeWidth={2} /> : <Maximize2 strokeWidth={2} />}
+                        <span>{isChartFullscreen ? 'Exit' : 'Full'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="sm-layout-btn"
+                        title="Split chart + positions"
+                        onClick={balanceWorkspace}
+                      >
+                        <Minimize2 strokeWidth={2} />
+                        <span>Split</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="sm-layout-btn sm-layout-btn--icon"
+                        title={isAnalyticsCollapsed ? 'Show chart panel' : 'Hide chart panel'}
+                        aria-label={isAnalyticsCollapsed ? 'Show chart panel' : 'Hide chart panel'}
+                        onClick={() => {
+                          if (isChartFullscreen) setIsChartFullscreen(false);
+                          setIsAnalyticsCollapsed((p) => !p);
+                        }}
                       >
                         {isAnalyticsCollapsed ? (
                           <ChevronDown strokeWidth={2} />
@@ -1512,38 +1580,13 @@ export default function OptionsLabPage() {
                           <ChevronUp strokeWidth={2} />
                         )}
                       </button>
-                      <button
-                        type="button"
-                        className="sm-panel-icon-btn"
-                        title="Maximize analytics"
-                        aria-label="Maximize analytics"
-                        onClick={() => {
-                          setIsAnalyticsCollapsed(false);
-                          setIsPositionsCollapsed(true);
-                          setAnalyticsFlex(78);
-                        }}
-                      >
-                        <Maximize2 strokeWidth={2} />
-                      </button>
-                      <button
-                        type="button"
-                        className="sm-panel-icon-btn"
-                        title="Balanced layout"
-                        aria-label="Reset to balanced layout"
-                        onClick={() => {
-                          setIsAnalyticsCollapsed(false);
-                          setIsPositionsCollapsed(false);
-                          setAnalyticsFlex(58);
-                        }}
-                      >
-                        <Minimize2 strokeWidth={2} />
-                      </button>
                     </div>
                   </div>
                 </div>
 
                 {!isAnalyticsCollapsed ? (
                 <>
+                <div className="sm-analytics-body">
                 {/* What-If / Payoff Settings Drawer */}
                 {showPayoffSettings && analyticsTab === 'payoff' && (
                   <div
@@ -1782,21 +1825,28 @@ export default function OptionsLabPage() {
                   spotPrice={spot}
                   spotChange={spotChange}
                   spotChangePct={spotChangePct}
+                  height={
+                    isChartFullscreen
+                      ? Math.max(560, typeof window !== 'undefined' ? window.innerHeight - 72 : 560)
+                      : isPositionsCollapsed
+                        ? 560
+                        : 400
+                  }
                   isActive={
                     analyticsTab === 'nifty_chart' || analyticsTab === 'strategy_chart'
                   }
                 />
+                </div>
                 </>
                 ) : null}
               </div>
 
-              {isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed ? (
+              {isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed && !isChartFullscreen ? (
                 <PanelResizeHandle
                   axis="vertical"
                   label="Resize analytics and positions"
                   onDrag={(delta) => {
                     setAnalyticsFlex((prev) => {
-                      // Roughly map px drag to flex share (workspace ~700px tall)
                       return prev + delta / 8;
                     });
                   }}
@@ -1805,13 +1855,15 @@ export default function OptionsLabPage() {
 
               {/* Lower Section: Positions & Greeks Manager */}
               <div
-                className={`sm-positions-card ${isPositionsCollapsed ? 'is-collapsed' : ''}`}
+                className={`sm-positions-card ${isPositionsCollapsed ? 'is-collapsed' : ''} ${isChartFullscreen ? 'is-hidden-fs' : ''}`}
                 style={
-                  isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed
-                    ? { flex: `${100 - analyticsFlex} 1 0` }
-                    : isPositionsCollapsed
-                      ? { flex: '0 0 auto' }
-                      : undefined
+                  isChartFullscreen
+                    ? { display: 'none' }
+                    : isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed
+                      ? { flex: `${100 - analyticsFlex} 1 0` }
+                      : isPositionsCollapsed
+                        ? { flex: '0 0 auto' }
+                        : undefined
                 }
               >
                 {/* Positions Subtabs Bar */}
@@ -1877,12 +1929,35 @@ export default function OptionsLabPage() {
                       </strong>
                     </div>
 
-                    <div className="sm-panel-chrome-actions" role="group" aria-label="Positions layout">
+                    <div className="sm-layout-controls" role="group" aria-label="Positions layout">
                       <button
                         type="button"
-                        className="sm-panel-icon-btn"
-                        title={isPositionsCollapsed ? 'Expand positions' : 'Collapse positions'}
-                        aria-label={isPositionsCollapsed ? 'Expand positions' : 'Collapse positions'}
+                        className={`sm-layout-btn ${!isAnalyticsCollapsed && !isPositionsCollapsed ? '' : isPositionsCollapsed ? '' : 'is-on'}`}
+                        title="Expand positions table"
+                        onClick={() => {
+                          setIsPositionsCollapsed(false);
+                          setIsAnalyticsCollapsed(true);
+                          setAnalyticsFlex(22);
+                          setIsChartFullscreen(false);
+                        }}
+                      >
+                        <Maximize2 strokeWidth={2} />
+                        <span>Expand</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="sm-layout-btn"
+                        title="Split chart + positions"
+                        onClick={balanceWorkspace}
+                      >
+                        <Minimize2 strokeWidth={2} />
+                        <span>Split</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="sm-layout-btn sm-layout-btn--icon"
+                        title={isPositionsCollapsed ? 'Show positions' : 'Hide positions'}
+                        aria-label={isPositionsCollapsed ? 'Show positions' : 'Hide positions'}
                         onClick={() => setIsPositionsCollapsed((p) => !p)}
                       >
                         {isPositionsCollapsed ? (
@@ -1890,19 +1965,6 @@ export default function OptionsLabPage() {
                         ) : (
                           <ChevronUp strokeWidth={2} />
                         )}
-                      </button>
-                      <button
-                        type="button"
-                        className="sm-panel-icon-btn"
-                        title="Maximize positions"
-                        aria-label="Maximize positions"
-                        onClick={() => {
-                          setIsPositionsCollapsed(false);
-                          setIsAnalyticsCollapsed(true);
-                          setAnalyticsFlex(28);
-                        }}
-                      >
-                        <Maximize2 strokeWidth={2} />
                       </button>
                     </div>
                   </div>
@@ -2118,9 +2180,20 @@ export default function OptionsLabPage() {
                 ) : null}
               </div>
 
-              {/* ── Bottom Section: Educational Guide & Related Tools (Screenshot 5) ── */}
-              <div className="sm-guide-card">
-                <h4 className="sm-guide-title">How to Build an Option Strategy on GoalCompass Options Lab</h4>
+              {/* ── Bottom Section: Educational Guide & Related Tools ── */}
+              <div className={`sm-guide-card ${isGuideCollapsed ? 'is-collapsed' : ''} ${isChartFullscreen ? 'is-hidden-fs' : ''}`}>
+                <button
+                  type="button"
+                  className="sm-guide-toggle"
+                  onClick={() => setIsGuideCollapsed((p) => !p)}
+                  aria-expanded={!isGuideCollapsed}
+                >
+                  <h4 className="sm-guide-title">How to Build an Option Strategy on GoalCompass Options Lab</h4>
+                  <span className="sm-guide-toggle-hint">{isGuideCollapsed ? 'Show guide' : 'Hide guide'}</span>
+                  {isGuideCollapsed ? <ChevronDown strokeWidth={2} /> : <ChevronUp strokeWidth={2} />}
+                </button>
+                {!isGuideCollapsed && (
+                  <>
                 <div className="sm-guide-steps">
                   <div>
                     <strong>1. Select symbol and expiry</strong> — Choose a symbol ({POPULAR_UNDERLYINGS.slice(0, 4).join(', ')}) and an expiry date from the ladder above.
@@ -2153,6 +2226,8 @@ export default function OptionsLabPage() {
                     <div className="sm-tool-desc">ATM straddle premium tracking & strike concentration.</div>
                   </div>
                 </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -2189,7 +2264,7 @@ export default function OptionsLabPage() {
             className={activeTab === 'sandbox' ? undefined : 'sm-tab-panel-hidden'}
             aria-hidden={activeTab !== 'sandbox'}
           >
-            <SandboxPortfolioView isActive={activeTab === 'sandbox'} />
+            <SandboxPortfolioView isActive={activeTab === 'sandbox'} liveChain={chainData} />
           </div>
         )}
 

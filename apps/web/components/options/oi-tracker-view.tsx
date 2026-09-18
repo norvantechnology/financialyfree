@@ -5,6 +5,7 @@ import '../../styles/options-lab.css';
 import dynamic from 'next/dynamic';
 import { TrendingUp, RefreshCw, BarChart2, Activity } from 'lucide-react';
 import { OptionChainDto } from '@ff/types';
+import { thinChartDataZoom } from './echarts-data-zoom';
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
@@ -139,20 +140,8 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         textStyle: { color: '#475569', fontSize: 11, fontWeight: '600' },
         top: 0,
       },
-      grid: { left: '3%', right: '4%', bottom: '18%', top: '15%', containLabel: true },
-      dataZoom: [
-        { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true },
-        {
-          type: 'slider',
-          xAxisIndex: 0,
-          height: 16,
-          bottom: 4,
-          borderColor: '#E2E8F0',
-          fillerColor: 'rgba(15, 118, 110, 0.14)',
-          handleStyle: { color: '#0F766E' },
-          textStyle: { fontSize: 9, color: '#64748B' },
-        },
-      ],
+      grid: { left: '3%', right: '4%', bottom: '12%', top: '15%', containLabel: true },
+      dataZoom: thinChartDataZoom({ accent: 'teal', bottom: 2 }),
       xAxis: {
         type: 'category',
         data: strikes,
@@ -239,20 +228,8 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         textStyle: { color: '#475569', fontSize: 11, fontWeight: '600' },
         top: 0,
       },
-      grid: { left: '3%', right: '4%', bottom: '18%', top: '15%', containLabel: true },
-      dataZoom: [
-        { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true },
-        {
-          type: 'slider',
-          xAxisIndex: 0,
-          height: 16,
-          bottom: 4,
-          borderColor: '#E2E8F0',
-          fillerColor: 'rgba(15, 118, 110, 0.14)',
-          handleStyle: { color: '#0F766E' },
-          textStyle: { fontSize: 9, color: '#64748B' },
-        },
-      ],
+      grid: { left: '3%', right: '4%', bottom: '12%', top: '15%', containLabel: true },
+      dataZoom: thinChartDataZoom({ accent: 'teal', bottom: 2 }),
       xAxis: {
         type: 'category',
         data: strikes,
@@ -312,20 +289,8 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         textStyle: { color: '#475569', fontSize: 11, fontWeight: '600' },
         top: 0,
       },
-      grid: { left: '3%', right: '4%', bottom: '18%', top: '15%', containLabel: true },
-      dataZoom: [
-        { type: 'inside', xAxisIndex: 0, zoomOnMouseWheel: true, moveOnMouseMove: true },
-        {
-          type: 'slider',
-          xAxisIndex: 0,
-          height: 16,
-          bottom: 4,
-          borderColor: '#E2E8F0',
-          fillerColor: 'rgba(15, 118, 110, 0.14)',
-          handleStyle: { color: '#0F766E' },
-          textStyle: { fontSize: 9, color: '#64748B' },
-        },
-      ],
+      grid: { left: '3%', right: '4%', bottom: '12%', top: '15%', containLabel: true },
+      dataZoom: thinChartDataZoom({ accent: 'teal', bottom: 2 }),
       xAxis: {
         type: 'category',
         data: times,

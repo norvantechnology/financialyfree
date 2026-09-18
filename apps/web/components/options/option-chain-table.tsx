@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   ArrowDown,
   ArrowUp,
   Columns3,
-  LineChart,
+  Maximize2,
+  Minimize2,
   RefreshCw,
   X,
 } from 'lucide-react';
@@ -19,6 +20,29 @@ import {
 } from '@ff/types';
 import { NiftyCandlestickChart } from './nifty-candlestick-chart';
 import '../../styles/options-lab.css';
+
+/** Compact StockMojo-style sparkline affordance next to LTP */
+function LtpChartIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="12"
+      height="10"
+      viewBox="0 0 12 10"
+      fill="none"
+      aria-hidden
+    >
+      <path
+        d="M1 7.5 3.2 5.2 5.1 6.4 7.8 2.8 11 5.5"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M9.6 2.6h1.5v1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 type StrikeFilter = '10' | '15' | '20' | 'all';
 
@@ -142,6 +166,33 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
     ltp: number;
     changePct: number;
   } | null>(null);
+  const [chartFullscreen, setChartFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!chartContract) {
+      setChartFullscreen(false);
+      return;
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (chartFullscreen) setChartFullscreen(false);
+        else setChartContract(null);
+      }
+    };
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [chartContract, chartFullscreen]);
+
+  const chartHeight = useMemo(() => {
+    if (typeof window === 'undefined') return 520;
+    if (chartFullscreen) return Math.max(560, window.innerHeight - 88);
+    return Math.max(480, Math.min(640, window.innerHeight - 160));
+  }, [chartFullscreen]);
 
   const spot = chainData?.spotPrice || 0;
   const atmStrike = chainData?.atmStrike || 0;
@@ -355,7 +406,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
                   {priceChg.toFixed(0)}%
                 </span>
               )}
-              <LineChart className="oc-ltp-chart-icon" strokeWidth={2} />
+              <LtpChartIcon className="oc-ltp-chart-icon" />
             </button>
           </td>,
         );
@@ -377,7 +428,7 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
               }
               title="Open LTP chart"
             >
-              <LineChart className="oc-ltp-chart-icon" strokeWidth={2} />
+              <LtpChartIcon className="oc-ltp-chart-icon" />
               <span className="oc-ltp-main">{formatLtp(c.ltp)}</span>
               {c.ltp > 0 && (
                 <span className={priceChg >= 0 ? 'oc-pos' : 'oc-neg'}>
@@ -713,41 +764,74 @@ export const OptionChainTable: React.FC<OptionChainTableProps> = ({
       </div>
 
       {chartContract && (
-        <div className="oc-chart-drawer" role="dialog" aria-label="Option LTP chart">
-          <div className="oc-chart-drawer-head">
-            <div>
-              <h3>
-                {symbol} — {selectedExpiry} — {chartContract.strike} {chartContract.type}
-              </h3>
-              <p>
-                LTP <strong>{formatLtp(chartContract.ltp)}</strong>{' '}
-                <span className={chartContract.changePct >= 0 ? 'oc-pos' : 'oc-neg'}>
-                  {chartContract.changePct >= 0 ? '+' : ''}
-                  {chartContract.changePct.toFixed(2)}%
-                </span>
-              </p>
+        <div
+          className={`oc-chart-overlay ${chartFullscreen ? 'is-fullscreen' : ''}`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Live option chart"
+        >
+          <button
+            type="button"
+            className="oc-chart-overlay-backdrop"
+            aria-label="Close chart"
+            onClick={() => setChartContract(null)}
+          />
+          <div className="oc-chart-drawer oc-chart-drawer--live">
+            <div className="oc-chart-drawer-head">
+              <div className="oc-chart-drawer-head-main">
+                <div className="oc-chart-live-pill" title="Live NSE via TradingView">
+                  LIVE
+                </div>
+                <div>
+                  <h3>
+                    {symbol} — {selectedExpiry} — {chartContract.strike} {chartContract.type}
+                  </h3>
+                  <p>
+                    Contract LTP{' '}
+                    <strong>₹{formatLtp(chartContract.ltp)}</strong>{' '}
+                    <span className={chartContract.changePct >= 0 ? 'oc-pos' : 'oc-neg'}>
+                      {chartContract.changePct >= 0 ? '+' : ''}
+                      {chartContract.changePct.toFixed(2)}%
+                    </span>
+                    <span className="oc-chart-head-sep">·</span>
+                    Underlying live chart with drawings, indicators &amp; timeframes
+                  </p>
+                </div>
+              </div>
+              <div className="oc-chart-drawer-actions">
+                <button
+                  type="button"
+                  className="oc-chart-tool-btn"
+                  title={chartFullscreen ? 'Exit fullscreen' : 'Fullscreen chart'}
+                  onClick={() => setChartFullscreen((v) => !v)}
+                >
+                  {chartFullscreen ? <Minimize2 strokeWidth={2} /> : <Maximize2 strokeWidth={2} />}
+                  <span>{chartFullscreen ? 'Exit' : 'Full'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="oc-chart-tool-btn oc-chart-tool-btn--close"
+                  onClick={() => setChartContract(null)}
+                  aria-label="Close chart"
+                >
+                  <X strokeWidth={2} />
+                  <span>Close</span>
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              className="sm-panel-icon-btn"
-              onClick={() => setChartContract(null)}
-              aria-label="Close chart"
-            >
-              <X strokeWidth={2} />
-            </button>
-          </div>
-          <div className="oc-chart-drawer-body">
-            <div className="oc-chart-ltp-strip">
-              Contract LTP <strong>₹{formatLtp(chartContract.ltp)}</strong>
-              <span className="oc-chart-ltp-note">Underlying live chart below · zoom with scroll or buttons</span>
+            <div className="oc-chart-drawer-body">
+              <NiftyCandlestickChart
+                symbol={symbol}
+                spotPrice={spot}
+                spotChange={chainData?.spotChange || 0}
+                spotChangePct={chainData?.spotChangePct || 0}
+                defaultFeed="tradingview"
+                immersive
+                fullTools
+                height={chartHeight}
+                isActive
+              />
             </div>
-            <NiftyCandlestickChart
-              symbol={symbol}
-              spotPrice={spot}
-              spotChange={chainData?.spotChange || 0}
-              spotChangePct={chainData?.spotChangePct || 0}
-              isActive
-            />
           </div>
         </div>
       )}

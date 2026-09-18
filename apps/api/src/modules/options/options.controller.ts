@@ -317,15 +317,28 @@ export class OptionsController {
       return { success: false, message: 'Invalid paper order (symbol/expiry/side/quantity required)' };
     }
 
-    // Shared NSE cache path — do not force broker lookup for paper fills
-    const chain = await this.marketDataService.getOptionChain(order.symbol, order.expiry);
+    // Shared NSE cache path — prefer fresh quotes for paper fills
+    const chain = await this.marketDataService.getOptionChain(
+      order.symbol,
+      order.expiry,
+      undefined,
+      undefined,
+      { preferFresh: true },
+    );
     let fillPrice: number | null = order.price && order.price > 0 ? order.price : null;
 
     if (order.strike && order.optionType && order.optionType !== 'FUT') {
-      const row = chain.contracts.find((c) => c.strike === order.strike);
+      const row = chain.contracts.find(
+        (c) => Math.abs(Number(c.strike) - Number(order.strike)) < 0.51,
+      );
       if (row) {
-        const ltp = order.optionType === 'CE' ? row.ce.ltp : row.pe.ltp;
-        if (ltp > 0) fillPrice = ltp;
+        const side = order.optionType === 'CE' ? row.ce : row.pe;
+        const ltp = Number(side?.ltp) || 0;
+        const bid = Number(side?.bidPrice) || 0;
+        const ask = Number(side?.askPrice) || 0;
+        const mid = bid > 0 && ask > 0 ? (bid + ask) / 2 : 0;
+        const quote = ltp > 0 ? ltp : mid > 0 ? mid : bid > 0 ? bid : ask;
+        if (quote > 0) fillPrice = quote;
       }
     } else if (chain.spotPrice > 0 && (!order.optionType || order.optionType === 'FUT')) {
       fillPrice = chain.spotPrice;

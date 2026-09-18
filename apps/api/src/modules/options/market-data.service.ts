@@ -334,6 +334,7 @@ export class MarketDataService {
     expiry?: string,
     userId?: string,
     brokerOverride?: BrokerType,
+    opts?: { preferFresh?: boolean },
   ): Promise<OptionChainDto> {
     const cleanSymbol = (symbol || 'NIFTY').toUpperCase();
 
@@ -366,6 +367,15 @@ export class MarketDataService {
     // Shared hot / SWR path (public NSE) — one scrape serves everyone
     const hit = this.getSharedCacheEntry(cleanSymbol, expiry);
     const age = hit ? Date.now() - hit.fetchedAt : Number.POSITIVE_INFINITY;
+
+    // Sandbox marks / critical paths: avoid serving up-to-90s stale quotes
+    if (opts?.preferFresh) {
+      if (hit?.chain.contracts?.length && age < MarketDataService.HOT_TTL_MS) {
+        return this.serveFromSharedCache(hit, { stale: false });
+      }
+      return this.coalescedSharedChainFetch(cleanSymbol, expiry);
+    }
+
     if (hit?.chain.contracts?.length) {
       if (age < MarketDataService.HOT_TTL_MS) {
         return this.serveFromSharedCache(hit, { stale: false });

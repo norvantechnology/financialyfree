@@ -10,6 +10,7 @@ import {
   VolSurfaceExpiryDto,
   GexSummaryDto,
   SandboxPortfolioDto,
+  SandboxPositionDto,
 } from '@ff/types';
 import { calculateGex, calculatePcr } from '@ff/calc';
 
@@ -351,7 +352,7 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Fetches full Sandbox / Paper Trading Portfolio state.
+   * Fetches full Sandbox / Paper Trading Portfolio state with live mark-to-market.
    */
   async getSandboxPortfolio(userId: string): Promise<SandboxPortfolioDto> {
     const totalCapital = 1000000; // Base ₹10,00,000
@@ -366,10 +367,48 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
 
     let totalUnrealizedPnl = 0;
     let deployedMargin = 0;
+    let marksSource = 'FALLBACK';
 
-    // One chain fetch per symbol:expiry (shared HOT cache) instead of N scrapes
+    // One fresh-ish chain fetch per symbol:expiry instead of N scrapes
     const chainCache = new Map<string, Awaited<ReturnType<typeof this.marketDataService.getOptionChain>>>();
-    const resolveLivePrice = async (pos: (typeof openPositions)[number]): Promise<number> => {
+    const loadChain = async (symbol: string, expiry: string) => {
+      const key = `${symbol}|${expiry}`;
+      let chain = chainCache.get(key);
+      if (!chain) {
+        chain = await this.marketDataService.getOptionChain(
+          symbol,
+          expiry,
+          undefined,
+          undefined,
+          { preferFresh: true },
+        );
+        chainCache.set(key, chain);
+        if (chain?.source) marksSource = String(chain.source);
+      }
+      return chain;
+    };
+
+    const quoteOption = (
+      chain: Awaited<ReturnType<typeof this.marketDataService.getOptionChain>>,
+      strike: number,
+      optionType: string,
+    ): number => {
+      const row = chain.contracts.find((c) => Math.abs(Number(c.strike) - strike) < 0.51);
+      if (!row) return 0;
+      const side = optionType === 'CE' ? row.ce : row.pe;
+      const ltp = Number(side?.ltp) || 0;
+      if (ltp > 0) return ltp;
+      const bid = Number(side?.bidPrice) || 0;
+      const ask = Number(side?.askPrice) || 0;
+      if (bid > 0 && ask > 0) return Math.round(((bid + ask) / 2) * 100) / 100;
+      if (bid > 0) return bid;
+      if (ask > 0) return ask;
+      return 0;
+    };
+
+    const resolveLivePrice = async (
+      pos: (typeof openPositions)[number],
+    ): Promise<{ price: number; live: boolean }> => {
       const fallback =
         Number(pos.currentPrice) > 0
           ? Number(pos.currentPrice)
@@ -377,54 +416,87 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
             ? Number(pos.entryPrice)
             : 0;
       try {
-        const key = `${pos.symbol}|${pos.expiry}`;
-        let chain = chainCache.get(key);
-        if (!chain) {
-          chain = await this.marketDataService.getOptionChain(pos.symbol, pos.expiry);
-          chainCache.set(key, chain);
-        }
-
-        if (pos.strike && pos.optionType !== 'FUT') {
-          const strike = Number(pos.strike);
-          const row = chain.contracts.find((c) => Number(c.strike) === strike);
-          if (row) {
-            const side = pos.optionType === 'CE' ? row.ce : row.pe;
-            const ltp = Number(side?.ltp) || 0;
-            const bid = Number(side?.bidPrice) || 0;
-            const ask = Number(side?.askPrice) || 0;
-            const mid = bid > 0 && ask > 0 ? (bid + ask) / 2 : 0;
-            const quote = ltp > 0 ? ltp : mid;
-            if (quote > 0) return quote;
+        const chain = await loadChain(pos.symbol, pos.expiry);
+        if (pos.strike != null && pos.optionType !== 'FUT') {
+          const quote = quoteOption(chain, Number(pos.strike), String(pos.optionType));
+          if (quote > 0) return { price: quote, live: true };
+          if (chain.selectedExpiry && chain.selectedExpiry !== pos.expiry) {
+            const alt = await loadChain(pos.symbol, chain.selectedExpiry);
+            const altQuote = quoteOption(alt, Number(pos.strike), String(pos.optionType));
+            if (altQuote > 0) return { price: altQuote, live: true };
           }
         } else if (chain.spotPrice > 0) {
-          return chain.spotPrice;
+          return { price: chain.spotPrice, live: true };
         }
       } catch (e) {
         this.logger.debug(`Could not refresh price for position ${pos.id}: ${(e as any)?.message}`);
       }
-      return fallback;
+      return { price: fallback, live: false };
     };
 
-    for (const pos of openPositions) {
-      const livePrice = await resolveLivePrice(pos);
-      pos.currentPrice = livePrice;
-      const totalQty = pos.quantity * pos.lotSize;
+    const marked = await Promise.all(
+      openPositions.map(async (pos) => {
+        const { price: livePrice, live } = await resolveLivePrice(pos);
+        pos.currentPrice = livePrice;
+        const totalQty = pos.quantity * pos.lotSize;
+        const entry = Number(pos.entryPrice);
 
-      if (pos.side === 'BUY') {
-        pos.unrealizedPnl = Math.round((livePrice - pos.entryPrice) * totalQty * 100) / 100;
-        deployedMargin += pos.entryPrice * totalQty;
-      } else {
-        pos.unrealizedPnl = Math.round((pos.entryPrice - livePrice) * totalQty * 100) / 100;
-        deployedMargin += Math.max(livePrice, pos.entryPrice) * totalQty * 1.2 + 40000 * pos.quantity;
-      }
+        let unrealized: number;
+        let margin: number;
+        if (pos.side === 'BUY') {
+          unrealized = Math.round((livePrice - entry) * totalQty * 100) / 100;
+          margin = entry * totalQty;
+        } else {
+          unrealized = Math.round((entry - livePrice) * totalQty * 100) / 100;
+          margin = Math.max(livePrice, entry) * totalQty * 1.2 + 40000 * pos.quantity;
+        }
+        pos.unrealizedPnl = unrealized;
+        return { pos, live, unrealized, margin };
+      }),
+    );
 
-      totalUnrealizedPnl += pos.unrealizedPnl;
-      await this.sandboxRepo.save(pos);
+    for (const m of marked) {
+      totalUnrealizedPnl += m.unrealized;
+      deployedMargin += m.margin;
+    }
+
+    // Persist marks in parallel
+    if (marked.length > 0) {
+      await Promise.all(marked.map(({ pos }) => this.sandboxRepo.save(pos)));
     }
 
     const totalRealizedPnl = closedPositions.reduce((acc, p) => acc + Number(p.realizedPnl || 0), 0);
     const totalPnl = Math.round((totalUnrealizedPnl + totalRealizedPnl) * 100) / 100;
     const availableMargin = Math.max(0, Math.round((totalCapital - deployedMargin + totalRealizedPnl) * 100) / 100);
+
+    const mapPos = (
+      pos: (typeof positions)[number],
+      extra?: { quoteLive?: boolean },
+    ): SandboxPositionDto => ({
+      id: pos.id,
+      userId: pos.userId,
+      symbol: pos.symbol,
+      strike: pos.strike ? Number(pos.strike) : null,
+      optionType: pos.optionType,
+      expiry: pos.expiry,
+      side: pos.side,
+      quantity: pos.quantity,
+      lotSize: pos.lotSize,
+      entryPrice: Number(pos.entryPrice),
+      currentPrice: Number(pos.currentPrice),
+      unrealizedPnl: Number(pos.unrealizedPnl),
+      realizedPnl: Number(pos.realizedPnl),
+      status: pos.status,
+      entryAt: pos.entryAt.toISOString(),
+      closedAt: pos.closedAt ? pos.closedAt.toISOString() : null,
+      quoteLive: extra?.quoteLive,
+    });
+
+    const historySorted = [...closedPositions].sort((a, b) => {
+      const ta = a.closedAt ? new Date(a.closedAt).getTime() : 0;
+      const tb = b.closedAt ? new Date(b.closedAt).getTime() : 0;
+      return tb - ta;
+    });
 
     return {
       totalCapital,
@@ -433,24 +505,10 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
       unrealizedPnl: Math.round(totalUnrealizedPnl * 100) / 100,
       realizedPnl: Math.round(totalRealizedPnl * 100) / 100,
       totalPnl,
-      positions: openPositions.map((p) => ({
-        id: p.id,
-        userId: p.userId,
-        symbol: p.symbol,
-        strike: p.strike ? Number(p.strike) : null,
-        optionType: p.optionType,
-        expiry: p.expiry,
-        side: p.side,
-        quantity: p.quantity,
-        lotSize: p.lotSize,
-        entryPrice: Number(p.entryPrice),
-        currentPrice: Number(p.currentPrice),
-        unrealizedPnl: Number(p.unrealizedPnl),
-        realizedPnl: Number(p.realizedPnl),
-        status: p.status,
-        entryAt: p.entryAt.toISOString(),
-        closedAt: p.closedAt ? p.closedAt.toISOString() : null,
-      })),
+      asOf: new Date().toISOString(),
+      marksSource,
+      positions: marked.map(({ pos, live }) => mapPos(pos, { quoteLive: live })),
+      history: historySorted.slice(0, 50).map((p) => mapPos(p)),
     };
   }
 
@@ -466,23 +524,30 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
       return { success: false, message: 'Position not found or already closed' };
     }
 
-    // Refresh live CMP
-    const chain = await this.marketDataService.getOptionChain(pos.symbol, pos.expiry);
+    const chain = await this.marketDataService.getOptionChain(
+      pos.symbol,
+      pos.expiry,
+      undefined,
+      undefined,
+      { preferFresh: true },
+    );
     let livePrice =
       Number(pos.currentPrice) > 0
         ? Number(pos.currentPrice)
         : Number(pos.entryPrice) > 0
           ? Number(pos.entryPrice)
           : 0;
-    if (pos.strike && pos.optionType !== 'FUT') {
-      const row = chain.contracts.find((c) => Number(c.strike) === Number(pos.strike));
+    if (pos.strike != null && pos.optionType !== 'FUT') {
+      const row = chain.contracts.find(
+        (c) => Math.abs(Number(c.strike) - Number(pos.strike)) < 0.51,
+      );
       if (row) {
         const side = pos.optionType === 'CE' ? row.ce : row.pe;
         const ltp = Number(side?.ltp) || 0;
         const bid = Number(side?.bidPrice) || 0;
         const ask = Number(side?.askPrice) || 0;
         const mid = bid > 0 && ask > 0 ? (bid + ask) / 2 : 0;
-        const quote = ltp > 0 ? ltp : mid;
+        const quote = ltp > 0 ? ltp : mid > 0 ? mid : bid > 0 ? bid : ask;
         if (quote > 0) livePrice = quote;
       }
     } else if (chain.spotPrice > 0) {
@@ -492,8 +557,8 @@ export class OptionsAnalyticsService implements OnModuleInit, OnModuleDestroy {
     const totalQty = pos.quantity * pos.lotSize;
     const realized =
       pos.side === 'BUY'
-        ? (livePrice - pos.entryPrice) * totalQty
-        : (pos.entryPrice - livePrice) * totalQty;
+        ? (livePrice - Number(pos.entryPrice)) * totalQty
+        : (Number(pos.entryPrice) - livePrice) * totalQty;
 
     pos.currentPrice = livePrice;
     pos.status = 'CLOSED';

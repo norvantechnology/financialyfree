@@ -1,13 +1,57 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import '../../styles/options-lab.css';
-import { Clock, RefreshCw, AlertTriangle, ShieldCheck, XCircle } from 'lucide-react';
-import { SandboxPortfolioDto } from '@ff/types';
+import { RefreshCw } from 'lucide-react';
+import { OptionChainDto, SandboxPortfolioDto, SandboxPositionDto } from '@ff/types';
 
 type ActionKind = 'refresh' | 'square-one' | 'square-all' | 'reset' | null;
 
-export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
+function calcUnrealized(
+  side: string,
+  entry: number,
+  cmp: number,
+  quantity: number,
+  lotSize: number,
+): number {
+  const totalQty = quantity * lotSize;
+  const raw = side === 'BUY' ? (cmp - entry) * totalQty : (entry - cmp) * totalQty;
+  return Math.round(raw * 100) / 100;
+}
+
+function ltpFromChain(
+  chain: OptionChainDto | null | undefined,
+  pos: Pick<SandboxPositionDto, 'symbol' | 'strike' | 'optionType' | 'expiry'>,
+): number | null {
+  if (!chain?.contracts?.length) return null;
+  if (chain.underlying && pos.symbol && chain.underlying.toUpperCase() !== pos.symbol.toUpperCase()) {
+    return null;
+  }
+  // Prefer matching expiry when available
+  if (pos.expiry && chain.selectedExpiry && chain.selectedExpiry !== pos.expiry) {
+    // Still allow quotes if chain is for same underlying (common when user views same symbol)
+  }
+  if (pos.strike == null || pos.optionType === 'FUT') {
+    return chain.spotPrice > 0 ? chain.spotPrice : null;
+  }
+  const row = chain.contracts.find((c) => Math.abs(Number(c.strike) - Number(pos.strike)) < 0.51);
+  if (!row) return null;
+  const side = pos.optionType === 'CE' ? row.ce : row.pe;
+  const ltp = Number(side?.ltp) || 0;
+  if (ltp > 0) return ltp;
+  const bid = Number(side?.bidPrice) || 0;
+  const ask = Number(side?.askPrice) || 0;
+  if (bid > 0 && ask > 0) return Math.round(((bid + ask) / 2) * 100) / 100;
+  if (bid > 0) return bid;
+  if (ask > 0) return ask;
+  return null;
+}
+
+export const SandboxPortfolioView: React.FC<{
+  isActive?: boolean;
+  /** Live option chain from Strategy Builder / WS — overlays CMP instantly */
+  liveChain?: OptionChainDto | null;
+}> = ({ isActive = true, liveChain = null }) => {
   const [portfolio, setPortfolio] = useState<SandboxPortfolioDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -15,7 +59,9 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
   const [authError, setAuthError] = useState<string | null>(null);
   const [busy, setBusy] = useState<ActionKind>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [lastMarkAt, setLastMarkAt] = useState<number | null>(null);
   const hasPortfolioRef = useRef(false);
+  const inFlightRef = useRef(false);
 
   const showMsg = (msg: string, isError = false) => {
     if (isError) {
@@ -40,8 +86,10 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
 
   const fetchPortfolio = useCallback(
     async (opts?: { silent?: boolean }) => {
+      if (inFlightRef.current) return;
       const silent = Boolean(opts?.silent) && hasPortfolioRef.current;
       try {
+        inFlightRef.current = true;
         if (!silent) setIsLoading(true);
         const headers = await authHeaders();
         if (!headers) {
@@ -64,6 +112,7 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
           setPortfolio(json.data);
           hasPortfolioRef.current = true;
           setAuthError(null);
+          setLastMarkAt(Date.now());
         } else if (!silent) {
           setAuthError(json?.message || 'Could not load paper portfolio.');
         }
@@ -71,16 +120,18 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
         if (!silent) setAuthError('Network error loading portfolio.');
       } finally {
         setIsLoading(false);
+        inFlightRef.current = false;
       }
     },
     [authHeaders],
   );
 
+  // Fast poll while Simulator tab is active
   useEffect(() => {
     void fetchPortfolio({ silent: false });
     const interval = setInterval(() => {
       if (isActive) void fetchPortfolio({ silent: true });
-    }, 5000);
+    }, 2000);
     return () => clearInterval(interval);
   }, [fetchPortfolio, isActive]);
 
@@ -93,6 +144,40 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
     window.addEventListener('sandbox:refresh', onRefresh);
     return () => window.removeEventListener('sandbox:refresh', onRefresh);
   }, [fetchPortfolio]);
+
+  /** Merge API portfolio with live chain LTPs for instant P&L */
+  const markedPositions = useMemo(() => {
+    const positions = portfolio?.positions || [];
+    return positions.map((pos) => {
+      const chainLtp = ltpFromChain(liveChain, pos);
+      const apiCmp =
+        Number(pos.currentPrice) > 0
+          ? Number(pos.currentPrice)
+          : Number(pos.entryPrice) > 0
+            ? Number(pos.entryPrice)
+            : 0;
+      const cmp = chainLtp != null && chainLtp > 0 ? chainLtp : apiCmp;
+      const entry = Number(pos.entryPrice);
+      const unrealized = calcUnrealized(pos.side, entry, cmp, pos.quantity, pos.lotSize);
+      const quoteLive = Boolean(
+        (chainLtp != null && chainLtp > 0) || pos.quoteLive || (apiCmp > 0 && Math.abs(apiCmp - entry) > 0.001),
+      );
+      return { ...pos, currentPrice: cmp, unrealizedPnl: unrealized, quoteLive };
+    });
+  }, [portfolio, liveChain]);
+
+  const liveUnrealized = useMemo(
+    () => Math.round(markedPositions.reduce((a, p) => a + p.unrealizedPnl, 0) * 100) / 100,
+    [markedPositions],
+  );
+  const realizedPnl = portfolio?.realizedPnl ?? 0;
+  const liveTotalPnl = Math.round((liveUnrealized + realizedPnl) * 100) / 100;
+  const totalCapital = portfolio?.totalCapital || 1000000;
+  const availableMargin = portfolio?.availableMargin ?? 1000000;
+  const deployedMargin = portfolio?.deployedMargin ?? 0;
+  const isBusy = busy != null;
+  const marksLabel = portfolio?.marksSource || (liveChain?.source ? String(liveChain.source) : null);
+  const showInitialLoad = isLoading && !portfolio && !authError;
 
   const squareOffPosition = async (id: string) => {
     if (busy) return;
@@ -190,14 +275,44 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
     }
   };
 
-  const totalCapital = portfolio?.totalCapital || 1000000;
-  const availableMargin = portfolio?.availableMargin ?? 1000000;
-  const deployedMargin = portfolio?.deployedMargin ?? 0;
-  const unrealizedPnl = portfolio?.unrealizedPnl ?? 0;
-  const realizedPnl = portfolio?.realizedPnl ?? 0;
-  const totalPnl = portfolio?.totalPnl ?? 0;
-  const positions = portfolio?.positions || [];
-  const isBusy = busy != null;
+  const history = portfolio?.history || [];
+  const asOfLabel = portfolio?.asOf
+    ? new Date(portfolio.asOf).toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+    : lastMarkAt
+      ? new Date(lastMarkAt).toLocaleTimeString('en-IN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+      : null;
+
+  if (showInitialLoad) {
+    return (
+      <div className="opt-view-stack" aria-busy="true" aria-live="polite">
+        <div className="opt-sandbox-boot">
+          <div className="opt-sandbox-boot-spinner" aria-hidden />
+          <h3 className="opt-sandbox-boot-title">Loading paper portfolio</h3>
+          <p className="opt-sandbox-boot-msg">
+            Fetching open positions and marking them to live market prices. This usually takes a moment.
+          </p>
+          <div className="opt-sandbox-boot-skel" aria-hidden>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="opt-sandbox-boot-skel-card">
+                <span className="opt-sandbox-boot-skel-line short" />
+                <span className="opt-sandbox-boot-skel-line" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="opt-view-stack">
@@ -207,69 +322,58 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
           role="status"
         >
           <div className="opt-sandbox-toast-body">
-            <ShieldCheck className="w-4 h-4" />
             <span>{actionError || actionMessage}</span>
           </div>
           <button
             type="button"
+            className="opt-sandbox-toast-dismiss"
             onClick={() => {
               setActionMessage(null);
               setActionError(null);
             }}
-            aria-label="Dismiss"
           >
-            <XCircle className="w-4 h-4" />
+            Dismiss
           </button>
         </div>
       )}
 
-      <div className="opt-kpi-grid cols-6">
-        <div className="opt-kpi-card" title="Virtual sandbox base capital">
-          <span className="opt-kpi-label">Capital</span>
-          <div className="opt-kpi-value">₹{totalCapital.toLocaleString('en-IN')}</div>
+      <div className="opt-sandbox-banner">
+        <div className="opt-sandbox-banner-meta">
+          <span className={`opt-sandbox-banner-source ${marksLabel?.includes('LIVE') ? 'is-live' : ''}`}>
+            {marksLabel || 'PAPER'}
+          </span>
+          {asOfLabel ? <span className="opt-sandbox-banner-time">{asOfLabel}</span> : null}
         </div>
-
-        <div className="opt-kpi-card" title="Free margin available to deploy">
-          <span className="opt-kpi-label">Available</span>
-          <div className="opt-kpi-value" style={{ color: '#0284C7' }}>
-            ₹{availableMargin.toLocaleString('en-IN')}
+        <div className="opt-sandbox-banner-kpis" role="group" aria-label="Paper portfolio summary">
+          <div className="opt-sandbox-kpi" title="Virtual sandbox base capital">
+            <span className="opt-sandbox-kpi-label">Capital</span>
+            <span className="opt-sandbox-kpi-value">₹{totalCapital.toLocaleString('en-IN')}</span>
           </div>
-        </div>
-
-        <div className="opt-kpi-card" title="Margin blocked by open positions">
-          <span className="opt-kpi-label">Deployed</span>
-          <div className="opt-kpi-value" style={{ color: '#D97706' }}>
-            ₹{deployedMargin.toLocaleString('en-IN')}
+          <div className="opt-sandbox-kpi" title="Free margin available to deploy">
+            <span className="opt-sandbox-kpi-label">Available</span>
+            <span className="opt-sandbox-kpi-value is-avail">₹{availableMargin.toLocaleString('en-IN')}</span>
           </div>
-        </div>
-
-        <div className="opt-kpi-card" title="Unrealized P&L on open positions">
-          <span className="opt-kpi-label">Unrealized</span>
-          <div
-            className="opt-kpi-value"
-            style={{ color: unrealizedPnl >= 0 ? '#059669' : '#E11D48' }}
-          >
-            {unrealizedPnl >= 0 ? '+' : ''}₹{unrealizedPnl.toLocaleString('en-IN')}
+          <div className="opt-sandbox-kpi" title="Margin blocked by open positions">
+            <span className="opt-sandbox-kpi-label">Deployed</span>
+            <span className="opt-sandbox-kpi-value is-deployed">₹{deployedMargin.toLocaleString('en-IN')}</span>
           </div>
-        </div>
-
-        <div className="opt-kpi-card" title="Realized P&L from closed trades">
-          <span className="opt-kpi-label">Realized</span>
-          <div
-            className="opt-kpi-value"
-            style={{ color: realizedPnl >= 0 ? '#059669' : '#E11D48' }}
-          >
-            {realizedPnl >= 0 ? '+' : ''}₹{realizedPnl.toLocaleString('en-IN')}
+          <div className="opt-sandbox-kpi" title="Unrealized P&L on open positions">
+            <span className="opt-sandbox-kpi-label">Unrealized</span>
+            <span className={`opt-sandbox-kpi-value ${liveUnrealized >= 0 ? 'is-pos' : 'is-neg'}`}>
+              {liveUnrealized >= 0 ? '+' : ''}₹{liveUnrealized.toLocaleString('en-IN')}
+            </span>
           </div>
-        </div>
-
-        <div className="opt-kpi-card" title="Net total sandbox P&L">
-          <span className="opt-kpi-label">Net P&L</span>
-          <div
-            className="opt-kpi-value"
-            style={{ color: totalPnl >= 0 ? '#059669' : '#E11D48' }}
-          >
-            {totalPnl >= 0 ? '+' : ''}₹{totalPnl.toLocaleString('en-IN')}
+          <div className="opt-sandbox-kpi" title="Realized P&L from squared-off trades">
+            <span className="opt-sandbox-kpi-label">Realized</span>
+            <span className={`opt-sandbox-kpi-value ${realizedPnl >= 0 ? 'is-pos' : 'is-neg'}`}>
+              {realizedPnl >= 0 ? '+' : ''}₹{realizedPnl.toLocaleString('en-IN')}
+            </span>
+          </div>
+          <div className="opt-sandbox-kpi opt-sandbox-kpi--net" title="Net total sandbox P&L">
+            <span className="opt-sandbox-kpi-label">Net P&L</span>
+            <span className={`opt-sandbox-kpi-value ${liveTotalPnl >= 0 ? 'is-pos' : 'is-neg'}`}>
+              {liveTotalPnl >= 0 ? '+' : ''}₹{liveTotalPnl.toLocaleString('en-IN')}
+            </span>
           </div>
         </div>
       </div>
@@ -277,12 +381,12 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
       <div className="opt-chart-card">
         <div className="opt-chart-header">
           <div className="opt-chart-title-wrap">
-            <div className="opt-chart-icon" style={{ color: '#0F766E' }}>
-              <Clock className="w-3.5 h-3.5" />
-            </div>
             <div>
-              <h3 className="opt-chart-title">Open Positions ({positions.length})</h3>
-              <p className="opt-chart-subtitle">Paper fills at live NSE prices</p>
+              <h3 className="opt-chart-title">Open Positions ({markedPositions.length})</h3>
+              <p className="opt-chart-subtitle">
+                Marked to live market prices
+                {liveChain ? ' · live chain linked' : ''}
+              </p>
             </div>
           </div>
 
@@ -290,30 +394,29 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
             <button
               type="button"
               onClick={() => void fetchPortfolio({ silent: true })}
-              className="opt-filter-btn"
-              title="Refresh quotes"
+              className="opt-sandbox-btn"
+              title="Refresh live quotes"
               disabled={isBusy}
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading || busy === 'refresh' ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
+              <RefreshCw className={`opt-sandbox-btn-ico ${isLoading ? 'is-spin' : ''}`} aria-hidden />
+              Refresh
             </button>
 
-            {positions.length > 0 && (
+            {markedPositions.length > 0 && (
               <button
                 type="button"
                 onClick={() => void squareOffAll()}
-                className="opt-filter-btn opt-filter-btn-danger"
+                className="opt-sandbox-btn opt-sandbox-btn--danger"
                 disabled={isBusy}
               >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>{busy === 'square-all' ? 'Squaring…' : 'Square Off'}</span>
+                {busy === 'square-all' ? 'Squaring…' : 'Square Off'}
               </button>
             )}
 
             <button
               type="button"
               onClick={() => void resetPortfolio()}
-              className="opt-filter-btn"
+              className="opt-sandbox-btn"
               disabled={isBusy}
             >
               {busy === 'reset' ? 'Resetting…' : 'Reset'}
@@ -321,7 +424,7 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
           </div>
         </div>
 
-        {positions.length > 0 ? (
+        {markedPositions.length > 0 ? (
           <div className="opt-sandbox-table-wrap">
             <table className="opt-sandbox-table">
               <thead>
@@ -336,14 +439,9 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
                 </tr>
               </thead>
               <tbody>
-                {positions.map((pos) => {
+                {markedPositions.map((pos) => {
                   const isProfit = pos.unrealizedPnl >= 0;
-                  const liveCmp =
-                    Number(pos.currentPrice) > 0
-                      ? Number(pos.currentPrice)
-                      : Number(pos.entryPrice) > 0
-                        ? Number(pos.entryPrice)
-                        : 0;
+                  const liveCmp = Number(pos.currentPrice);
                   const rowBusy = busy === 'square-one' && busyId === pos.id;
                   return (
                     <tr key={pos.id}>
@@ -353,6 +451,7 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
                         </div>
                         <div className="opt-sandbox-instr-meta">
                           Expiry: {pos.expiry} · Lot {pos.lotSize}
+                          {pos.quoteLive ? ' · live' : ' · marking…'}
                         </div>
                       </td>
                       <td>
@@ -388,14 +487,88 @@ export const SandboxPortfolioView: React.FC<{ isActive?: boolean }> = ({ isActiv
           </div>
         ) : (
           <div className="opt-sandbox-empty">
-            <div className="opt-sandbox-empty-icon">
-              <Clock className="w-5 h-5" />
-            </div>
-            <h4>{authError ? 'Paper portfolio unavailable' : 'No Open Paper Positions'}</h4>
+            <h4>{authError ? 'Paper portfolio unavailable' : 'No open paper positions'}</h4>
             <p>
               {authError ||
-                'Build a strategy in Strategy Builder, then tap Paper Trade to simulate fills with live market prices.'}
+                'Build a strategy in Strategy Builder, then use Paper Trade to fill positions at live market prices. Squared-off trades appear in Trade History below.'}
             </p>
+          </div>
+        )}
+      </div>
+
+      <div className="opt-chart-card opt-sandbox-history-card">
+        <div className="opt-chart-header">
+          <div className="opt-chart-title-wrap">
+            <div>
+              <h3 className="opt-chart-title">Trade History ({history.length})</h3>
+              <p className="opt-chart-subtitle">
+                Squared-off paper trades · realized P&L booked at exit
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {history.length > 0 ? (
+          <div className="opt-sandbox-table-wrap opt-sandbox-history-wrap">
+            <table className="opt-sandbox-table">
+              <thead>
+                <tr>
+                  <th>Instrument</th>
+                  <th>Side</th>
+                  <th className="num">Qty</th>
+                  <th className="num">Entry</th>
+                  <th className="num">Exit</th>
+                  <th className="num">Realized P&L</th>
+                  <th>Closed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((pos) => {
+                  const pnl = Number(pos.realizedPnl) || 0;
+                  const isProfit = pnl >= 0;
+                  return (
+                    <tr key={pos.id}>
+                      <td>
+                        <div className="opt-sandbox-instr">
+                          {pos.symbol} {pos.strike ? `₹${pos.strike} ${pos.optionType}` : 'FUT'}
+                        </div>
+                        <div className="opt-sandbox-instr-meta">Expiry: {pos.expiry}</div>
+                      </td>
+                      <td>
+                        <span className={`opt-badge-pill ${pos.side === 'BUY' ? 'green' : 'rose'}`}>
+                          {pos.side}
+                        </span>
+                      </td>
+                      <td className="num">
+                        {pos.quantity * pos.lotSize}
+                      </td>
+                      <td className="num mono">₹{Number(pos.entryPrice).toFixed(2)}</td>
+                      <td className="num mono cmp">₹{Number(pos.currentPrice).toFixed(2)}</td>
+                      <td className="num mono">
+                        <span style={{ color: isProfit ? '#059669' : '#E11D48', fontWeight: 800 }}>
+                          {isProfit ? '+' : ''}₹{pnl.toLocaleString('en-IN')}
+                        </span>
+                      </td>
+                      <td className="opt-sandbox-closed-at">
+                        {pos.closedAt
+                          ? new Date(pos.closedAt).toLocaleString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="opt-sandbox-empty opt-sandbox-empty--compact">
+            <h4>No squared-off trades yet</h4>
+            <p>When you square off a position, it moves here with booked realized P&L.</p>
           </div>
         )}
       </div>

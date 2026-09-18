@@ -220,6 +220,8 @@ export interface SandboxPositionDto {
   status: 'OPEN' | 'CLOSED';
   entryAt: ISO8601;
   closedAt?: ISO8601 | null;
+  /** True when currentPrice came from a live chain quote (not entry fallback) */
+  quoteLive?: boolean;
 }
 
 export interface SandboxOrderDto {
@@ -277,6 +279,13 @@ export interface SandboxPortfolioDto {
   unrealizedPnl: number;
   realizedPnl: number;
   totalPnl: number;
+  /** Open positions only */
   positions: SandboxPositionDto[];
+  /** Squared-off / closed trades (recent first) */
+  history?: SandboxPositionDto[];
+  /** ISO timestamp of mark-to-market */
+  asOf?: string;
+  /** Chain data source used for marks (e.g. NSE_LIVE) */
+  marksSource?: string;
 }
 
