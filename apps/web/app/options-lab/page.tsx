@@ -16,6 +16,8 @@ import {
   ChevronUp,
   Maximize2,
   Minimize2,
+  Minus,
+  Plus,
 } from 'lucide-react';
 import {
   OptionChainDto,
@@ -325,7 +327,7 @@ export default function OptionsLabPage() {
     const silent = Boolean(opts?.silent) || hasExisting;
     const started = performance.now();
 
-    // Never cancel a slow NSE request every 5s — skip overlapping silent polls instead
+    // Never cancel a slow NSE request every poll — skip overlapping silent polls instead
     if (opts?.silent && chainInFlightRef.current) return;
 
     const gen = ++chainFetchGenRef.current;
@@ -335,11 +337,21 @@ export default function OptionsLabPage() {
       if (!silent) setIsLoading(true);
       else setIsRefreshing(true);
 
-      const { getStoredAccessToken } = await import('../../lib/auth-client');
-      const token = getStoredAccessToken();
-      const url = `/api/v1/options/chain/${symbol}${selectedExpiry ? `?expiry=${selectedExpiry}` : ''}`;
+      // Public NSE chain is shared — only attach JWT when a real broker is connected
+      // (avoids per-user broker lookup latency on every poll).
+      const headers: Record<string, string> = {};
+      if (connectedBroker && connectedBroker !== 'sandbox') {
+        const { getStoredAccessToken } = await import('../../lib/auth-client');
+        const token = getStoredAccessToken();
+        if (token) headers.Authorization = `Bearer ${token}`;
+      }
+      const brokerQ =
+        connectedBroker && connectedBroker !== 'sandbox'
+          ? `${selectedExpiry ? '&' : '?'}broker=${encodeURIComponent(connectedBroker)}`
+          : '';
+      const url = `/api/v1/options/chain/${symbol}${selectedExpiry ? `?expiry=${selectedExpiry}` : ''}${brokerQ}`;
       const res = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: Object.keys(headers).length ? headers : undefined,
         cache: 'no-store',
       });
       if (gen !== chainFetchGenRef.current) return;
@@ -362,18 +374,12 @@ export default function OptionsLabPage() {
             hasContracts;
           setConnectionStatus(
             isExchangeLive
-              ? source === 'NSE_CACHED'
-                ? 'reconnecting'
-                : 'connected'
+              ? 'connected'
               : json.data.spotPrice > 0
                 ? 'reconnecting'
                 : 'closed',
           );
-          setLatencyMs(
-            isExchangeLive && source !== 'NSE_CACHED'
-              ? Math.round(performance.now() - started)
-              : 0,
-          );
+          setLatencyMs(Math.round(performance.now() - started));
         }
       } else if (!hasExisting) {
         setConnectionStatus('closed');
@@ -391,14 +397,15 @@ export default function OptionsLabPage() {
         setIsRefreshing(false);
       }
     }
-  }, [symbol, selectedExpiry]);
+  }, [symbol, selectedExpiry, connectedBroker]);
 
-  // Initial load + live poll (silent after first successful paint)
+  // Initial load + live poll. 12s interval is enough with 5s server hot-cache;
+  // 100k users share one upstream scrape via Nest coalesce + edge proxy cache.
   useEffect(() => {
     void fetchChain({ silent: false });
     const interval = setInterval(() => {
       void fetchChain({ silent: true });
-    }, 5000);
+    }, 12000);
     return () => {
       clearInterval(interval);
       chainFetchGenRef.current += 1;
@@ -500,6 +507,48 @@ export default function OptionsLabPage() {
   const futures = chainData?.futures || [];
   const lotSize = chainData?.lotSize || 50;
 
+  // Chart/payoff use quantized market inputs so 12s polls don't redraw for tiny ticks
+  const [chartSpot, setChartSpot] = useState(0);
+  const [chartAtmIv, setChartAtmIv] = useState(0);
+  useEffect(() => {
+    const rawSpot = chainData?.spotPrice || 0;
+    if (rawSpot > 0) {
+      setChartSpot((prev) => {
+        if (!prev) return Math.round(rawSpot);
+        if (Math.abs(rawSpot - prev) < 20) return prev;
+        return Math.round(rawSpot);
+      });
+    }
+    const rawIv = chainData?.atmIv;
+    if (rawIv != null && rawIv > 0) {
+      setChartAtmIv((prev) => {
+        if (!prev) return Math.round(rawIv * 10) / 10;
+        if (Math.abs(rawIv - prev) < 0.4) return prev;
+        return Math.round(rawIv * 10) / 10;
+      });
+    }
+  }, [chainData?.spotPrice, chainData?.atmIv]);
+
+  // Sync live LTPs into positions for P&L display — keep entryPrice (payoff curve) stable
+  useEffect(() => {
+    if (!chainData?.contracts?.length) return;
+    setStrategyLegs((prev) => {
+      if (!prev.length) return prev;
+      let changed = false;
+      const next = prev.map((leg) => {
+        const row = chainData.contracts.find((c) => c.strike === leg.strike);
+        const side = leg.optionType === 'CE' ? row?.ce : row?.pe;
+        const ltp = side?.ltp ?? 0;
+        if (ltp > 0 && Math.abs((leg.currentPrice ?? 0) - ltp) >= 0.05) {
+          changed = true;
+          return { ...leg, currentPrice: ltp };
+        }
+        return leg;
+      });
+      return changed ? next : prev;
+    });
+  }, [chainData?.timestamp, chainData?.contracts]);
+
   // Filtered Option Chain Contracts for full tab
   const filteredChainRows = useMemo(() => {
     if (!chainData?.contracts) return [];
@@ -512,13 +561,24 @@ export default function OptionsLabPage() {
     return chainData.contracts.slice(start, end);
   }, [chainData, strikeFilter]);
 
-  // Strategy Payoff Calculation Engine
+  // Strategy Payoff Calculation Engine — depends on structure/entry, not live LTP ticks
   const activeEnabledLegs = useMemo(() => {
     return strategyLegs.filter((l) => enabledLegIds.has(l.id));
   }, [strategyLegs, enabledLegIds]);
 
+  const payoffLegsSignature = useMemo(
+    () =>
+      activeEnabledLegs
+        .map(
+          (l) =>
+            `${l.id}|${l.side}|${l.optionType}|${l.strike}|${l.lots}|${l.lotSize}|${l.entryPrice}|${l.iv ?? ''}`,
+        )
+        .join(';'),
+    [activeEnabledLegs],
+  );
+
   const payoffResult = useMemo(() => {
-    const currentSpot = (chainData?.spotPrice || 0) * (1 + spotShiftPct / 100);
+    const currentSpot = ((chartSpot || spot) || 0) * (1 + spotShiftPct / 100);
     if (!currentSpot || activeEnabledLegs.length === 0) {
       return calculateStrategyPayoff({
         legs: [],
@@ -529,8 +589,10 @@ export default function OptionsLabPage() {
       });
     }
 
+    // Entry-priced legs only — ignore live currentPrice so polls don't reshape the curve
     const shiftedLegs = activeEnabledLegs.map((l) => ({
       ...l,
+      currentPrice: l.entryPrice,
       iv: l.iv != null ? Math.max(0.01, l.iv + ivShiftPoints / 100) : null,
     }));
 
@@ -539,17 +601,25 @@ export default function OptionsLabPage() {
       currentSpot,
       targetDaysForward: daysForward,
       spotRangePct: 0.12,
-      numPoints: 81,
+      numPoints: 61,
     });
-  }, [activeEnabledLegs, chainData?.spotPrice, spotShiftPct, ivShiftPoints, daysForward]);
+    // payoffLegsSignature captures structural changes; activeEnabledLegs read intentionally
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payoffLegsSignature, chartSpot, spotShiftPct, ivShiftPoints, daysForward]);
 
-  // ECharts Option for Payoff Diagram with continuous value coordinate system
+  // ECharts Option — stable unless strategy/settings/spot bucket changes
   const payoffChartOption = useMemo(() => {
-    const currentSpot = chainData?.spotPrice || 0;
-    const atmIv = chainData?.atmIv ?? 0;
-    const tteYears = (7 + daysForward) / 365;
-    const oneSd = currentSpot > 0 && atmIv > 0 ? currentSpot * (atmIv / 100) * Math.sqrt(tteYears) : currentSpot * 0.02;
+    const currentSpot = chartSpot || spot || 0;
+    const atmIv = chartAtmIv || chainData?.atmIv || 0;
+    const tteYears = Math.max(1 / 365, (4 + daysForward) / 365);
+    const oneSd =
+      currentSpot > 0 && atmIv > 0
+        ? currentSpot * (atmIv / 100) * Math.sqrt(tteYears)
+        : currentSpot * 0.02;
     const roundSpot = Math.round(currentSpot);
+
+    const baseGrid = { left: 52, right: 28, bottom: 36, top: 28, containLabel: true };
+    const baseAnim = { animation: false, animationDurationUpdate: 0 };
 
     // Baseline chart when no legs are active
     if (!payoffResult.payoffPoints || payoffResult.payoffPoints.length === 0) {
@@ -557,8 +627,9 @@ export default function OptionsLabPage() {
       const maxX = Math.round(currentSpot + 2.5 * oneSd);
 
       return {
+        ...baseAnim,
         backgroundColor: '#FFFFFF',
-        grid: { left: 55, right: 35, bottom: 25, top: 40, containLabel: true },
+        grid: baseGrid,
         xAxis: {
           type: 'value',
           min: minX,
@@ -586,6 +657,7 @@ export default function OptionsLabPage() {
           {
             name: 'Zero Baseline',
             type: 'line',
+            showSymbol: false,
             data: [
               [minX, 0],
               [maxX, 0],
@@ -594,37 +666,18 @@ export default function OptionsLabPage() {
             markLine: {
               silent: true,
               symbol: 'none',
+              animation: false,
               data: [
                 {
                   xAxis: roundSpot,
                   lineStyle: { color: '#0F172A', type: 'solid', width: 2 },
                   label: {
-                    formatter: `Spot: ${roundSpot.toLocaleString('en-IN')}`,
-                    position: 'top',
+                    formatter: `Spot ${roundSpot.toLocaleString('en-IN')}`,
+                    position: 'insideEndTop',
                     color: '#0F172A',
                     fontSize: 10,
                     fontWeight: 700,
                   },
-                },
-                {
-                  xAxis: Math.round(currentSpot - 2 * oneSd),
-                  lineStyle: { color: '#94A3B8', type: 'dashed' },
-                  label: { formatter: '-2SD', color: '#64748B', position: 'top', fontSize: 10 },
-                },
-                {
-                  xAxis: Math.round(currentSpot - oneSd),
-                  lineStyle: { color: '#94A3B8', type: 'dashed' },
-                  label: { formatter: '-1SD', color: '#64748B', position: 'top', fontSize: 10 },
-                },
-                {
-                  xAxis: Math.round(currentSpot + oneSd),
-                  lineStyle: { color: '#94A3B8', type: 'dashed' },
-                  label: { formatter: '+1SD', color: '#64748B', position: 'top', fontSize: 10 },
-                },
-                {
-                  xAxis: Math.round(currentSpot + 2 * oneSd),
-                  lineStyle: { color: '#94A3B8', type: 'dashed' },
-                  label: { formatter: '+2SD', color: '#64748B', position: 'top', fontSize: 10 },
                 },
               ],
             },
@@ -633,15 +686,41 @@ export default function OptionsLabPage() {
       };
     }
 
-    const expiryData = payoffResult.payoffPoints.map((p) => [Math.round(p.spotPrice), Math.round(p.expiryPayoff)]);
-    const targetData = payoffResult.payoffPoints.map((p) => [Math.round(p.spotPrice), Math.round(p.targetDatePayoff)]);
-    const minSpot = Math.round(payoffResult.payoffPoints[0]?.spotPrice || currentSpot - 2 * oneSd);
-    const maxSpot = Math.round(payoffResult.payoffPoints[payoffResult.payoffPoints.length - 1]?.spotPrice || currentSpot + 2 * oneSd);
+    const expiryData = payoffResult.payoffPoints.map((p) => [
+      Math.round(p.spotPrice),
+      Math.round(p.expiryPayoff),
+    ]);
+    const targetData = payoffResult.payoffPoints.map((p) => [
+      Math.round(p.spotPrice),
+      Math.round(p.targetDatePayoff),
+    ]);
+    const minSpot = Math.round(
+      payoffResult.payoffPoints[0]?.spotPrice || currentSpot - 2 * oneSd,
+    );
+    const maxSpot = Math.round(
+      payoffResult.payoffPoints[payoffResult.payoffPoints.length - 1]?.spotPrice ||
+        currentSpot + 2 * oneSd,
+    );
+
+    const beLines = payoffResult.greeks.breakevens.map((b, i) => ({
+      xAxis: Math.round(b),
+      lineStyle: { color: '#D97706', type: 'dotted' as const, width: 1.5 },
+      label: {
+        formatter: `BE ${Math.round(b).toLocaleString('en-IN')}`,
+        position: (i % 2 === 0 ? 'insideStartBottom' : 'insideEndBottom') as const,
+        color: '#B45309',
+        fontSize: 9,
+        fontWeight: 700,
+        distance: 4,
+      },
+    }));
 
     return {
+      ...baseAnim,
       backgroundColor: '#FFFFFF',
       tooltip: {
         trigger: 'axis',
+        confine: true,
         formatter: (params: any[]) => {
           if (!params || params.length === 0) return '';
           const s = params[0].value ? params[0].value[0] : params[0].name;
@@ -656,11 +735,14 @@ export default function OptionsLabPage() {
         },
       },
       legend: {
-        data: ['At Expiry Payoff', `Target (T+${daysForward}) Payoff`],
+        data: ['At Expiry', `T+${daysForward}`],
         textStyle: { color: '#64748B', fontSize: 11 },
-        top: 4,
+        bottom: 2,
+        left: 'center',
+        itemWidth: 14,
+        itemHeight: 8,
       },
-      grid: { left: 55, right: 35, bottom: 25, top: 40, containLabel: true },
+      grid: baseGrid,
       xAxis: {
         type: 'value',
         min: minSpot,
@@ -685,22 +767,24 @@ export default function OptionsLabPage() {
       },
       series: [
         {
-          name: 'At Expiry Payoff',
+          name: 'At Expiry',
           type: 'line',
           data: expiryData,
-          smooth: true,
-          lineStyle: { width: 2.5 },
+          smooth: 0.15,
+          showSymbol: false,
+          lineStyle: { width: 2.5, color: '#0F766E' },
           markLine: {
             silent: true,
             symbol: 'none',
+            animation: false,
             data: [
-              { yAxis: 0, lineStyle: { color: '#94A3B8', type: 'dashed' } },
+              { yAxis: 0, lineStyle: { color: '#94A3B8', type: 'dashed' }, label: { show: false } },
               {
                 xAxis: roundSpot,
                 lineStyle: { color: '#0F172A', type: 'solid', width: 2 },
                 label: {
-                  formatter: `Spot: ${roundSpot.toLocaleString('en-IN')}`,
-                  position: 'top',
+                  formatter: `Spot ${roundSpot.toLocaleString('en-IN')}`,
+                  position: 'insideEndTop',
                   color: '#0F172A',
                   fontSize: 10,
                   fontWeight: 700,
@@ -708,42 +792,39 @@ export default function OptionsLabPage() {
               },
               {
                 xAxis: Math.round(currentSpot - 2 * oneSd),
-                lineStyle: { color: '#94A3B8', type: 'dashed' },
-                label: { formatter: '-2SD', color: '#64748B', position: 'top', fontSize: 10 },
-              },
-              {
-                xAxis: Math.round(currentSpot - oneSd),
-                lineStyle: { color: '#94A3B8', type: 'dashed' },
-                label: { formatter: '-1SD', color: '#64748B', position: 'top', fontSize: 10 },
-              },
-              {
-                xAxis: Math.round(currentSpot + oneSd),
-                lineStyle: { color: '#94A3B8', type: 'dashed' },
-                label: { formatter: '+1SD', color: '#64748B', position: 'top', fontSize: 10 },
+                lineStyle: { color: '#CBD5E1', type: 'dashed' },
+                label: {
+                  formatter: '-2σ',
+                  position: 'insideStartTop',
+                  color: '#94A3B8',
+                  fontSize: 9,
+                },
               },
               {
                 xAxis: Math.round(currentSpot + 2 * oneSd),
-                lineStyle: { color: '#94A3B8', type: 'dashed' },
-                label: { formatter: '+2SD', color: '#64748B', position: 'top', fontSize: 10 },
+                lineStyle: { color: '#CBD5E1', type: 'dashed' },
+                label: {
+                  formatter: '+2σ',
+                  position: 'insideEndTop',
+                  color: '#94A3B8',
+                  fontSize: 9,
+                },
               },
-              ...payoffResult.greeks.breakevens.map((b) => ({
-                xAxis: Math.round(b),
-                lineStyle: { color: '#D97706', type: 'dotted' },
-                label: { formatter: `BE: ₹${Math.round(b).toLocaleString('en-IN')}`, color: '#D97706', fontSize: 10 },
-              })),
+              ...beLines,
             ],
           },
         },
         {
-          name: `Target (T+${daysForward}) Payoff`,
+          name: `T+${daysForward}`,
           type: 'line',
           data: targetData,
-          smooth: true,
+          smooth: 0.15,
+          showSymbol: false,
           lineStyle: { width: 2, color: '#2563EB', type: 'dashed' },
         },
       ],
     };
-  }, [payoffResult, chainData?.spotPrice, chainData?.atmIv, daysForward, symbol]);
+  }, [payoffResult, chartSpot, chartAtmIv, daysForward, spot]);
 
   // Strategy Template Application
   const applyTemplate = (tplName: string) => {
@@ -1011,37 +1092,59 @@ export default function OptionsLabPage() {
 
   // Execute in Sandbox Paper Portfolio
   const executeInSandbox = async () => {
-    if (strategyLegs.length === 0) return;
+    const legsToTrade = strategyLegs.filter((l) => enabledLegIds.has(l.id));
+    if (legsToTrade.length === 0) {
+      setNotification('Add or enable at least one strategy leg before Paper Trade.');
+      setTimeout(() => setNotification(null), 4000);
+      return;
+    }
+
     try {
-      const orders = strategyLegs.map((l) => ({
-        symbol: l.symbol,
-        expiry: l.expiry,
+      const { getStoredAccessToken } = await import('../../lib/auth-client');
+      const token = getStoredAccessToken();
+      if (!token) {
+        setNotification('Sign in required to save paper positions.');
+        setTimeout(() => setNotification(null), 4000);
+        return;
+      }
+
+      const orders = legsToTrade.map((l) => ({
+        symbol: l.symbol || symbol,
+        expiry: l.expiry || selectedExpiry,
         strike: l.strike,
         optionType: l.optionType,
         side: l.side,
-        lots: l.lots,
-        lotSize: l.lotSize,
-        price: l.entryPrice,
+        quantity: Math.max(1, l.lots || 1),
+        lotSize: l.lotSize || lotSize,
+        orderType: 'MARKET' as const,
+        price: l.entryPrice > 0 ? l.entryPrice : l.currentPrice,
       }));
 
       const res = await fetch('/api/v1/options/sandbox/order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ orders }),
       });
 
-      if (res.ok) {
-        setNotification('Strategy executed in Paper Trading Sandbox!');
+      const json = await res.json().catch(() => (null as any));
+      if (res.ok && json?.success) {
+        setNotification(json.message || `Filled ${orders.length} paper position(s).`);
         setActiveTab('sandbox');
       } else {
-        setNotification('Orders simulated successfully.');
-        setActiveTab('sandbox');
+        setNotification(
+          json?.message ||
+            (res.status === 401
+              ? 'Session expired — sign in again to paper trade.'
+              : 'Paper trade failed. Check live chain LTP and try again.'),
+        );
       }
     } catch {
-      setNotification('Position recorded in Sandbox mode.');
-      setActiveTab('sandbox');
+      setNotification('Network error placing paper orders.');
     }
-    setTimeout(() => setNotification(null), 4000);
+    setTimeout(() => setNotification(null), 4500);
   };
 
   return (
@@ -1491,7 +1594,9 @@ export default function OptionsLabPage() {
                       <ReactECharts
                         option={payoffChartOption}
                         style={{ height: '100%', minHeight: 260, width: '100%' }}
-                        notMerge={true}
+                        notMerge={false}
+                        lazyUpdate
+                        opts={{ renderer: 'canvas' }}
                       />
                     </div>
                   </div>
@@ -1602,24 +1707,26 @@ export default function OptionsLabPage() {
                   {/* Multiplier & Total Summary Toolbar */}
                   <div className="sm-positions-toolbar">
                     <div className="sm-multiplier-box">
-                      <span className="text-slate-500 font-semibold">Multiplier:</span>
-                      <button
-                        type="button"
-                        onClick={() => applyMultiplier(-1)}
-                        className="sm-multiplier-btn"
-                        aria-label="Decrease multiplier"
-                      >
-                        −
-                      </button>
-                      <span className="font-bold font-mono px-1">{multiplier}</span>
-                      <button
-                        type="button"
-                        onClick={() => applyMultiplier(1)}
-                        className="sm-multiplier-btn"
-                        aria-label="Increase multiplier"
-                      >
-                        +
-                      </button>
+                      <span className="sm-toolbar-label">Multiplier</span>
+                      <div className="sm-qty-stepper" role="group" aria-label="Strategy multiplier">
+                        <button
+                          type="button"
+                          onClick={() => applyMultiplier(-1)}
+                          className="sm-stepper-btn"
+                          aria-label="Decrease multiplier"
+                        >
+                          <Minus className="sm-icon" aria-hidden />
+                        </button>
+                        <span className="sm-stepper-value">{multiplier}</span>
+                        <button
+                          type="button"
+                          onClick={() => applyMultiplier(1)}
+                          className="sm-stepper-btn"
+                          aria-label="Increase multiplier"
+                        >
+                          <Plus className="sm-icon" aria-hidden />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="sm-toolbar-divider" aria-hidden />
@@ -1725,45 +1832,53 @@ export default function OptionsLabPage() {
 
                                 {/* Lots Counter */}
                                 <td>
-                                  <div className="flex items-center gap-1 font-mono">
+                                  <div className="sm-qty-stepper" role="group" aria-label="Lots">
                                     <button
+                                      type="button"
                                       onClick={() => updateLegLots(leg.id, -1)}
-                                      className="w-4 h-4 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold flex items-center justify-center text-[10px]"
+                                      className="sm-stepper-btn"
+                                      aria-label="Decrease lots"
                                     >
-                                      -
+                                      <Minus className="sm-icon" aria-hidden />
                                     </button>
-                                    <span className="font-bold">{leg.lots}</span>
+                                    <span className="sm-stepper-value">{leg.lots}</span>
                                     <button
+                                      type="button"
                                       onClick={() => updateLegLots(leg.id, 1)}
-                                      className="w-4 h-4 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold flex items-center justify-center text-[10px]"
+                                      className="sm-stepper-btn"
+                                      aria-label="Increase lots"
                                     >
-                                      +
+                                      <Plus className="sm-icon" aria-hidden />
                                     </button>
                                   </div>
                                 </td>
 
                                 {/* Expiry Dropdown */}
                                 <td>
-                                  <span className="text-slate-700 font-mono text-xs">{leg.expiry}</span>
+                                  <span className="sm-leg-expiry">{leg.expiry}</span>
                                 </td>
 
-                                {/* Strike Stepper [ - ] 23250 [ + ] */}
+                                {/* Strike Stepper */}
                                 <td>
-                                  <div className="sm-strike-stepper">
+                                  <div className="sm-qty-stepper sm-strike-stepper" role="group" aria-label="Strike">
                                     <button
+                                      type="button"
                                       onClick={() => shiftLegStrike(leg.id, -1)}
                                       className="sm-stepper-btn"
                                       title="Shift strike down"
+                                      aria-label="Decrease strike"
                                     >
-                                      -
+                                      <Minus className="sm-icon" aria-hidden />
                                     </button>
-                                    <span className="font-mono font-bold px-1.5">{leg.strike}</span>
+                                    <span className="sm-stepper-value sm-stepper-value-wide">{leg.strike}</span>
                                     <button
+                                      type="button"
                                       onClick={() => shiftLegStrike(leg.id, 1)}
                                       className="sm-stepper-btn"
                                       title="Shift strike up"
+                                      aria-label="Increase strike"
                                     >
-                                      +
+                                      <Plus className="sm-icon" aria-hidden />
                                     </button>
                                   </div>
                                 </td>

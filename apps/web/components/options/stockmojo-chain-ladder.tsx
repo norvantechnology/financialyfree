@@ -193,20 +193,24 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
       {/* ── Top Row 2: Micro Ticker Stats (SPOT, VIX, FUT) ── */}
       <div className="sm-chain-ticker-row">
         <div className="sm-ticker-item">
-          <span className="sm-ticker-label">SPOT:</span>
+          <span className="sm-ticker-label">SPOT</span>
           <span className="sm-ticker-value">
-            {spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+            {spotPrice > 0
+              ? spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+              : '—'}
           </span>
-          <span className={`sm-ticker-change ${spotChange >= 0 ? 'pos' : 'neg'}`}>
-            {spotChange >= 0 ? '+' : ''}{spotChange.toFixed(1)}
-          </span>
+          {spotPrice > 0 ? (
+            <span className={`sm-ticker-change ${spotChange >= 0 ? 'pos' : 'neg'}`}>
+              {spotChange >= 0 ? '+' : ''}{spotChange.toFixed(1)}
+            </span>
+          ) : null}
         </div>
 
         <div className="sm-ticker-divider" />
 
         <div className="sm-ticker-item">
-          <span className="sm-ticker-label">VIX:</span>
-          <span className="sm-ticker-value">{vix != null ? vix.toFixed(2) : '—'}</span>
+          <span className="sm-ticker-label">VIX</span>
+          <span className="sm-ticker-value">{vix != null && vix > 0 ? vix.toFixed(2) : '—'}</span>
         </div>
 
         <div className="sm-ticker-divider" />
@@ -257,7 +261,7 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
             </>
           ) : (
             <div className="sm-ticker-item">
-              <span className="sm-ticker-label">FUT:</span>
+              <span className="sm-ticker-label">FUT</span>
               <span className="sm-ticker-value">—</span>
             </div>
           )}
@@ -318,12 +322,12 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
         <table className="sm-ladder-table">
           <thead>
             <tr>
-              <th className="th-delta">Call Δ</th>
-              <th className="th-ltp">LTP</th>
-              <th className="th-strike">Strike</th>
-              <th className="th-oi">OI</th>
-              <th className="th-ltp">LTP</th>
-              <th className="th-delta">Put Δ</th>
+              <th className="th-delta th-call" title="Call delta">CE Δ</th>
+              <th className="th-ltp th-call" title="Call last traded price">LTP</th>
+              <th className="th-strike" title="Strike price">Strike</th>
+              <th className="th-oi" title="Open interest CE / PE">OI</th>
+              <th className="th-ltp th-put" title="Put last traded price">LTP</th>
+              <th className="th-delta th-put" title="Put delta">PE Δ</th>
             </tr>
           </thead>
           <tbody>

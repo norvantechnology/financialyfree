@@ -10,18 +10,46 @@ import {
 import { BrokerAuthService } from './broker-auth.service';
 import { InstrumentsService, POPULAR_FO_SYMBOLS } from './instruments.service';
 
+type SpotQuoteResult = {
+  spotPrice: number;
+  spotChange: number;
+  spotChangePct: number;
+  previousClose: number;
+  dayHigh: number;
+  dayLow: number;
+  timestamp: string;
+  source: string;
+  vix?: number;
+  lotSize: number;
+  futures: Array<{ expiry: string; ltp: number; lots: string }>;
+  available: boolean;
+};
+
 @Injectable()
 export class MarketDataService {
   private readonly logger = new Logger(MarketDataService.name);
   private nseSessionCache: { cookies: string; expiresAt: number } | null = null;
   private nseSessionInFlight: Promise<string> | null = null;
   private liveVixCache: { vix: number; expiresAt: number } | null = null;
-  /** Last successful NSE/broker chain — served when live scrape fails (honest stale label). */
+  /** Shared public NSE/broker-fail chain — one scrape serves all users. */
   private readonly chainCache = new Map<
     string,
     { chain: OptionChainDto; fetchedAt: number }
   >();
+  /** In-flight coalescing so 1,000 concurrent users trigger one upstream scrape. */
+  private readonly chainInFlight = new Map<string, Promise<OptionChainDto>>();
+  private readonly spotQuoteCache = new Map<
+    string,
+    { quote: SpotQuoteResult; fetchedAt: number }
+  >();
+  private readonly spotInFlight = new Map<string, Promise<SpotQuoteResult>>();
+  /** Fresh window: return without re-scraping NSE (ms). */
+  private static readonly HOT_TTL_MS = 5_000;
+  /** Stale-while-revalidate: return immediately + refresh in background (ms). */
+  private static readonly SWR_TTL_MS = 90_000;
+  /** Absolute max age before cache is discarded on failures (ms). */
   private static readonly CHAIN_CACHE_TTL_MS = 30 * 60 * 1000;
+  private static readonly SPOT_TTL_MS = 5_000;
   private static readonly NSE_UA =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
@@ -37,15 +65,37 @@ export class MarketDataService {
   private rememberChain(chain: OptionChainDto): void {
     if (!chain.contracts?.length) return;
     if (chain.source === 'DELAYED_SPOT_ONLY') return;
-    this.chainCache.set(this.cacheKey(chain.underlying, chain.selectedExpiry), {
-      chain: { ...chain },
-      fetchedAt: Date.now(),
-    });
-    // Also store under nearest key for default lookups
-    this.chainCache.set(this.cacheKey(chain.underlying), {
-      chain: { ...chain },
-      fetchedAt: Date.now(),
-    });
+    // Never put user-broker chains in the shared public cache
+    if (chain.source === 'BROKER_LIVE') return;
+    const now = Date.now();
+    const entry = { chain: { ...chain }, fetchedAt: now };
+    this.chainCache.set(this.cacheKey(chain.underlying, chain.selectedExpiry), entry);
+    this.chainCache.set(this.cacheKey(chain.underlying), entry);
+  }
+
+  private getSharedCacheEntry(symbol: string, expiry?: string) {
+    return (
+      this.chainCache.get(this.cacheKey(symbol, expiry)) ||
+      this.chainCache.get(this.cacheKey(symbol)) ||
+      null
+    );
+  }
+
+  private serveFromSharedCache(
+    hit: { chain: OptionChainDto; fetchedAt: number },
+    opts?: { stale?: boolean },
+  ): OptionChainDto {
+    const ageSec = Math.max(0, Math.round((Date.now() - hit.fetchedAt) / 1000));
+    const isStale = Boolean(opts?.stale) || ageSec > Math.floor(MarketDataService.HOT_TTL_MS / 1000);
+    return {
+      ...hit.chain,
+      timestamp: new Date().toISOString(),
+      source: isStale && hit.chain.source === 'NSE_LIVE' ? 'NSE_CACHED' : hit.chain.source,
+      dataNote: isStale
+        ? `Shared cache (${ageSec}s ago). Background refresh keeps NSE load constant for all users.`
+        : hit.chain.dataNote ||
+          'Official NSE option-chain (v3). Served from shared hot cache.',
+    };
   }
 
   private readCachedChain(
@@ -60,9 +110,7 @@ export class MarketDataService {
       futures?: Array<{ expiry: string; ltp: number; lots: string }>;
     },
   ): OptionChainDto | null {
-    const hit =
-      this.chainCache.get(this.cacheKey(symbol, expiry)) ||
-      this.chainCache.get(this.cacheKey(symbol));
+    const hit = this.getSharedCacheEntry(symbol, expiry);
     if (!hit) return null;
     if (Date.now() - hit.fetchedAt > MarketDataService.CHAIN_CACHE_TTL_MS) return null;
     const ageMin = Math.max(1, Math.round((Date.now() - hit.fetchedAt) / 60000));
@@ -169,25 +217,30 @@ export class MarketDataService {
   }
 
   /**
-   * Fetches real-time market spot quote from third-party feeds (Yahoo Finance).
-   * Maps Indian indices (^NSEI, ^NSEBANK, ^BSESN, NIFTY_FIN_SERVICE.NS, etc.) and equities.
-   * No hardcoded spot / VIX / futures defaults — unavailable fields stay empty.
+   * Spot quote with 5s shared cache + in-flight coalesce (Yahoo/NSE).
    */
-  async fetchLiveSpotQuote(symbol: string): Promise<{
-    spotPrice: number;
-    spotChange: number;
-    spotChangePct: number;
-    previousClose: number;
-    dayHigh: number;
-    dayLow: number;
-    timestamp: string;
-    source: string;
-    vix?: number;
-    lotSize: number;
-    futures: Array<{ expiry: string; ltp: number; lots: string }>;
-    available: boolean;
-  }> {
+  async fetchLiveSpotQuote(symbol: string): Promise<SpotQuoteResult> {
     const clean = (symbol || 'NIFTY').toUpperCase();
+    const cached = this.spotQuoteCache.get(clean);
+    if (cached && Date.now() - cached.fetchedAt < MarketDataService.SPOT_TTL_MS) {
+      return cached.quote;
+    }
+    const inflight = this.spotInFlight.get(clean);
+    if (inflight) return inflight;
+
+    const pending = this.fetchLiveSpotQuoteUncached(clean)
+      .then((quote) => {
+        this.spotQuoteCache.set(clean, { quote, fetchedAt: Date.now() });
+        return quote;
+      })
+      .finally(() => {
+        this.spotInFlight.delete(clean);
+      });
+    this.spotInFlight.set(clean, pending);
+    return pending;
+  }
+
+  private async fetchLiveSpotQuoteUncached(clean: string): Promise<SpotQuoteResult> {
     const lotSize = this.getLotSize(clean);
     const vix = await this.fetchLiveVix();
 
@@ -234,7 +287,7 @@ export class MarketDataService {
         };
       }
     } catch (err: any) {
-      this.logger.warn(`Failed to fetch live quote for ${symbol} (${ticker}): ${err.message}`);
+      this.logger.warn(`Failed to fetch live quote for ${clean} (${ticker}): ${err.message}`);
     }
 
     // Secondary free attempt: NSE allIndices (when session cookies work)
@@ -250,7 +303,7 @@ export class MarketDataService {
         };
       }
     } catch (err: any) {
-      this.logger.debug?.(`NSE spot fallback failed: ${err?.message || err}`);
+      this.logger.warn(`NSE index spot failed for ${clean}: ${err?.message || err}`);
     }
 
     return {
@@ -261,7 +314,7 @@ export class MarketDataService {
       dayHigh: 0,
       dayLow: 0,
       timestamp: new Date().toISOString(),
-      source: 'UNAVAILABLE',
+      source: 'unavailable',
       vix,
       lotSize,
       futures: [],
@@ -270,10 +323,11 @@ export class MarketDataService {
   }
 
   /**
-   * Primary option-chain fetch (user-scoped when broker-connected):
-   * 1) Connected broker (BROKER_LIVE) — never share across users
-   * 2) NSE official option-chain scrape (NSE_LIVE)
-   * 3) Delayed spot-only shell (DELAYED_SPOT_ONLY) — never invent OI/LTP/IV
+   * Shared public option-chain (scales to many users):
+   * - Hot cache (<5s): instant
+   * - SWR (<90s): instant stale + one background refresh
+   * - Cold: single coalesced NSE/proxy scrape
+   * Broker live is only used when `brokerOverride` is set (never shared).
    */
   async getOptionChain(
     symbol: string,
@@ -282,94 +336,128 @@ export class MarketDataService {
     brokerOverride?: BrokerType,
   ): Promise<OptionChainDto> {
     const cleanSymbol = (symbol || 'NIFTY').toUpperCase();
-    const liveSpot = await this.fetchLiveSpotQuote(cleanSymbol);
 
-    // 1) User's own broker credentials (cache key / identity always user-scoped upstream)
-    const brokersToTry: BrokerType[] = [];
-    if (userId) {
-      if (brokerOverride) {
-        brokersToTry.push(brokerOverride);
-      } else {
-        try {
-          brokersToTry.push(...(await this.brokerAuthService.getConnectedBrokers(userId)));
-        } catch {
-          /* no connections */
+    // Explicit broker request — user-scoped, never shared
+    if (userId && brokerOverride && brokerOverride !== 'sandbox') {
+      const liveSpot = await this.fetchLiveSpotQuote(cleanSymbol);
+      try {
+        const token = await this.brokerAuthService.getDecryptedToken(userId, brokerOverride);
+        if (token && !/_mock_|mock_/i.test(token)) {
+          const adapter = this.brokerAuthService.getAdapter(brokerOverride);
+          const brokerChain = await adapter.getOptionChain(cleanSymbol, expiry, token);
+          if (brokerChain?.contracts?.length) {
+            const enriched = {
+              ...brokerChain,
+              source: 'BROKER_LIVE' as const,
+              dataNote: `Live option chain via your ${brokerOverride} connection`,
+              vix: brokerChain.vix ?? liveSpot.vix,
+              lotSize: brokerChain.lotSize ?? liveSpot.lotSize,
+              futures: brokerChain.futures ?? liveSpot.futures,
+            };
+            void this.persistLiveInstruments(enriched);
+            return enriched;
+          }
         }
+      } catch (err: any) {
+        this.logger.warn(`Broker chain fetch for ${brokerOverride} failed: ${err.message}`);
       }
     }
 
-    for (const broker of brokersToTry) {
-      // Paper/sandbox adapter invents OI/LTP/IV — never treat it as market data.
-      // Paper Mode only affects portfolio; chain must come from NSE or a real broker.
-      if (broker === 'sandbox') continue;
+    // Shared hot / SWR path (public NSE) — one scrape serves everyone
+    const hit = this.getSharedCacheEntry(cleanSymbol, expiry);
+    const age = hit ? Date.now() - hit.fetchedAt : Number.POSITIVE_INFINITY;
+    if (hit?.chain.contracts?.length) {
+      if (age < MarketDataService.HOT_TTL_MS) {
+        return this.serveFromSharedCache(hit, { stale: false });
+      }
+      if (age < MarketDataService.SWR_TTL_MS) {
+        void this.coalescedSharedChainFetch(cleanSymbol, expiry);
+        return this.serveFromSharedCache(hit, { stale: true });
+      }
+    }
+
+    return this.coalescedSharedChainFetch(cleanSymbol, expiry);
+  }
+
+  private coalescedSharedChainFetch(
+    symbol: string,
+    expiry?: string,
+  ): Promise<OptionChainDto> {
+    const key = this.cacheKey(symbol, expiry);
+    const existing = this.chainInFlight.get(key);
+    if (existing) return existing;
+
+    const pending = this.fetchSharedNseChain(symbol, expiry).finally(() => {
+      this.chainInFlight.delete(key);
+    });
+    this.chainInFlight.set(key, pending);
+    return pending;
+  }
+
+  private async fetchSharedNseChain(
+    cleanSymbol: string,
+    expiry?: string,
+  ): Promise<OptionChainDto> {
+    const liveSpot = await this.fetchLiveSpotQuote(cleanSymbol);
+
+    // Prefer proxy first on cloud (Render→NSE often blocked); try direct as secondary.
+    const preferProxy = Boolean(
+      (process.env.NSE_PROXY_URL || '').trim() ||
+        ((process.env.FRONTEND_URL || process.env.WEB_URL || '') &&
+          !/localhost|127\.0\.0\.1/.test(process.env.FRONTEND_URL || process.env.WEB_URL || '')),
+    );
+
+    const tryProxy = async () => {
       try {
-        const token = await this.brokerAuthService.getDecryptedToken(userId!, broker);
-        if (!token) continue;
-        // Skip obvious mock tokens from unconfigured OAuth (do not treat as live)
-        if (/_mock_|mock_/i.test(token)) {
-          this.logger.warn(`Skipping ${broker} chain: mock/unconfigured token`);
-          continue;
-        }
-        const adapter = this.brokerAuthService.getAdapter(broker);
-        const brokerChain = await adapter.getOptionChain(cleanSymbol, expiry, token);
-        if (brokerChain && Array.isArray(brokerChain.contracts) && brokerChain.contracts.length > 0) {
+        const proxied = await this.fetchNseOptionChainViaProxy(cleanSymbol, expiry, liveSpot);
+        if (proxied?.contracts?.length) {
           const enriched = {
-            ...brokerChain,
-            source: 'BROKER_LIVE' as const,
-            dataNote: `Live option chain via your ${broker} connection`,
-            vix: brokerChain.vix ?? liveSpot.vix,
-            lotSize: brokerChain.lotSize ?? liveSpot.lotSize,
-            futures: brokerChain.futures ?? liveSpot.futures,
+            ...proxied,
+            vix: liveSpot.vix ?? proxied.vix,
+            lotSize: liveSpot.lotSize || proxied.lotSize,
+            futures: liveSpot.futures?.length ? liveSpot.futures : proxied.futures,
           };
-          void this.persistLiveInstruments(enriched);
           this.rememberChain(enriched);
+          void this.persistLiveInstruments(enriched);
           return enriched;
         }
       } catch (err: any) {
-        this.logger.warn(`Broker chain fetch for ${broker} failed: ${err.message}`);
+        this.logger.warn(`NSE proxy chain fetch failed: ${err.message}`);
       }
-    }
+      return null;
+    };
 
-    // 2) Official NSE option-chain (direct scrape)
-    try {
-      const nseLive = await this.fetchNseOptionChain(cleanSymbol, expiry, liveSpot);
-      if (nseLive && nseLive.contracts.length > 0) {
-        const enriched = {
-          ...nseLive,
-          vix: liveSpot.vix,
-          lotSize: liveSpot.lotSize,
-          futures: liveSpot.futures,
-          dataNote:
-            nseLive.dataNote ||
-            'Official NSE option-chain (v3). OI/LTP refresh during market hours.',
-        };
-        this.rememberChain(enriched);
-        void this.persistLiveInstruments(enriched);
-        return enriched;
+    const tryDirect = async () => {
+      try {
+        const nseLive = await this.fetchNseOptionChain(cleanSymbol, expiry, liveSpot);
+        if (nseLive?.contracts?.length) {
+          const enriched = {
+            ...nseLive,
+            vix: liveSpot.vix,
+            lotSize: liveSpot.lotSize,
+            futures: liveSpot.futures,
+            dataNote:
+              nseLive.dataNote ||
+              'Official NSE option-chain (v3). OI/LTP refresh during market hours.',
+          };
+          this.rememberChain(enriched);
+          void this.persistLiveInstruments(enriched);
+          return enriched;
+        }
+      } catch (err: any) {
+        this.logger.warn(`Direct NSE chain fetch failed: ${err.message}`);
       }
-    } catch (err: any) {
-      this.logger.warn(`Direct NSE chain fetch failed: ${err.message}`);
-    }
+      return null;
+    };
 
-    // 2b) Vercel/Next NSE proxy — Render datacenter IPs are often blocked by NSE
-    try {
-      const proxied = await this.fetchNseOptionChainViaProxy(cleanSymbol, expiry, liveSpot);
-      if (proxied && proxied.contracts.length > 0) {
-        this.rememberChain(proxied);
-        void this.persistLiveInstruments(proxied);
-        return proxied;
-      }
-    } catch (err: any) {
-      this.logger.warn(`NSE proxy chain fetch failed: ${err.message}`);
-    }
+    const primary = preferProxy ? await tryProxy() : await tryDirect();
+    if (primary) return primary;
+    const secondary = preferProxy ? await tryDirect() : await tryProxy();
+    if (secondary) return secondary;
 
-    // 2c) Recent in-memory cache (real quotes, labeled stale — not invented)
     const cached = this.readCachedChain(cleanSymbol, expiry, liveSpot);
-    if (cached) {
-      return cached;
-    }
+    if (cached) return cached;
 
-    // 3) Honest delayed-spot shell — ZERO fabricated OI / LTP / IV
     return this.buildDelayedSpotOnlyChain(cleanSymbol, liveSpot, expiry);
   }
 
@@ -399,7 +487,7 @@ export class MarketDataService {
 
     const res = await fetch(url, {
       headers,
-      signal: AbortSignal.timeout(28000),
+      signal: AbortSignal.timeout(12000),
     });
     if (!res.ok) {
       this.logger.warn(`NSE proxy HTTP ${res.status}`);

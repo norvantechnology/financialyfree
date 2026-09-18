@@ -303,7 +303,9 @@ export const NiftyCandlestickChart: React.FC<NiftyCandlestickChartProps> = ({
           <ReactECharts
             option={chartOption}
             style={{ height: '320px', width: '100%' }}
-            notMerge={true}
+            notMerge={false}
+            lazyUpdate
+            opts={{ renderer: 'canvas' }}
           />
         ) : (
           <div className="flex items-center justify-center h-[320px] text-slate-400 text-xs">

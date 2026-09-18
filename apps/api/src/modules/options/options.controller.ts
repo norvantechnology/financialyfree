@@ -8,7 +8,10 @@ import {
   Body,
   UseGuards,
   Req,
+  Res,
+  Header,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { BrokerType, OptionType, CreateStrategyDto, SandboxOrderDto } from '@ff/types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -78,14 +81,28 @@ export class OptionsController {
 
   @Public()
   @Get('chain/:underlying')
+  @Header('Cache-Control', 'public, max-age=0, s-maxage=5, stale-while-revalidate=60')
   async getOptionChain(
     @Param('underlying') underlying: string,
     @Query('expiry') expiry?: string,
     @Query('broker') broker?: BrokerType,
     @Req() req?: any,
+    @Res({ passthrough: true }) res?: Response,
   ) {
     const userId = req?.user?.id || req?.user?.userId;
-    const chain = await this.marketDataService.getOptionChain(underlying, expiry, userId, broker);
+    // Only hit user-scoped broker path when explicitly requested
+    const chain = await this.marketDataService.getOptionChain(
+      underlying,
+      expiry,
+      broker ? userId : undefined,
+      broker,
+    );
+    if (chain.source === 'NSE_LIVE' || chain.source === 'NSE_CACHED') {
+      res?.setHeader('Cache-Control', 'public, max-age=0, s-maxage=5, stale-while-revalidate=60');
+      res?.setHeader('X-Options-Cache', chain.source === 'NSE_CACHED' ? 'HIT' : 'LIVE');
+    } else {
+      res?.setHeader('Cache-Control', 'private, no-store');
+    }
     return { success: true, data: chain };
   }
 
@@ -235,17 +252,81 @@ export class OptionsController {
   @Post('sandbox/positions')
   async placeSandboxOrder(@Body() order: SandboxOrderDto, @Req() req: any) {
     const userId = req.user?.id || req.user?.userId;
+    if (!userId) {
+      return { success: false, message: 'Sign in required for paper trading' };
+    }
+    const saved = await this.fillSandboxOrder(userId, order);
+    if (!saved.success) return saved;
+    return { success: true, message: 'Sandbox order filled at live market price', data: saved.data };
+  }
 
-    const chain = await this.marketDataService.getOptionChain(order.symbol, order.expiry, userId);
+  /** Batch paper fills from Strategy Builder "Paper Trade" button. */
+  @Post('sandbox/order')
+  async placeSandboxOrdersBatch(
+    @Body() body: SandboxOrderDto | { orders: SandboxOrderDto[] },
+    @Req() req: any,
+  ) {
+    const userId = req.user?.id || req.user?.userId;
+    if (!userId) {
+      return { success: false, message: 'Sign in required for paper trading' };
+    }
+
+    const orders = Array.isArray((body as { orders?: SandboxOrderDto[] }).orders)
+      ? (body as { orders: SandboxOrderDto[] }).orders
+      : [body as SandboxOrderDto];
+
+    if (!orders.length) {
+      return { success: false, message: 'No orders to fill' };
+    }
+
+    const filled = [];
+    const errors: string[] = [];
+    for (const order of orders) {
+      const result = await this.fillSandboxOrder(userId, order);
+      if (result.success && result.data) filled.push(result.data);
+      else if (result.message) errors.push(result.message);
+    }
+
+    if (!filled.length) {
+      return {
+        success: false,
+        message: errors[0] || 'Could not fill paper orders',
+        errors,
+      };
+    }
+
+    return {
+      success: true,
+      message: `Filled ${filled.length} paper position${filled.length === 1 ? '' : 's'}`,
+      data: filled,
+      errors: errors.length ? errors : undefined,
+    };
+  }
+
+  private async fillSandboxOrder(
+    userId: string,
+    order: SandboxOrderDto & { lots?: number; lotSize?: number; price?: number },
+  ): Promise<{ success: boolean; message?: string; data?: SandboxPositionEntity }> {
+    const quantity = Number(
+      (order.quantity && order.quantity > 0
+        ? order.quantity
+        : (order as { lots?: number }).lots) || 0,
+    );
+    if (!order.symbol || !order.expiry || !order.side || quantity <= 0) {
+      return { success: false, message: 'Invalid paper order (symbol/expiry/side/quantity required)' };
+    }
+
+    // Shared NSE cache path — do not force broker lookup for paper fills
+    const chain = await this.marketDataService.getOptionChain(order.symbol, order.expiry);
     let fillPrice: number | null = order.price && order.price > 0 ? order.price : null;
 
-    if (order.strike && order.optionType) {
+    if (order.strike && order.optionType && order.optionType !== 'FUT') {
       const row = chain.contracts.find((c) => c.strike === order.strike);
       if (row) {
         const ltp = order.optionType === 'CE' ? row.ce.ltp : row.pe.ltp;
         if (ltp > 0) fillPrice = ltp;
       }
-    } else if (chain.spotPrice > 0) {
+    } else if (chain.spotPrice > 0 && (!order.optionType || order.optionType === 'FUT')) {
       fillPrice = chain.spotPrice;
     }
 
@@ -253,9 +334,14 @@ export class OptionsController {
       return {
         success: false,
         message:
-          'No live LTP available to fill paper order. Wait for NSE_LIVE/BROKER_LIVE chain or pass an explicit price.',
+          'No live LTP available to fill paper order. Wait for NSE_LIVE chain or pass an explicit price.',
       };
     }
+
+    const lotSize =
+      (order as { lotSize?: number }).lotSize ||
+      chain.lotSize ||
+      this.marketDataService.getLotSize(order.symbol);
 
     const position = this.sandboxRepo.create({
       userId,
@@ -264,8 +350,8 @@ export class OptionsController {
       optionType: order.optionType || 'CE',
       expiry: order.expiry,
       side: order.side,
-      quantity: order.quantity,
-      lotSize: chain.lotSize || this.marketDataService.getLotSize(order.symbol),
+      quantity,
+      lotSize,
       entryPrice: fillPrice,
       currentPrice: fillPrice,
       unrealizedPnl: 0,
@@ -274,7 +360,7 @@ export class OptionsController {
     });
 
     const saved = await this.sandboxRepo.save(position);
-    return { success: true, message: 'Sandbox order filled at live market price', data: saved };
+    return { success: true, data: saved };
   }
 
   @Post('sandbox/square-off/:id')

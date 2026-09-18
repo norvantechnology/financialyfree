@@ -9,25 +9,45 @@ export const SandboxPortfolioView: React.FC = () => {
   const [portfolio, setPortfolio] = useState<SandboxPortfolioDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   const hasPortfolioRef = useRef(false);
+
+  const authHeaders = useCallback(async (): Promise<HeadersInit> => {
+    const { getStoredAccessToken } = await import('../../lib/auth-client');
+    const token = getStoredAccessToken();
+    return token
+      ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+      : { 'Content-Type': 'application/json' };
+  }, []);
 
   const fetchPortfolio = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = Boolean(opts?.silent) && hasPortfolioRef.current;
     try {
       if (!silent) setIsLoading(true);
-      const res = await fetch('/api/v1/options/sandbox/portfolio');
+      const headers = await authHeaders();
+      if (!(headers as Record<string, string>).Authorization) {
+        setAuthError('Sign in to view and manage paper positions.');
+        setPortfolio(null);
+        return;
+      }
+      const res = await fetch('/api/v1/options/sandbox/portfolio', { headers, cache: 'no-store' });
+      if (res.status === 401) {
+        setAuthError('Session expired — sign in again.');
+        return;
+      }
       if (res.ok) {
         const json = await res.json();
         if (json.data) {
           setPortfolio(json.data);
           hasPortfolioRef.current = true;
+          setAuthError(null);
         }
       }
     } catch {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [authHeaders]);
 
   useEffect(() => {
     void fetchPortfolio({ silent: false });
@@ -39,11 +59,15 @@ export const SandboxPortfolioView: React.FC = () => {
 
   const squareOffPosition = async (id: string) => {
     try {
-      const res = await fetch(`/api/v1/options/sandbox/square-off/${id}`, { method: 'POST' });
+      const headers = await authHeaders();
+      const res = await fetch(`/api/v1/options/sandbox/square-off/${id}`, {
+        method: 'POST',
+        headers,
+      });
       if (res.ok) {
         setActionMessage('Position squared off at live market price.');
         setTimeout(() => setActionMessage(null), 3000);
-        fetchPortfolio();
+        void fetchPortfolio({ silent: true });
       }
     } catch {
       setActionMessage('Error squaring off position.');
@@ -53,11 +77,15 @@ export const SandboxPortfolioView: React.FC = () => {
   const squareOffAll = async () => {
     if (!confirm('Are you sure you want to square off ALL open positions at live market prices?')) return;
     try {
-      const res = await fetch('/api/v1/options/sandbox/square-off-all', { method: 'POST' });
+      const headers = await authHeaders();
+      const res = await fetch('/api/v1/options/sandbox/square-off-all', {
+        method: 'POST',
+        headers,
+      });
       if (res.ok) {
         setActionMessage('All positions successfully squared off.');
         setTimeout(() => setActionMessage(null), 3000);
-        fetchPortfolio();
+        void fetchPortfolio({ silent: true });
       }
     } catch {
       setActionMessage('Error squaring off all positions.');
@@ -67,11 +95,15 @@ export const SandboxPortfolioView: React.FC = () => {
   const resetPortfolio = async () => {
     if (!confirm('Reset entire sandbox portfolio? This will clear all positions and restore ₹10,00,000 capital.')) return;
     try {
-      const res = await fetch('/api/v1/options/sandbox/reset', { method: 'POST' });
+      const headers = await authHeaders();
+      const res = await fetch('/api/v1/options/sandbox/reset', {
+        method: 'POST',
+        headers,
+      });
       if (res.ok) {
         setActionMessage('Sandbox portfolio reset to ₹10,00,000.');
         setTimeout(() => setActionMessage(null), 3000);
-        fetchPortfolio();
+        void fetchPortfolio({ silent: true });
       }
     } catch {
       setActionMessage('Error resetting portfolio.');
@@ -302,10 +334,11 @@ export const SandboxPortfolioView: React.FC = () => {
               <Clock className="w-5 h-5 text-slate-500" />
             </div>
             <h4 style={{ fontSize: '0.875rem', fontWeight: 800, color: '#0F172A', marginBottom: '0.3rem' }}>
-              No Open Paper Positions
+              {authError ? 'Paper portfolio unavailable' : 'No Open Paper Positions'}
             </h4>
             <p style={{ fontSize: '0.75rem', color: '#64748B', maxWidth: '420px', margin: '0 auto', lineHeight: 1.45 }}>
-              Build a strategy and tap Paper Trade to simulate fills with live market prices.
+              {authError ||
+                'Build a strategy in Strategy Builder, then tap Paper Trade to simulate fills with live market prices.'}
             </p>
           </div>
         )}
