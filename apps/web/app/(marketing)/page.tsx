@@ -88,28 +88,28 @@ const FEATURES_LIST = [
 const HOW_IT_WORKS = [
   {
     step: '01',
-    icon: <Target size={28} />,
+    icon: <Target size={20} />,
     title: 'Set your goal',
     desc: 'Choose what you are saving for - emergency fund, retirement, child education, or long-term wealth - and set a target amount and year.',
     color: '#f59e0b',
   },
   {
     step: '02',
-    icon: <BookOpen size={28} />,
+    icon: <BookOpen size={20} />,
     title: 'See your monthly SIP',
     desc: 'We show exactly how much to invest each month, based on your timeline and expected returns. No spreadsheet needed.',
     color: '#10b981',
   },
   {
     step: '03',
-    icon: <BarChart3 size={28} />,
+    icon: <BarChart3 size={20} />,
     title: 'Research stocks clearly',
     desc: 'Use simple tools to check if a stock looks fairly priced, how the market mood feels, and what big investors are doing.',
     color: '#6366f1',
   },
   {
     step: '04',
-    icon: <Landmark size={28} />,
+    icon: <Landmark size={20} />,
     title: 'Start investing',
     desc: 'Complete quick digital KYC and start your SIP. Orders go through exchange infrastructure - not a random tip group.',
     color: '#0f766e',
@@ -177,7 +177,7 @@ export default function HomePage() {
                 Mutual fund SIPs &amp; Nifty stock research
               </div>
 
-              <h1 className="mkt-serif hp-h1">
+              <h1 className="hp-h1">
                 Invest with{' '}
                 <span className="hp-gradient-text">purpose.</span>
                 <br />
@@ -491,16 +491,18 @@ export default function HomePage() {
             {HOW_IT_WORKS.map((step, i) => (
               <Reveal key={step.step}>
                 <div className="hp-step">
-                  <div className="hp-step-number" style={{ color: step.color, borderColor: step.color + '30', background: step.color + '10' }}>
-                    {step.step}
-                  </div>
-                  <div className="hp-step-icon" style={{ color: step.color, background: step.color + '15' }}>
-                    {step.icon}
+                  <div className="hp-step-visual">
+                    <div className="hp-step-number" style={{ color: step.color, background: step.color + '18' }}>
+                      {step.step}
+                    </div>
+                    <div className="hp-step-icon" style={{ color: step.color, background: step.color + '18' }}>
+                      {step.icon}
+                    </div>
                   </div>
                   <h3 className="hp-step-title">{step.title}</h3>
                   <p className="hp-step-desc">{step.desc}</p>
                   {i < HOW_IT_WORKS.length - 1 && (
-                    <div className="hp-step-arrow" aria-hidden><ChevronRight size={20} /></div>
+                    <div className="hp-step-arrow" aria-hidden><ChevronRight size={18} /></div>
                   )}
                 </div>
               </Reveal>
