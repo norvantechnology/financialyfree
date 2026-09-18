@@ -5,9 +5,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  Settings,
-  EyeOff,
-  Check,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Crosshair,
 } from 'lucide-react';
 import { OptionChainRowDto, StrategyLegDto, TradeSide, OptionType } from '@ff/types';
 
@@ -43,6 +43,10 @@ interface StockMojoChainLadderProps {
   }) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  /** Desktop chain width in px (ignored when collapsed / mobile). */
+  panelWidth?: number;
+  /** Optional chain height in px for desktop fill layout. */
+  panelHeight?: number;
 }
 
 export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
@@ -63,6 +67,8 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
   onAddOrToggleLeg,
   isCollapsed,
   onToggleCollapse,
+  panelWidth,
+  panelHeight,
 }) => {
   const [isFutDropdownOpen, setIsFutDropdownOpen] = useState(false);
   const [selectedFutIndex, setSelectedFutIndex] = useState(0);
@@ -131,7 +137,20 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
   const selectedFut = futures[selectedFutIndex] || futures[0] || null;
 
   return (
-    <div className={`sm-chain-panel ${isCollapsed ? 'collapsed' : ''}`}>
+    <div
+      className={`sm-chain-panel ${isCollapsed ? 'collapsed' : ''}`}
+      style={
+        !isCollapsed && panelWidth
+          ? {
+              width: panelWidth,
+              minWidth: panelWidth,
+              ...(panelHeight ? { height: panelHeight } : null),
+            }
+          : panelHeight && !isCollapsed
+            ? { height: panelHeight }
+            : undefined
+      }
+    >
       {/* ── Top Row 1: Symbol Lot Pill & Ticker Bar ── */}
       <div className="sm-chain-top-header">
         <div className="sm-symbol-pill-box">
@@ -156,12 +175,18 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
         </div>
 
         <button
+          type="button"
           onClick={onToggleCollapse}
           className="sm-hide-chain-btn"
-          title={isCollapsed ? 'Expand Option Chain' : 'Hide Option Chain to expand chart'}
+          title={isCollapsed ? 'Show option chain' : 'Hide option chain'}
+          aria-label={isCollapsed ? 'Show option chain' : 'Hide option chain'}
         >
-          <EyeOff className="w-3 h-3" />
-          <span>{isCollapsed ? 'Show Chain' : 'Hide Chain'}</span>
+          {isCollapsed ? (
+            <PanelLeftOpen className="sm-icon" aria-hidden />
+          ) : (
+            <PanelLeftClose className="sm-icon" aria-hidden />
+          )}
+          <span>{isCollapsed ? 'Show' : 'Hide'}</span>
         </button>
       </div>
 
@@ -284,9 +309,8 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
           </div>
         )}
 
-        <button className="sm-settings-gear-btn" title="Chain Settings">
-          <Settings className="w-3.5 h-3.5 text-slate-500" />
-        </button>
+        <div className="sm-expiry-spacer" aria-hidden />
+
       </div>
 
       {/* ── Option Chain Table (Dual CE/PE Ladder - 6 Columns matching StockMojo) ── */}
@@ -325,9 +349,6 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                 (l) => l.strike === row.strike && l.optionType === 'PE'
               );
 
-              const oiPct = Math.min(100, Math.round(((row.ce.oi + row.pe.oi) / (maxOi * 1.5)) * 100));
-
-              // Format Deltas matching StockMojo
               const formatCallDelta = (d?: number | null) => {
                 if (d == null) return '—';
                 if (d >= 0.995) return '1';
@@ -339,6 +360,16 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                 if (Math.abs(d) <= 0.005) return '0';
                 return d.toFixed(2);
               };
+
+              const formatOi = (n: number) => {
+                if (!n) return '—';
+                if (n >= 100000) return `${(n / 100000).toFixed(1)}L`;
+                if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+                return String(n);
+              };
+
+              const ceOiPct = maxOi > 0 ? Math.min(100, Math.round((row.ce.oi / maxOi) * 100)) : 0;
+              const peOiPct = maxOi > 0 ? Math.min(100, Math.round((row.pe.oi / maxOi) * 100)) : 0;
 
               return (
                 <tr
@@ -353,7 +384,9 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
 
                   {/* 2. Call LTP */}
                   <td
-                    className={`td-ltp call ${isCeItm ? 'itm-call' : ''} ${activeCeLeg ? 'has-leg' : ''}`}
+                    className={`td-ltp call ${isCeItm ? 'itm-call' : ''} ${
+                      activeCeLeg ? `has-leg leg-${activeCeLeg.side.toLowerCase()}` : ''
+                    }`}
                     onClick={() =>
                       onAddOrToggleLeg({
                         side: activeCeLeg?.side === 'BUY' ? 'SELL' : 'BUY',
@@ -364,44 +397,47 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                         expiry: selectedExpiry,
                       })
                     }
-                    title="Click to add Call leg"
+                    title={activeCeLeg ? `${activeCeLeg.side} Call on this strike` : 'Add Call leg'}
                   >
-                    <div className="flex items-center justify-between gap-1">
-                      {activeCeLeg ? (
-                        <span className={`sm-leg-badge ${activeCeLeg.side.toLowerCase()}`}>
-                          {activeCeLeg.side === 'BUY' ? 'B' : 'S'}
-                        </span>
-                      ) : null}
-                      <span className="font-mono font-semibold">
-                        {row.ce.ltp > 0 ? row.ce.ltp.toFixed(2) : '—'}
-                      </span>
-                      {!activeCeLeg && isCeItm && (
-                        <span className="text-amber-500 font-bold" style={{ fontSize: '9px' }}>▲</span>
-                      )}
-                    </div>
+                    <span className="sm-ltp-value">
+                      {row.ce.ltp > 0 ? row.ce.ltp.toFixed(2) : '—'}
+                    </span>
                   </td>
 
                   {/* 3. Strike (Center Column) */}
                   <td className={`td-strike ${isAtm ? 'atm-cell' : ''} ${isCeItm ? 'itm-call' : ''}`}>
                     <span className="strike-text">{row.strike}</span>
+                    {(activeCeLeg || activePeLeg) && (
+                      <span className="sm-strike-leg-dot" aria-hidden />
+                    )}
                   </td>
 
-                  {/* 4. Horizontal Pink OI Depth Bar */}
+                  {/* 4. OI with compact number + depth bar */}
                   <td className="td-oi">
-                    <div className="sm-oi-bar-wrapper">
-                      <div
-                        className="sm-oi-bar-fill"
-                        style={{
-                          width: `${Math.max(12, oiPct)}%`,
-                          background: '#FECDD3',
-                        }}
-                      />
+                    <div className="sm-oi-cell">
+                      <div className="sm-oi-nums">
+                        <span className="sm-oi-ce">{formatOi(row.ce.oi)}</span>
+                        <span className="sm-oi-sep">/</span>
+                        <span className="sm-oi-pe">{formatOi(row.pe.oi)}</span>
+                      </div>
+                      <div className="sm-oi-bar-wrapper" aria-hidden>
+                        <div
+                          className="sm-oi-bar-fill sm-oi-bar-ce"
+                          style={{ width: `${Math.max(ceOiPct > 0 ? 8 : 0, ceOiPct / 2)}%` }}
+                        />
+                        <div
+                          className="sm-oi-bar-fill sm-oi-bar-pe"
+                          style={{ width: `${Math.max(peOiPct > 0 ? 8 : 0, peOiPct / 2)}%` }}
+                        />
+                      </div>
                     </div>
                   </td>
 
                   {/* 5. Put LTP */}
                   <td
-                    className={`td-ltp put ${isPeItm ? 'itm-put' : ''} ${activePeLeg ? 'has-leg' : ''} ${isAtm ? 'atm-put-highlight' : ''}`}
+                    className={`td-ltp put ${isPeItm ? 'itm-put' : ''} ${
+                      activePeLeg ? `has-leg leg-${activePeLeg.side.toLowerCase()}` : ''
+                    } ${isAtm ? 'atm-put-highlight' : ''}`}
                     onClick={() =>
                       onAddOrToggleLeg({
                         side: activePeLeg?.side === 'BUY' ? 'SELL' : 'BUY',
@@ -412,18 +448,11 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
                         expiry: selectedExpiry,
                       })
                     }
-                    title="Click to add Put leg"
+                    title={activePeLeg ? `${activePeLeg.side} Put on this strike` : 'Add Put leg'}
                   >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="font-mono font-semibold">
-                        {row.pe.ltp > 0 ? row.pe.ltp.toFixed(2) : '—'}
-                      </span>
-                      {activePeLeg ? (
-                        <span className={`sm-leg-badge ${activePeLeg.side.toLowerCase()}`}>
-                          {activePeLeg.side === 'BUY' ? 'B' : 'S'}
-                        </span>
-                      ) : null}
-                    </div>
+                    <span className="sm-ltp-value">
+                      {row.pe.ltp > 0 ? row.pe.ltp.toFixed(2) : '—'}
+                    </span>
                   </td>
 
                   {/* 6. Put Delta */}
@@ -439,12 +468,13 @@ export const StockMojoChainLadder: React.FC<StockMojoChainLadderProps> = ({
         {/* Floating "Go to ATM" button */}
         {contracts.length > 0 ? (
           <button
+            type="button"
             onClick={scrollToAtm}
             className="sm-go-to-atm-floating-btn"
-            title="Jump to current At-The-Money strike"
+            title="Jump to At-The-Money strike"
           >
-            <Check className="w-3.5 h-3.5 text-white" />
-            <span>Go to ATM</span>
+            <Crosshair className="sm-icon" aria-hidden />
+            <span>ATM</span>
           </button>
         ) : null}
       </div>

@@ -226,6 +226,8 @@ describe('Options Analytics Calculation Engine', () => {
       expect(classifyOiBuildup(-15, 800)).toBe('Short Buildup');
       expect(classifyOiBuildup(25, -300)).toBe('Short Covering');
       expect(classifyOiBuildup(-20, -400)).toBe('Long Unwinding');
+      expect(classifyOiBuildup(0, 0)).toBe('Neutral');
+      expect(classifyOiBuildup(12, 0)).toBe('Neutral');
     });
   });
 

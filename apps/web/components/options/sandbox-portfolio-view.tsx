@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import '../../styles/options-lab.css';
 import { Clock, RefreshCw, AlertTriangle, ShieldCheck, XCircle } from 'lucide-react';
 import { SandboxPortfolioDto } from '@ff/types';
@@ -9,15 +9,18 @@ export const SandboxPortfolioView: React.FC = () => {
   const [portfolio, setPortfolio] = useState<SandboxPortfolioDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const hasPortfolioRef = useRef(false);
 
-  const fetchPortfolio = useCallback(async () => {
+  const fetchPortfolio = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = Boolean(opts?.silent) && hasPortfolioRef.current;
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const res = await fetch('/api/v1/options/sandbox/portfolio');
       if (res.ok) {
         const json = await res.json();
         if (json.data) {
           setPortfolio(json.data);
+          hasPortfolioRef.current = true;
         }
       }
     } catch {
@@ -27,8 +30,10 @@ export const SandboxPortfolioView: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchPortfolio();
-    const interval = setInterval(fetchPortfolio, 3000); // 3s auto-refresh
+    void fetchPortfolio({ silent: false });
+    const interval = setInterval(() => {
+      void fetchPortfolio({ silent: true });
+    }, 5000);
     return () => clearInterval(interval);
   }, [fetchPortfolio]);
 
@@ -111,61 +116,55 @@ export const SandboxPortfolioView: React.FC = () => {
         </div>
       )}
 
-      {/* ── KPI Cards Grid (6 Columns) ── */}
+      {/* ── KPI strip (capital + P&L) ── */}
       <div className="opt-kpi-grid cols-6">
-        <div className="opt-kpi-card">
-          <span className="opt-kpi-label">Total Capital</span>
+        <div className="opt-kpi-card" title="Virtual sandbox base capital">
+          <span className="opt-kpi-label">Capital</span>
           <div className="opt-kpi-value">₹{totalCapital.toLocaleString('en-IN')}</div>
-          <span className="opt-kpi-sub">Virtual Sandbox Base</span>
         </div>
 
-        <div className="opt-kpi-card">
-          <span className="opt-kpi-label">Available Margin</span>
+        <div className="opt-kpi-card" title="Free margin available to deploy">
+          <span className="opt-kpi-label">Available</span>
           <div className="opt-kpi-value" style={{ color: '#0284C7' }}>
             ₹{availableMargin.toLocaleString('en-IN')}
           </div>
-          <span className="opt-kpi-sub">Free to deploy</span>
         </div>
 
-        <div className="opt-kpi-card">
-          <span className="opt-kpi-label">Deployed Margin</span>
+        <div className="opt-kpi-card" title="Margin blocked by open positions">
+          <span className="opt-kpi-label">Deployed</span>
           <div className="opt-kpi-value" style={{ color: '#D97706' }}>
             ₹{deployedMargin.toLocaleString('en-IN')}
           </div>
-          <span className="opt-kpi-sub">Margin blocked</span>
         </div>
 
-        <div className="opt-kpi-card">
-          <span className="opt-kpi-label">Unrealized P&L</span>
+        <div className="opt-kpi-card" title="Unrealized P&L on open positions">
+          <span className="opt-kpi-label">Unrealized</span>
           <div
             className="opt-kpi-value"
             style={{ color: unrealizedPnl >= 0 ? '#059669' : '#E11D48' }}
           >
             {unrealizedPnl >= 0 ? '+' : ''}₹{unrealizedPnl.toLocaleString('en-IN')}
           </div>
-          <span className="opt-kpi-sub">Open live positions</span>
         </div>
 
-        <div className="opt-kpi-card">
-          <span className="opt-kpi-label">Realized P&L</span>
+        <div className="opt-kpi-card" title="Realized P&L from closed trades">
+          <span className="opt-kpi-label">Realized</span>
           <div
             className="opt-kpi-value"
             style={{ color: realizedPnl >= 0 ? '#059669' : '#E11D48' }}
           >
             {realizedPnl >= 0 ? '+' : ''}₹{realizedPnl.toLocaleString('en-IN')}
           </div>
-          <span className="opt-kpi-sub">Closed book trades</span>
         </div>
 
-        <div className="opt-kpi-card">
-          <span className="opt-kpi-label">Net Total P&L</span>
+        <div className="opt-kpi-card" title="Net total sandbox P&L">
+          <span className="opt-kpi-label">Net P&L</span>
           <div
             className="opt-kpi-value"
             style={{ color: totalPnl >= 0 ? '#059669' : '#E11D48' }}
           >
             {totalPnl >= 0 ? '+' : ''}₹{totalPnl.toLocaleString('en-IN')}
           </div>
-          <span className="opt-kpi-sub">Cumulative sandbox ROI</span>
         </div>
       </div>
 
@@ -174,21 +173,20 @@ export const SandboxPortfolioView: React.FC = () => {
         <div className="opt-chart-header">
           <div className="opt-chart-title-wrap">
             <div className="opt-chart-icon" style={{ color: '#0F766E' }}>
-              <Clock className="w-4 h-4" />
+              <Clock className="w-3.5 h-3.5" />
             </div>
             <div>
-              <h3 className="opt-chart-title">Open Sandbox Positions ({positions.length})</h3>
-              <p className="opt-chart-subtitle">
-                Fills executed at real live NSE tick prices without order routing
-              </p>
+              <h3 className="opt-chart-title">Open Positions ({positions.length})</h3>
+              <p className="opt-chart-subtitle">Paper fills at live NSE prices</p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="opt-sandbox-actions">
             <button
-              onClick={fetchPortfolio}
+              type="button"
+              onClick={() => void fetchPortfolio({ silent: true })}
               className="opt-filter-btn"
-              title="Refresh Quotes"
+              title="Refresh quotes"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
@@ -196,21 +194,21 @@ export const SandboxPortfolioView: React.FC = () => {
 
             {positions.length > 0 && (
               <button
+                type="button"
                 onClick={squareOffAll}
-                className="opt-filter-btn"
-                style={{ background: '#FFF1F2', color: '#E11D48', borderColor: '#FECDD3' }}
+                className="opt-filter-btn opt-filter-btn-danger"
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Square Off All</span>
+                <span>Square Off</span>
               </button>
             )}
 
             <button
+              type="button"
               onClick={resetPortfolio}
               className="opt-filter-btn"
-              style={{ background: '#F8FAFC', color: '#334155' }}
             >
-              Reset Capital
+              Reset
             </button>
           </div>
         </div>

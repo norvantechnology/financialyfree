@@ -4,14 +4,18 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import '../../styles/options-lab.css';
 import dynamic from 'next/dynamic';
 import {
-  Trash2,
+  X,
   RefreshCw,
-  Bookmark,
   CheckCircle2,
   Play,
-  RotateCcw,
+  Undo2,
+  Save,
+  Library,
   Sliders,
-  FolderOpen,
+  ChevronDown,
+  ChevronUp,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import {
   OptionChainDto,
@@ -35,6 +39,10 @@ import { IvSurfaceView } from '../../components/options/iv-surface-view';
 import { SandboxPortfolioView } from '../../components/options/sandbox-portfolio-view';
 import { StockMojoChainLadder } from '../../components/options/stockmojo-chain-ladder';
 import { NiftyCandlestickChart } from '../../components/options/nifty-candlestick-chart';
+import {
+  PanelResizeHandle,
+  usePersistedLayoutNumber,
+} from '../../components/options/panel-resize-handle';
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
@@ -230,8 +238,26 @@ export default function OptionsLabPage() {
   const [connectedBroker, setConnectedBroker] = useState<string | null>(null);
   const [chainData, setChainData] = useState<OptionChainDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'closed'>('closed');
   const [latencyMs, setLatencyMs] = useState(0);
+  const chainDataRef = useRef<OptionChainDto | null>(null);
+  const chainFetchGenRef = useRef(0);
+  const chainInFlightRef = useRef(false);
+
+  useEffect(() => {
+    chainDataRef.current = chainData;
+  }, [chainData]);
+
+  // Clear stale chain when underlying changes so we don't mix symbols
+  useEffect(() => {
+    chainFetchGenRef.current += 1;
+    setChainData(null);
+    chainDataRef.current = null;
+    setSelectedExpiry('');
+    setIsLoading(true);
+    setIsRefreshing(false);
+  }, [symbol]);
 
   // Split-Screen & Analytics Workspace States
   const [isChainCollapsed, setIsChainCollapsed] = useState(false);
@@ -241,6 +267,25 @@ export default function OptionsLabPage() {
   const [multiplier, setMultiplier] = useState(1);
   const [enabledLegIds, setEnabledLegIds] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState('');
+  const [isAnalyticsCollapsed, setIsAnalyticsCollapsed] = useState(false);
+  const [isPositionsCollapsed, setIsPositionsCollapsed] = useState(false);
+  const [isDesktopLayout, setIsDesktopLayout] = useState(true);
+  const [chainWidth, setChainWidth] = usePersistedLayoutNumber('chainWidth', 360, 260, 560);
+  const [analyticsFlex, setAnalyticsFlex] = usePersistedLayoutNumber('analyticsFlex', 58, 28, 78);
+  const [chainMobileHeight, setChainMobileHeight] = usePersistedLayoutNumber(
+    'chainMobileHeight',
+    360,
+    200,
+    640,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 901px)');
+    const apply = () => setIsDesktopLayout(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
 
   // Chain Filter State (For full Option Chain tab)
   const [strikeFilter, setStrikeFilter] = useState<'all' | '10' | '15' | '20'>('15');
@@ -273,11 +318,23 @@ export default function OptionsLabPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch Option Chain Data (authenticated — enables user-scoped broker live chain)
-  const fetchChain = useCallback(async () => {
+  // Fetch Option Chain — first paint shows loading; polls patch live data without blanking the table
+  const fetchChain = useCallback(async (opts?: { silent?: boolean }) => {
+    const hasExisting = Boolean(chainDataRef.current?.contracts?.length);
+    // Keep existing rows visible whenever we already have a chain (including expiry switches)
+    const silent = Boolean(opts?.silent) || hasExisting;
     const started = performance.now();
+
+    // Never cancel a slow NSE request every 5s — skip overlapping silent polls instead
+    if (opts?.silent && chainInFlightRef.current) return;
+
+    const gen = ++chainFetchGenRef.current;
+    chainInFlightRef.current = true;
+
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
+      else setIsRefreshing(true);
+
       const { getStoredAccessToken } = await import('../../lib/auth-client');
       const token = getStoredAccessToken();
       const url = `/api/v1/options/chain/${symbol}${selectedExpiry ? `?expiry=${selectedExpiry}` : ''}`;
@@ -285,10 +342,14 @@ export default function OptionsLabPage() {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         cache: 'no-store',
       });
+      if (gen !== chainFetchGenRef.current) return;
+
       if (res.ok) {
         const json = await res.json();
+        if (gen !== chainFetchGenRef.current) return;
         if (json.data) {
           setChainData(json.data);
+          chainDataRef.current = json.data;
           const nextExpiry = json.data.selectedExpiry as string | undefined;
           const expiryList: string[] = json.data.expiryDates || [];
           if (nextExpiry && (!selectedExpiry || !expiryList.includes(selectedExpiry))) {
@@ -308,25 +369,41 @@ export default function OptionsLabPage() {
                 ? 'reconnecting'
                 : 'closed',
           );
-          setLatencyMs(isExchangeLive && source !== 'NSE_CACHED' ? Math.round(performance.now() - started) : 0);
+          setLatencyMs(
+            isExchangeLive && source !== 'NSE_CACHED'
+              ? Math.round(performance.now() - started)
+              : 0,
+          );
         }
-      } else {
+      } else if (!hasExisting) {
         setConnectionStatus('closed');
         setLatencyMs(0);
       }
     } catch {
-      setConnectionStatus('closed');
-      setLatencyMs(0);
+      if (gen === chainFetchGenRef.current && !chainDataRef.current) {
+        setConnectionStatus('closed');
+        setLatencyMs(0);
+      }
     } finally {
-      setIsLoading(false);
+      if (gen === chainFetchGenRef.current) {
+        chainInFlightRef.current = false;
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, [symbol, selectedExpiry]);
 
-  // Polling fallback
+  // Initial load + live poll (silent after first successful paint)
   useEffect(() => {
-    fetchChain();
-    const interval = setInterval(fetchChain, 5000);
-    return () => clearInterval(interval);
+    void fetchChain({ silent: false });
+    const interval = setInterval(() => {
+      void fetchChain({ silent: true });
+    }, 5000);
+    return () => {
+      clearInterval(interval);
+      chainFetchGenRef.current += 1;
+      chainInFlightRef.current = false;
+    };
   }, [fetchChain]);
 
   // Real-time WebSocket connection to /options namespace
@@ -1003,18 +1080,26 @@ export default function OptionsLabPage() {
                   ? 'cached'
                   : 'warn'
             }`}
+            title={chainData.dataNote || undefined}
           >
             <strong>{chainData.source || 'UNKNOWN'}</strong>
-            {chainData.dataNote ? ` — ${chainData.dataNote}` : ''}
-            {chainData.timestamp
-              ? ` · ${new Date(chainData.timestamp).toLocaleString('en-IN', {
-                  timeZone: 'Asia/Kolkata',
-                  hour12: true,
-                })} IST`
-              : ''}
-            {(chainData.contracts?.length || 0) === 0
-              ? ' · Broker connect unlocks live OI when NSE is blocked.'
-              : ''}
+            <span>
+              {chainData.timestamp
+                ? new Date(chainData.timestamp).toLocaleString('en-IN', {
+                    timeZone: 'Asia/Kolkata',
+                    day: 'numeric',
+                    month: 'short',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true,
+                  })
+                : ''}
+            </span>
+            {isRefreshing ? <span>Updating…</span> : null}
+            {(chainData.contracts?.length || 0) === 0 ? (
+              <span>Connect broker for live OI</span>
+            ) : null}
           </div>
         ) : null}
 
@@ -1047,7 +1132,9 @@ export default function OptionsLabPage() {
             TAB 1: STRATEGY BUILDER (StockMojo Dual Split-Screen Flagship)
             ══════════════════════════════════════════════════════════════ */}
         {activeTab === 'strategy' && (
-          <div className="sm-layout-root animate-fadeIn">
+          <div
+            className={`sm-layout-root animate-fadeIn ${isDesktopLayout ? 'is-desktop' : 'is-mobile'}`}
+          >
             {/* ── Left Column: StockMojo Option Chain Ladder ── */}
             <StockMojoChainLadder
               symbol={symbol}
@@ -1069,40 +1156,62 @@ export default function OptionsLabPage() {
               atmStrike={atmStrike}
               activeLegs={strategyLegs}
               onAddOrToggleLeg={onAddOrToggleLeg}
-              isCollapsed={isChainCollapsed}
+              isCollapsed={isDesktopLayout ? isChainCollapsed : false}
               onToggleCollapse={() => setIsChainCollapsed((p) => !p)}
+              panelWidth={isDesktopLayout && !isChainCollapsed ? chainWidth : undefined}
+              panelHeight={!isDesktopLayout ? chainMobileHeight : undefined}
             />
+
+            {isDesktopLayout && !isChainCollapsed ? (
+              <PanelResizeHandle
+                axis="horizontal"
+                label="Resize option chain"
+                onDrag={(delta) => setChainWidth((w) => w + delta)}
+              />
+            ) : null}
+
+            {!isDesktopLayout ? (
+              <PanelResizeHandle
+                axis="vertical"
+                label="Resize option chain height"
+                className="sm-resize-handle--mobile-chain"
+                onDrag={(delta) => setChainMobileHeight((h) => h + delta)}
+              />
+            ) : null}
 
             {/* ── Right Column: Interactive Strategy Workspace ── */}
             <div className="sm-workspace-panel">
               {/* Top Action Bar (Save, Saved, Reset/New, Clock) */}
               <div className="sm-top-action-bar">
-                <div className="flex items-center gap-2">
+                <div className="sm-action-btn-group">
                   <button
+                    type="button"
                     onClick={() => setIsSaveModalOpen(true)}
-                    className="sm-action-btn-save"
-                    title="Save current strategy to account"
+                    className="sm-action-btn sm-action-btn--primary"
+                    title="Save strategy"
                   >
-                    <Bookmark className="w-3.5 h-3.5" />
+                    <Save className="sm-icon" aria-hidden />
                     <span>Save</span>
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => setIsSaveModalOpen(true)}
-                    className="sm-action-btn-saved"
-                    title="View Saved Strategies"
+                    className="sm-action-btn sm-action-btn--ghost"
+                    title="Saved strategies"
                   >
-                    <FolderOpen className="w-3.5 h-3.5 text-slate-500" />
+                    <Library className="sm-icon" aria-hidden />
                     <span>Saved</span>
                   </button>
 
                   <button
+                    type="button"
                     onClick={resetAllLegs}
-                    className="sm-action-btn-reset"
-                    title="Reset strategy positions to clean slate"
+                    className="sm-action-btn sm-action-btn--danger"
+                    title="Reset strategy"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Reset/New</span>
+                    <Undo2 className="sm-icon" aria-hidden />
+                    <span>Reset</span>
                   </button>
                 </div>
 
@@ -1114,39 +1223,65 @@ export default function OptionsLabPage() {
               </div>
 
               {/* Upper Section: Visual Analytics Card (Payoff / Charts) */}
-              <div className="sm-analytics-card">
+              <div
+                className={`sm-analytics-card ${isAnalyticsCollapsed ? 'is-collapsed' : ''}`}
+                style={
+                  isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed
+                    ? { flex: `${analyticsFlex} 1 0` }
+                    : isAnalyticsCollapsed
+                      ? { flex: '0 0 auto' }
+                      : undefined
+                }
+              >
                 {/* Tabs Bar */}
                 <div className="sm-analytics-tabs-bar">
-                  <div className="sm-analytics-tab-group">
+                  <div className="sm-analytics-tab-group" role="tablist" aria-label="Analytics views">
                     <button
+                      type="button"
+                      role="tab"
+                      aria-selected={analyticsTab === 'payoff'}
                       onClick={() => setAnalyticsTab('payoff')}
                       className={`sm-analytics-tab ${analyticsTab === 'payoff' ? 'active' : ''}`}
                     >
                       Payoff
                     </button>
                     <button
+                      type="button"
+                      role="tab"
+                      aria-selected={analyticsTab === 'ready_made'}
                       onClick={() => setAnalyticsTab('ready_made')}
                       className={`sm-analytics-tab ${analyticsTab === 'ready_made' ? 'active' : ''}`}
                     >
-                      Ready-Made Strategies
+                      <span className="sm-tab-label-full">Ready-Made</span>
+                      <span className="sm-tab-label-short">Ready</span>
                     </button>
                     <button
+                      type="button"
+                      role="tab"
+                      aria-selected={analyticsTab === 'strategy_chart'}
                       onClick={() => setAnalyticsTab('strategy_chart')}
                       className={`sm-analytics-tab ${analyticsTab === 'strategy_chart' ? 'active' : ''}`}
                     >
-                      Strategy Chart
+                      <span className="sm-tab-label-full">Strategy Chart</span>
+                      <span className="sm-tab-label-short">Strat</span>
                     </button>
                     <button
+                      type="button"
+                      role="tab"
+                      aria-selected={analyticsTab === 'nifty_chart'}
                       onClick={() => setAnalyticsTab('nifty_chart')}
                       className={`sm-analytics-tab ${analyticsTab === 'nifty_chart' ? 'active' : ''}`}
                     >
-                      {symbol} Chart
+                      <span className="sm-tab-label-full">{symbol} Chart</span>
+                      <span className="sm-tab-label-short">Chart</span>
                     </button>
                   </div>
 
                   <div className="sm-toolbar-actions">
                     <button type="button" onClick={executeInSandbox} className="sm-btn-paper">
-                      <Play className="w-3 h-3 fill-current" /> Paper Trade
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span className="sm-tab-label-full">Paper Trade</span>
+                      <span className="sm-tab-label-short">Paper</span>
                     </button>
                     {analyticsTab === 'payoff' && (
                       <button
@@ -1155,15 +1290,57 @@ export default function OptionsLabPage() {
                         className="sm-btn-toggle"
                         title="Toggle Target Date & IV What-If Settings"
                       >
-                        <span>Payoff setting</span>
+                        <span className="sm-tab-label-full">Payoff setting</span>
+                        <span className="sm-tab-label-short">What-if</span>
                         <span className={`sm-switch ${showPayoffSettings ? 'on' : ''}`}>
                           <span className="sm-switch-knob" />
                         </span>
                       </button>
                     )}
+                    <button
+                      type="button"
+                      className="sm-panel-icon-btn"
+                      title={isAnalyticsCollapsed ? 'Expand analytics' : 'Collapse analytics'}
+                      aria-label={isAnalyticsCollapsed ? 'Expand analytics' : 'Collapse analytics'}
+                      onClick={() => setIsAnalyticsCollapsed((p) => !p)}
+                    >
+                      {isAnalyticsCollapsed ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronUp className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="sm-panel-icon-btn"
+                      title="Maximize analytics"
+                      aria-label="Maximize analytics"
+                      onClick={() => {
+                        setIsAnalyticsCollapsed(false);
+                        setIsPositionsCollapsed(true);
+                        setAnalyticsFlex(78);
+                      }}
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      className="sm-panel-icon-btn"
+                      title="Balanced layout"
+                      aria-label="Reset to balanced layout"
+                      onClick={() => {
+                        setIsAnalyticsCollapsed(false);
+                        setIsPositionsCollapsed(false);
+                        setAnalyticsFlex(58);
+                      }}
+                    >
+                      <Minimize2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
+                {!isAnalyticsCollapsed ? (
+                <>
                 {/* What-If / Payoff Settings Drawer */}
                 {showPayoffSettings && analyticsTab === 'payoff' && (
                   <div
@@ -1257,9 +1434,11 @@ export default function OptionsLabPage() {
                       <div className={`sm-payoff-pnl-box ${totalPnl < 0 ? 'neg' : ''}`}>
                         <div className="sm-pnl-title">Strategy P&L</div>
                         <div className="sm-pnl-value">
-                          ₹{Math.round(totalPnl).toLocaleString('en-IN')} (
-                          {totalPnl >= 0 ? '+' : ''}
-                          {(totalPnl / 1000).toFixed(2)}%)
+                          ₹{Math.round(totalPnl).toLocaleString('en-IN')}
+                          <span style={{ fontSize: '0.7em', fontWeight: 700, opacity: 0.85, marginLeft: '0.35rem' }}>
+                            ({totalPnl >= 0 ? '+' : ''}
+                            {(totalPnl / 1000).toFixed(2)}%)
+                          </span>
                         </div>
                       </div>
 
@@ -1268,13 +1447,13 @@ export default function OptionsLabPage() {
                         <span className="sm-metric-val">₹{estMargin} L</span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="sm-metric-pair">
                         <div className="sm-payoff-metric-row">
                           <span className="sm-metric-label">POP</span>
                           <span className="sm-metric-val">{payoffResult.greeks.probabilityOfProfit}%</span>
                         </div>
                         <div className="sm-payoff-metric-row">
-                          <span className="sm-metric-label">R : R</span>
+                          <span className="sm-metric-label">R:R</span>
                           <span className="sm-metric-val">{payoffResult.greeks.riskRewardRatio}</span>
                         </div>
                       </div>
@@ -1299,7 +1478,7 @@ export default function OptionsLabPage() {
 
                       <div className="sm-payoff-metric-row">
                         <span className="sm-metric-label">Breakevens</span>
-                        <span className="sm-metric-val font-mono text-xs">
+                        <span className="sm-metric-val">
                           {payoffResult.greeks.breakevens.length > 0
                             ? payoffResult.greeks.breakevens.map((b) => Math.round(b)).join(' — ')
                             : 'None'}
@@ -1311,7 +1490,7 @@ export default function OptionsLabPage() {
                     <div className="sm-payoff-chart-col">
                       <ReactECharts
                         option={payoffChartOption}
-                        style={{ height: '330px', width: '100%' }}
+                        style={{ height: '100%', minHeight: 260, width: '100%' }}
                         notMerge={true}
                       />
                     </div>
@@ -1369,20 +1548,50 @@ export default function OptionsLabPage() {
                     spotChangePct={spotChangePct}
                   />
                 )}
+                </>
+                ) : null}
               </div>
 
+              {isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed ? (
+                <PanelResizeHandle
+                  axis="vertical"
+                  label="Resize analytics and positions"
+                  onDrag={(delta) => {
+                    setAnalyticsFlex((prev) => {
+                      // Roughly map px drag to flex share (workspace ~700px tall)
+                      return prev + delta / 8;
+                    });
+                  }}
+                />
+              ) : null}
+
               {/* Lower Section: Positions & Greeks Manager */}
-              <div className="sm-positions-card">
+              <div
+                className={`sm-positions-card ${isPositionsCollapsed ? 'is-collapsed' : ''}`}
+                style={
+                  isDesktopLayout && !isAnalyticsCollapsed && !isPositionsCollapsed
+                    ? { flex: `${100 - analyticsFlex} 1 0` }
+                    : isPositionsCollapsed
+                      ? { flex: '0 0 auto' }
+                      : undefined
+                }
+              >
                 {/* Positions Subtabs Bar */}
                 <div className="sm-positions-tabs-bar">
-                  <div className="sm-positions-tab-group">
+                  <div className="sm-positions-tab-group" role="tablist" aria-label="Positions views">
                     <button
+                      type="button"
+                      role="tab"
+                      aria-selected={positionsSubTab === 'positions'}
                       onClick={() => setPositionsSubTab('positions')}
                       className={`sm-positions-tab ${positionsSubTab === 'positions' ? 'active' : ''}`}
                     >
                       Positions ({strategyLegs.length})
                     </button>
                     <button
+                      type="button"
+                      role="tab"
+                      aria-selected={positionsSubTab === 'greeks'}
                       onClick={() => setPositionsSubTab('greeks')}
                       className={`sm-positions-tab ${positionsSubTab === 'greeks' ? 'active' : ''}`}
                     >
@@ -1391,35 +1600,74 @@ export default function OptionsLabPage() {
                   </div>
 
                   {/* Multiplier & Total Summary Toolbar */}
-                  <div className="flex items-center gap-4 text-xs">
+                  <div className="sm-positions-toolbar">
                     <div className="sm-multiplier-box">
                       <span className="text-slate-500 font-semibold">Multiplier:</span>
-                      <button onClick={() => applyMultiplier(-1)} className="sm-multiplier-btn">
-                        -
+                      <button
+                        type="button"
+                        onClick={() => applyMultiplier(-1)}
+                        className="sm-multiplier-btn"
+                        aria-label="Decrease multiplier"
+                      >
+                        −
                       </button>
                       <span className="font-bold font-mono px-1">{multiplier}</span>
-                      <button onClick={() => applyMultiplier(1)} className="sm-multiplier-btn">
+                      <button
+                        type="button"
+                        onClick={() => applyMultiplier(1)}
+                        className="sm-multiplier-btn"
+                        aria-label="Increase multiplier"
+                      >
                         +
                       </button>
                     </div>
 
-                    <div className="h-4 w-px bg-slate-200" />
+                    <div className="sm-toolbar-divider" aria-hidden />
 
-                    <div className="text-slate-600">
+                    <div className="sm-toolbar-meta">
                       Qty: <strong className="font-mono text-slate-900">{totalQty}</strong>
                     </div>
 
-                    <div className="h-4 w-px bg-slate-200" />
+                    <div className="sm-toolbar-divider" aria-hidden />
 
-                    <div className="font-semibold text-slate-700">
-                      Total P&L:{' '}
+                    <div className="sm-toolbar-meta font-semibold text-slate-700">
+                      P&L:{' '}
                       <strong className={`font-mono ${totalPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                         ₹{totalPnl.toFixed(2)}
                       </strong>
                     </div>
+
+                    <button
+                      type="button"
+                      className="sm-panel-icon-btn"
+                      title={isPositionsCollapsed ? 'Expand positions' : 'Collapse positions'}
+                      aria-label={isPositionsCollapsed ? 'Expand positions' : 'Collapse positions'}
+                      onClick={() => setIsPositionsCollapsed((p) => !p)}
+                    >
+                      {isPositionsCollapsed ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronUp className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="sm-panel-icon-btn"
+                      title="Maximize positions"
+                      aria-label="Maximize positions"
+                      onClick={() => {
+                        setIsPositionsCollapsed(false);
+                        setIsAnalyticsCollapsed(true);
+                        setAnalyticsFlex(28);
+                      }}
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
+                {!isPositionsCollapsed ? (
+                <>
                 {/* Positions Table */}
                 {positionsSubTab === 'positions' && (
                   <div className="sm-positions-table-wrap">
@@ -1466,11 +1714,12 @@ export default function OptionsLabPage() {
                                 {/* Side Toggle Pill [ B ] / [ S ] */}
                                 <td>
                                   <button
+                                    type="button"
                                     onClick={() => toggleLegSide(leg.id)}
                                     className={`sm-side-pill ${leg.side.toLowerCase()}`}
-                                    title="Click to toggle BUY / SELL"
+                                    title="Toggle Buy / Sell"
                                   >
-                                    {leg.side === 'BUY' ? 'B' : 'S'}
+                                    {leg.side === 'BUY' ? 'Buy' : 'Sell'}
                                   </button>
                                 </td>
 
@@ -1523,8 +1772,8 @@ export default function OptionsLabPage() {
                                 <td>
                                   <button
                                     onClick={() => toggleLegType(leg.id)}
-                                    className={`sm-type-pill ${leg.optionType.toLowerCase()}`}
-                                    title="Click to toggle CE / PE"
+                                    className={`sm-type-chip ${leg.optionType.toLowerCase()}`}
+                                    title="Toggle CE / PE"
                                   >
                                     {leg.optionType}
                                   </button>
@@ -1560,7 +1809,7 @@ export default function OptionsLabPage() {
                                     className="sm-trash-btn"
                                     title="Remove position"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <X className="sm-icon" aria-hidden />
                                   </button>
                                 </td>
                               </tr>
@@ -1615,6 +1864,8 @@ export default function OptionsLabPage() {
                     </div>
                   </div>
                 )}
+                </>
+                ) : null}
               </div>
 
               {/* ── Bottom Section: Educational Guide & Related Tools (Screenshot 5) ── */}
@@ -1722,11 +1973,13 @@ export default function OptionsLabPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {!isLoading && filteredChainRows.length > 0 ? (
+                  {filteredChainRows.length > 0 ? (
                     filteredChainRows.map((row: OptionChainRowDto) => {
                       const isAtm = row.strike === atmStrike;
                       const isItmCall = row.strike < spot;
                       const isItmPut = row.strike > spot;
+                      const fmtLtp = (ltp: number) =>
+                        ltp > 0 ? `₹${ltp.toFixed(2)}` : '—';
 
                       return (
                         <tr key={row.strike} className={isAtm ? 'opt-row-atm' : ''}>
@@ -1735,14 +1988,16 @@ export default function OptionsLabPage() {
                               <button
                                 onClick={() => onAddOrToggleLeg({ side: 'BUY', type: 'CE', strike: row.strike, price: row.ce.ltp, iv: row.ce.iv, expiry: selectedExpiry })}
                                 className="opt-action-btn-buy"
+                                title="Buy Call"
                               >
-                                +B
+                                B
                               </button>
                               <button
                                 onClick={() => onAddOrToggleLeg({ side: 'SELL', type: 'CE', strike: row.strike, price: row.ce.ltp, iv: row.ce.iv, expiry: selectedExpiry })}
                                 className="opt-action-btn-sell"
+                                title="Sell Call"
                               >
-                                +S
+                                S
                               </button>
                             </div>
                           </td>
@@ -1775,7 +2030,7 @@ export default function OptionsLabPage() {
                             </td>
                           )}
                           <td className={`px-3 py-2 text-right font-bold text-emerald-700 font-mono ${isItmCall ? 'opt-td-itm-call' : ''}`}>
-                            ₹{row.ce.ltp.toFixed(2)}
+                            {fmtLtp(row.ce.ltp)}
                           </td>
                           <td className="opt-td-strike">
                             <span style={{ fontSize: '0.8125rem', fontWeight: 800 }}>{row.strike}</span>
@@ -1786,7 +2041,7 @@ export default function OptionsLabPage() {
                             )}
                           </td>
                           <td className={`px-3 py-2 text-left font-bold text-rose-700 font-mono ${isItmPut ? 'opt-td-itm-put' : ''}`}>
-                            ₹{row.pe.ltp.toFixed(2)}
+                            {fmtLtp(row.pe.ltp)}
                           </td>
                           {showGreeks && (
                             <td className={`px-2 py-2 text-center ${isItmPut ? 'bg-rose-50' : ''}`}>
@@ -1821,14 +2076,16 @@ export default function OptionsLabPage() {
                               <button
                                 onClick={() => onAddOrToggleLeg({ side: 'BUY', type: 'PE', strike: row.strike, price: row.pe.ltp, iv: row.pe.iv, expiry: selectedExpiry })}
                                 className="opt-action-btn-buy"
+                                title="Buy Put"
                               >
-                                +B
+                                B
                               </button>
                               <button
                                 onClick={() => onAddOrToggleLeg({ side: 'SELL', type: 'PE', strike: row.strike, price: row.pe.ltp, iv: row.pe.iv, expiry: selectedExpiry })}
                                 className="opt-action-btn-sell"
+                                title="Sell Put"
                               >
-                                +S
+                                S
                               </button>
                             </div>
                           </td>
@@ -1839,8 +2096,16 @@ export default function OptionsLabPage() {
                     <tr>
                       <td colSpan={showGreeks ? 17 : 9} className="py-16 text-center text-slate-500">
                         <div className="flex flex-col items-center justify-center gap-2">
-                          <RefreshCw className="w-5 h-5 animate-spin text-teal-600" />
-                          <span className="font-semibold text-sm text-slate-800">Loading option chain...</span>
+                          {isLoading ? (
+                            <>
+                              <RefreshCw className="w-5 h-5 animate-spin text-teal-600" />
+                              <span className="font-semibold text-sm text-slate-800">Loading option chain…</span>
+                            </>
+                          ) : (
+                            <span className="font-semibold text-sm text-slate-800">
+                              No option-chain rows for this expiry. Try another expiry or reconnect the feed.
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>

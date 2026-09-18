@@ -377,9 +377,11 @@ export function calculatePcr(
 export function classifyOiBuildup(
   priceChange: number,
   oiChange: number,
-): 'Long Buildup' | 'Short Buildup' | 'Short Covering' | 'Long Unwinding' {
-  if (priceChange >= 0 && oiChange >= 0) return 'Long Buildup';
-  if (priceChange < 0 && oiChange >= 0) return 'Short Buildup';
+): 'Long Buildup' | 'Short Buildup' | 'Short Covering' | 'Long Unwinding' | 'Neutral' {
+  // No OI movement → no buildup classification (avoids fake "Long Buildup" on flat rows)
+  if (oiChange === 0) return 'Neutral';
+  if (priceChange >= 0 && oiChange > 0) return 'Long Buildup';
+  if (priceChange < 0 && oiChange > 0) return 'Short Buildup';
   if (priceChange >= 0 && oiChange < 0) return 'Short Covering';
   return 'Long Unwinding';
 }

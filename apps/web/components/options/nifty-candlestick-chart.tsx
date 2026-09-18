@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   BarChart2,
@@ -36,14 +36,25 @@ export const NiftyCandlestickChart: React.FC<NiftyCandlestickChartProps> = ({
   const [timeframe, setTimeframe] = useState<'1m' | '5m' | '15m' | '1D'>('5m');
   const [candles, setCandles] = useState<CandlePoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [hoveredCandle, setHoveredCandle] = useState<CandlePoint | null>(null);
+  const candlesRef = useRef<CandlePoint[]>([]);
+  const inFlightRef = useRef(false);
 
-  // Fetch live candlestick data from API
+  useEffect(() => {
+    candlesRef.current = candles;
+  }, [candles]);
+
+  // Fetch live candlestick data from API — polls patch silently without blanking the chart
   useEffect(() => {
     let isMounted = true;
-    async function fetchChart() {
+    async function fetchChart(silent: boolean) {
+      if (silent && inFlightRef.current) return;
+      inFlightRef.current = true;
+      const keepUi = silent || candlesRef.current.length > 0;
       try {
-        setIsLoading(true);
+        if (!keepUi) setIsLoading(true);
+        else setIsRefreshing(true);
         const intervalMap = {
           '1m': '1m',
           '5m': '5m',
@@ -64,17 +75,24 @@ export const NiftyCandlestickChart: React.FC<NiftyCandlestickChartProps> = ({
           const json = await res.json();
           if (json.data?.candles && isMounted) {
             setCandles(json.data.candles);
+            candlesRef.current = json.data.candles;
           }
         }
       } catch {
-        // Fallback candles generated if network fails
+        // Keep last candles when network fails
       } finally {
-        if (isMounted) setIsLoading(false);
+        inFlightRef.current = false;
+        if (isMounted) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
       }
     }
 
-    fetchChart();
-    const intervalId = setInterval(fetchChart, 15000);
+    void fetchChart(false);
+    const intervalId = setInterval(() => {
+      void fetchChart(true);
+    }, 15000);
     return () => {
       isMounted = false;
       clearInterval(intervalId);
@@ -244,7 +262,7 @@ export const NiftyCandlestickChart: React.FC<NiftyCandlestickChartProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {isLoading && (
+          {(isLoading || isRefreshing) && (
             <RefreshCw className="w-3.5 h-3.5 text-slate-400 animate-spin" />
           )}
           <button className="p-1 text-slate-400 hover:text-slate-600 rounded">
@@ -289,7 +307,7 @@ export const NiftyCandlestickChart: React.FC<NiftyCandlestickChartProps> = ({
           />
         ) : (
           <div className="flex items-center justify-center h-[320px] text-slate-400 text-xs">
-            Loading live chart feed...
+            {isLoading ? 'Loading live chart feed…' : 'No candle data for this timeframe'}
           </div>
         )}
       </div>

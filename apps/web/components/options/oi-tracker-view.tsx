@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import '../../styles/options-lab.css';
 import dynamic from 'next/dynamic';
 import { TrendingUp, RefreshCw, BarChart2, Activity } from 'lucide-react';
@@ -22,12 +22,18 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
   const [strikeRange, setStrikeRange] = useState<'10' | '15' | 'all'>('15');
   const [oiHistory, setOiHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const hasHistoryRef = useRef(false);
+
+  useEffect(() => {
+    hasHistoryRef.current = oiHistory.length > 0;
+  }, [oiHistory]);
 
   useEffect(() => {
     let isMounted = true;
     async function loadHistory() {
+      const keepUi = hasHistoryRef.current;
       try {
-        setIsLoadingHistory(true);
+        if (!keepUi) setIsLoadingHistory(true);
         const res = await fetch(
           `/api/v1/options/analytics/oi-history/${symbol}${selectedExpiry ? `?expiry=${selectedExpiry}` : ''}`,
         );
@@ -35,6 +41,7 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
           const json = await res.json();
           if (json.data?.points && isMounted) {
             setOiHistory(json.data.points);
+            hasHistoryRef.current = json.data.points.length > 0;
           }
         }
       } catch {
@@ -42,7 +49,7 @@ export const OiTrackerView: React.FC<OiTrackerViewProps> = ({
         if (isMounted) setIsLoadingHistory(false);
       }
     }
-    loadHistory();
+    void loadHistory();
     return () => {
       isMounted = false;
     };

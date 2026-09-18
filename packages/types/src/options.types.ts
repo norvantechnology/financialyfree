@@ -6,7 +6,12 @@ export type ExchangeType = 'NSE' | 'BSE' | 'NFO' | 'BFO';
 export type OptionType = 'CE' | 'PE';
 export type InstrumentSegment = 'INDICES' | 'EQUITY' | 'FUT' | 'OPT';
 export type TradeSide = 'BUY' | 'SELL';
-export type OiBuildupType = 'Long Buildup' | 'Short Buildup' | 'Short Covering' | 'Long Unwinding';
+export type OiBuildupType =
+  | 'Long Buildup'
+  | 'Short Buildup'
+  | 'Short Covering'
+  | 'Long Unwinding'
+  | 'Neutral';
 
 export interface BrokerConnectionDto {
   id: UUID;

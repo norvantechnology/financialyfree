@@ -654,10 +654,27 @@ export class MarketDataService {
       const peRaw = data.pe || {};
 
       // After hours lastPrice is often 0 — use bid/ask mid when available (real quotes, not invented)
+      const num = (...vals: unknown[]) => {
+        for (const v of vals) {
+          const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN;
+          if (Number.isFinite(n) && n > 0) return n;
+        }
+        return 0;
+      };
       const mid = (bid?: number, ask?: number) =>
         bid && ask && bid > 0 && ask > 0 ? (bid + ask) / 2 : 0;
-      const ceLtp = ceRaw.lastPrice || mid(ceRaw.buyPrice1, ceRaw.sellPrice1) || 0;
-      const peLtp = peRaw.lastPrice || mid(peRaw.buyPrice1, peRaw.sellPrice1) || 0;
+      const ceBid = num(ceRaw.buyPrice1, ceRaw.bidprice, ceRaw.bidPrice, ceRaw.bid);
+      const ceAsk = num(ceRaw.sellPrice1, ceRaw.askPrice, ceRaw.askprice, ceRaw.ask);
+      const peBid = num(peRaw.buyPrice1, peRaw.bidprice, peRaw.bidPrice, peRaw.bid);
+      const peAsk = num(peRaw.sellPrice1, peRaw.askPrice, peRaw.askprice, peRaw.ask);
+      const ceLtp =
+        num(ceRaw.lastPrice, ceRaw.lastTradedPrice, ceRaw.LTP, ceRaw.ltp, ceRaw.last) ||
+        mid(ceBid, ceAsk) ||
+        0;
+      const peLtp =
+        num(peRaw.lastPrice, peRaw.lastTradedPrice, peRaw.LTP, peRaw.ltp, peRaw.last) ||
+        mid(peBid, peAsk) ||
+        0;
 
       const r = 0.065; // RBI repo-rate class risk-free benchmark
       const tte = this.yearsToExpiry(targetExpiry);
@@ -726,8 +743,8 @@ export class MarketDataService {
           oiChange: ceRaw.changeinOpenInterest || 0,
           volume: ceRaw.totalTradedVolume || 0,
           buildup: classifyOiBuildup(ceRaw.change || 0, ceRaw.changeinOpenInterest || 0),
-          bidPrice: ceRaw.buyPrice1 || undefined,
-          askPrice: ceRaw.sellPrice1 || undefined,
+          bidPrice: ceBid || undefined,
+          askPrice: ceAsk || undefined,
         },
         pe: {
           instrumentToken: `NFO_${symbol}_${targetExpiry}_${strike}_PE`,
@@ -746,8 +763,8 @@ export class MarketDataService {
           oiChange: peRaw.changeinOpenInterest || 0,
           volume: peRaw.totalTradedVolume || 0,
           buildup: classifyOiBuildup(peRaw.change || 0, peRaw.changeinOpenInterest || 0),
-          bidPrice: peRaw.buyPrice1 || undefined,
-          askPrice: peRaw.sellPrice1 || undefined,
+          bidPrice: peBid || undefined,
+          askPrice: peAsk || undefined,
         },
       };
     });

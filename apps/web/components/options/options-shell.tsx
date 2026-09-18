@@ -10,7 +10,7 @@ import {
   ChevronDown,
   Clock,
   Sparkles,
-  Zap,
+  Link2,
 } from 'lucide-react';
 
 export type OptionsTab = 'chain' | 'strategy' | 'oi' | 'iv' | 'sandbox';
@@ -168,7 +168,9 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                 />
                 <span className="opt-live-meta">
                   {connectionStatus === 'connected'
-                    ? `${latencyMs}ms`
+                    ? latencyMs > 0 && latencyMs < 5000
+                      ? `${latencyMs}ms`
+                      : 'live'
                     : connectionStatus === 'reconnecting'
                       ? 'delayed'
                       : 'offline'}
@@ -202,7 +204,9 @@ export const OptionsShell: React.FC<OptionsShellProps> = ({
                 onClick={onOpenBrokerModal}
                 className={`opt-btn-broker ${brokerConnected ? 'connected' : ''}`}
               >
-                <Zap className="w-3.5 h-3.5" />
+                {brokerConnected ? (
+                  <Link2 className="sm-icon" aria-hidden />
+                ) : null}
                 <span className="opt-broker-label">
                   {brokerConnected ? connectedBroker!.toUpperCase() : 'Broker'}
                 </span>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import '../../styles/options-lab.css';
 import dynamic from 'next/dynamic';
 import { Sparkles, Activity, RefreshCw, Zap } from 'lucide-react';
@@ -18,12 +18,24 @@ export const IvSurfaceView: React.FC<IvSurfaceViewProps> = ({ symbol, selectedEx
   const [volSurfaceData, setVolSurfaceData] = useState<{ surfaces: VolSurfaceExpiryDto[] } | null>(null);
   const [gexData, setGexData] = useState<GexSummaryDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const hasDataRef = useRef(false);
+
+  useEffect(() => {
+    hasDataRef.current = Boolean(ivSmileData || volSurfaceData || gexData);
+  }, [ivSmileData, volSurfaceData, gexData]);
 
   useEffect(() => {
     let isMounted = true;
-    async function loadAnalytics() {
+    let inFlight = false;
+
+    async function loadAnalytics(silent: boolean) {
+      if (silent && inFlight) return;
+      inFlight = true;
+      const keepUi = silent || hasDataRef.current;
       try {
-        setIsLoading(true);
+        if (!keepUi) setIsLoading(true);
+        else setIsRefreshing(true);
         const expQuery = selectedExpiry ? `?expiry=${selectedExpiry}` : '';
 
         const [smileRes, surfaceRes, gexRes] = await Promise.all([
@@ -32,29 +44,39 @@ export const IvSurfaceView: React.FC<IvSurfaceViewProps> = ({ symbol, selectedEx
           fetch(`/api/v1/options/analytics/gex/${symbol}${expQuery}`),
         ]);
 
-        if (smileRes.ok && isMounted) {
+        if (!isMounted) return;
+
+        if (smileRes.ok) {
           const json = await smileRes.json();
           setIvSmileData(json.data);
         }
 
-        if (surfaceRes.ok && isMounted) {
+        if (surfaceRes.ok) {
           const json = await surfaceRes.json();
           setVolSurfaceData(json.data);
         }
 
-        if (gexRes.ok && isMounted) {
+        if (gexRes.ok) {
           const json = await gexRes.json();
           setGexData(json.data);
         }
       } catch {
       } finally {
-        if (isMounted) setIsLoading(false);
+        inFlight = false;
+        if (isMounted) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
       }
     }
 
-    loadAnalytics();
+    void loadAnalytics(false);
+    const intervalId = setInterval(() => {
+      void loadAnalytics(true);
+    }, 15000);
     return () => {
       isMounted = false;
+      clearInterval(intervalId);
     };
   }, [symbol, selectedExpiry]);
 
@@ -333,7 +355,7 @@ export const IvSurfaceView: React.FC<IvSurfaceViewProps> = ({ symbol, selectedEx
               </p>
             </div>
           </div>
-          {isLoading && <RefreshCw className="w-4 h-4 animate-spin text-slate-400" />}
+          {isLoading || isRefreshing ? <RefreshCw className="w-4 h-4 animate-spin text-slate-400" /> : null}
         </div>
 
         <div className="opt-chart-container" style={{ height: '320px' }}>
